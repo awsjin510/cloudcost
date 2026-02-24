@@ -19,6 +19,15 @@
   </header>
 
   <main>
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="single">單台機器</button>
+      <button class="mode-tab" data-mode="group">多台機器組合</button>
+    </div>
+
+    <!-- ==================== SINGLE MACHINE MODE ==================== -->
+    <div id="single-mode">
+
     <!-- Preset buttons -->
     <section class="presets-section">
       <h2>快速方案</h2>
@@ -141,6 +150,91 @@
       </form>
     </section>
 
+    </div><!-- end single-mode -->
+
+    <!-- ==================== GROUP MODE ==================== -->
+    <div id="group-mode" style="display:none;">
+
+    <section class="form-section">
+      <h2>工作負載群組</h2>
+      <form id="group-form">
+
+        <!-- Group name -->
+        <div class="form-grid" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label for="group_name">群組名稱</label>
+            <input type="text" id="group_name" value="My Workload" style="padding:0.55rem 0.75rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.9rem;font-family:inherit;">
+          </div>
+          <div class="form-group">
+            <label for="group_region">部署區域</label>
+            <select id="group_region">
+              {% for val, label in regions %}
+              <option value="{{ val }}" {{ 'selected' if val == 'ap-northeast-1' }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_storage_type">儲存類型</label>
+            <select id="group_storage_type">
+              {% for st in storage_types %}
+              <option value="{{ st }}" {{ 'selected' if st == 'ssd' }}>{{ st | upper }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_os">作業系統</label>
+            <select id="group_os">
+              <option value="linux" selected>Linux</option>
+              <option value="windows">Windows</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_hours">每月時數</label>
+            <input type="number" id="group_hours" min="0" max="744" value="730">
+          </div>
+          <div class="form-group checkbox-group">
+            <label for="group_include_ai">
+              <input type="checkbox" id="group_include_ai">
+              AI 智能建議
+            </label>
+          </div>
+        </div>
+
+        <!-- Machine list -->
+        <div class="machine-list-header">
+          <h3>機器清單</h3>
+          <button type="button" class="btn-add-machine" id="btn-add-machine">+ 新增機器</button>
+        </div>
+
+        <div class="machine-list-table">
+          <div class="machine-list-thead">
+            <span class="ml-col ml-col-name">名稱</span>
+            <span class="ml-col ml-col-cpu">CPU</span>
+            <span class="ml-col ml-col-ram">RAM</span>
+            <span class="ml-col ml-col-storage">儲存</span>
+            <span class="ml-col ml-col-qty">數量</span>
+            <span class="ml-col ml-col-role">角色</span>
+            <span class="ml-col ml-col-actions">操作</span>
+          </div>
+          <div id="machine-list-body"></div>
+        </div>
+
+        <!-- Summary -->
+        <div class="machine-summary" id="machine-summary">
+          總計：<strong>0</strong> 台機器
+        </div>
+
+        <button type="submit" class="btn-compare" id="btn-group-compare">
+          <span class="btn-text">開始比較</span>
+          <span class="btn-loading" style="display:none;">
+            <span class="spinner"></span> 計算中...
+          </span>
+        </button>
+      </form>
+    </section>
+
+    </div><!-- end group-mode -->
+
     <!-- Results (hidden until submitted) -->
     <div id="results-container" style="display:none;">
 
@@ -189,7 +283,22 @@
     oracle: { name: 'Oracle', color: '#c74634', bg: '#fef0ee' },
   };
 
-  // Preset buttons
+  const ROLE_LABELS = { web: 'Web', api: 'API', db: 'DB', cache: 'Cache', worker: 'Worker' };
+
+  // ======== Mode Tabs ========
+  let currentMode = 'single';
+  document.querySelectorAll('.mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentMode = tab.dataset.mode;
+      document.getElementById('single-mode').style.display = currentMode === 'single' ? '' : 'none';
+      document.getElementById('group-mode').style.display = currentMode === 'group' ? '' : 'none';
+      document.getElementById('results-container').style.display = 'none';
+    });
+  });
+
+  // ======== Preset buttons (single mode) ========
   document.querySelectorAll('.preset-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
@@ -201,7 +310,7 @@
     });
   });
 
-  // Form submit (AJAX)
+  // ======== Single-machine form submit ========
   document.getElementById('compare-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btn-compare');
@@ -243,6 +352,156 @@
     }
   });
 
+  // ======== Group mode: machine list management ========
+  let machineIdCounter = 0;
+  const machineRoles = {{ machine_roles | tojson }};
+
+  function createMachineRow(preset) {
+    machineIdCounter++;
+    const id = 'machine-' + machineIdCounter;
+    const p = preset || { name: '', cpu: 2, ram: 8, storage: 50, quantity: 1, role: 'web' };
+
+    const row = document.createElement('div');
+    row.className = 'machine-row';
+    row.dataset.id = id;
+
+    const roleOptions = machineRoles.map(r =>
+      `<option value="${r}" ${r === p.role ? 'selected' : ''}>${ROLE_LABELS[r] || r}</option>`
+    ).join('');
+
+    row.innerHTML = `
+      <input type="text" class="ml-col ml-col-name ml-input" placeholder="例如：Web Server" value="${p.name}">
+      <input type="number" class="ml-col ml-col-cpu ml-input" min="1" max="512" value="${p.cpu}">
+      <input type="number" class="ml-col ml-col-ram ml-input" min="0.5" max="12288" step="0.5" value="${p.ram}">
+      <input type="number" class="ml-col ml-col-storage ml-input" min="0" max="65536" value="${p.storage}">
+      <input type="number" class="ml-col ml-col-qty ml-input" min="1" max="1000" value="${p.quantity}">
+      <select class="ml-col ml-col-role ml-input">${roleOptions}</select>
+      <div class="ml-col ml-col-actions">
+        <button type="button" class="ml-btn ml-btn-clone" title="複製此機器">&#128203;</button>
+        <button type="button" class="ml-btn ml-btn-delete" title="刪除">&#128465;</button>
+      </div>
+    `;
+
+    // Clone button
+    row.querySelector('.ml-btn-clone').addEventListener('click', () => {
+      const inputs = row.querySelectorAll('.ml-input');
+      const cloned = {
+        name: inputs[0].value,
+        cpu: parseInt(inputs[1].value),
+        ram: parseFloat(inputs[2].value),
+        storage: parseFloat(inputs[3].value),
+        quantity: parseInt(inputs[4].value),
+        role: inputs[5].value,
+      };
+      const newRow = createMachineRow(cloned);
+      document.getElementById('machine-list-body').insertBefore(newRow, row.nextSibling);
+      updateMachineSummary();
+    });
+
+    // Delete button
+    row.querySelector('.ml-btn-delete').addEventListener('click', () => {
+      row.remove();
+      updateMachineSummary();
+    });
+
+    // Live update summary on input change
+    row.querySelectorAll('.ml-input').forEach(input => {
+      input.addEventListener('input', updateMachineSummary);
+    });
+
+    return row;
+  }
+
+  function updateMachineSummary() {
+    const rows = document.querySelectorAll('#machine-list-body .machine-row');
+    let total = 0;
+    rows.forEach(row => {
+      const qty = parseInt(row.querySelectorAll('.ml-input')[4].value) || 1;
+      total += qty;
+    });
+    document.getElementById('machine-summary').innerHTML =
+      `總計：<strong>${total}</strong> 台機器（${rows.length} 種規格）`;
+  }
+
+  function getMachinesFromForm() {
+    const rows = document.querySelectorAll('#machine-list-body .machine-row');
+    const machines = [];
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('.ml-input');
+      machines.push({
+        id: row.dataset.id,
+        name: inputs[0].value || ('Machine ' + row.dataset.id.split('-')[1]),
+        cpu: parseInt(inputs[1].value) || 2,
+        ram: parseFloat(inputs[2].value) || 8,
+        storage: parseFloat(inputs[3].value) || 0,
+        quantity: parseInt(inputs[4].value) || 1,
+        role: inputs[5].value || 'web',
+      });
+    });
+    return machines;
+  }
+
+  // Add machine button
+  document.getElementById('btn-add-machine').addEventListener('click', () => {
+    const body = document.getElementById('machine-list-body');
+    body.appendChild(createMachineRow());
+    updateMachineSummary();
+  });
+
+  // Initialize with default machines
+  (function initDefaultMachines() {
+    const defaults = [
+      { name: 'Web Server',  cpu: 2, ram: 4,  storage: 50,  quantity: 2, role: 'web' },
+      { name: 'API Server',  cpu: 4, ram: 16, storage: 100, quantity: 2, role: 'api' },
+      { name: 'DB Server',   cpu: 4, ram: 32, storage: 500, quantity: 1, role: 'db' },
+    ];
+    const body = document.getElementById('machine-list-body');
+    defaults.forEach(d => body.appendChild(createMachineRow(d)));
+    updateMachineSummary();
+  })();
+
+  // ======== Group form submit ========
+  document.getElementById('group-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const machines = getMachinesFromForm();
+    if (machines.length === 0) { alert('請至少新增一台機器'); return; }
+
+    const btn = document.getElementById('btn-group-compare');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoad = btn.querySelector('.btn-loading');
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoad.style.display = 'inline-flex';
+
+    const body = {
+      name: document.getElementById('group_name').value,
+      machines: machines,
+      region: document.getElementById('group_region').value,
+      storage_type: document.getElementById('group_storage_type').value,
+      os: document.getElementById('group_os').value,
+      monthly_hours: parseFloat(document.getElementById('group_hours').value) || 730,
+      include_ai: document.getElementById('group_include_ai').checked,
+    };
+
+    try {
+      const resp = await fetch('/api/compare-group', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error('API Error ' + resp.status);
+      const data = await resp.json();
+      renderGroupResults(data);
+    } catch (err) {
+      alert('比較失敗：' + err.message);
+    } finally {
+      btn.disabled = false;
+      btnText.style.display = 'inline';
+      btnLoad.style.display = 'none';
+    }
+  });
+
+  // ======== Render single-machine results ========
   function renderResults(data) {
     const container = document.getElementById('results-container');
     container.style.display = '';
@@ -345,6 +604,122 @@
     }
 
     // Scroll to results
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ======== Render group results ========
+  function renderGroupResults(data) {
+    const container = document.getElementById('results-container');
+    container.style.display = '';
+
+    // Spec pills (group summary)
+    const pills = document.getElementById('spec-pills');
+    const group = data.group;
+    const totalQty = group.machines.reduce((s, m) => s + m.quantity, 0);
+    let pillsHTML = `<span>${group.name}</span><span>${totalQty} 台機器</span><span>${group.machines.length} 種規格</span>`;
+    pillsHTML += `<span>${group.region}</span><span>${group.os.toUpperCase()}</span>`;
+    group.machines.forEach(m => {
+      pillsHTML += `<span>${m.name || m.id}: ${m.cpu}C/${m.ram}G x${m.quantity} (${ROLE_LABELS[m.role] || m.role})</span>`;
+    });
+    pills.innerHTML = pillsHTML;
+
+    // Sort estimates by total on-demand
+    const estimates = data.estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
+    const maxPrice = Math.max(...estimates.map(e => e.total_monthly_on_demand));
+
+    // Bar chart
+    const chart = document.getElementById('price-chart');
+    chart.innerHTML = estimates.map(est => {
+      const meta = PROVIDER_META[est.provider] || { name: est.provider, color: '#888', bg: '#f0f0f0' };
+      const pct = maxPrice > 0 ? (est.total_monthly_on_demand / maxPrice * 100) : 0;
+      const isCheapest = est.provider === data.cheapest_on_demand;
+      return `
+        <div class="chart-row${isCheapest ? ' cheapest' : ''}">
+          <div class="chart-label">
+            <span class="chart-provider" style="color:${meta.color}">${meta.name}</span>
+            <code>${est.total_machines} 台</code>
+          </div>
+          <div class="chart-bar-track">
+            <div class="chart-bar" style="width:${pct}%;background:${meta.color}"></div>
+          </div>
+          <div class="chart-price">$${est.total_monthly_on_demand.toFixed(2)}${isCheapest ? ' <span class="badge-cheapest">最低</span>' : ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Provider cards with machine breakdown
+    const cards = document.getElementById('provider-cards');
+    cards.innerHTML = estimates.map(est => {
+      const meta = PROVIDER_META[est.provider] || { name: est.provider, color: '#888', bg: '#f0f0f0' };
+      const isCheapest = est.provider === data.cheapest_on_demand;
+      const isCheapestRes = est.provider === data.cheapest_reserved;
+
+      let saving = '';
+      if (est.total_monthly_reserved_1y != null) {
+        const pct = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100).toFixed(0);
+        saving = `<span class="saving">-${pct}%</span>`;
+      }
+
+      // Machine breakdown table
+      let machinesHTML = est.machines.map(md => {
+        const m = md.machine;
+        const roleLabel = ROLE_LABELS[m.role] || m.role;
+        return `
+          <div class="breakdown-row machine-detail-row">
+            <span>
+              <span class="role-badge role-${m.role}">${roleLabel}</span>
+              ${m.name || m.id}
+              <code>${md.matched_instance}</code>
+            </span>
+            <span>$${md.unit_monthly_on_demand.toFixed(2)} x ${m.quantity} = $${md.subtotal_on_demand.toFixed(2)}</span>
+          </div>
+        `;
+      }).join('');
+
+      let warningsHTML = '';
+      if (est.warnings && est.warnings.length > 0) {
+        warningsHTML = `<div class="card-warnings">${est.warnings.map(w => `<span>&#9888; ${w}</span>`).join('')}</div>`;
+      }
+
+      return `
+        <div class="provider-card group-card${isCheapest ? ' card-cheapest' : ''}" style="border-top: 3px solid ${meta.color}">
+          <div class="card-header">
+            <span class="card-provider" style="color:${meta.color}">${meta.name}</span>
+            ${isCheapest ? '<span class="badge-cheapest">On-Demand 最低</span>' : ''}
+            ${isCheapestRes ? '<span class="badge-reserved">Reserved 最低</span>' : ''}
+          </div>
+          <div class="card-region">${est.region_name} — ${est.total_machines} 台機器</div>
+          <div class="card-prices">
+            <div class="card-price-block">
+              <span class="price-label">ON-DEMAND 總計</span>
+              <span class="price-value">$${est.total_monthly_on_demand.toFixed(2)}<span class="price-period">/月</span></span>
+            </div>
+            ${est.total_monthly_reserved_1y != null ? `
+            <div class="card-price-block reserved">
+              <span class="price-label">Reserved 1Y 總計 ${saving}</span>
+              <span class="price-value">$${est.total_monthly_reserved_1y.toFixed(2)}<span class="price-period">/月</span></span>
+            </div>
+            ` : ''}
+          </div>
+          <div class="card-breakdown">
+            <div class="breakdown-title">每台明細</div>
+            ${machinesHTML}
+          </div>
+          ${warningsHTML}
+        </div>
+      `;
+    }).join('');
+
+    // AI recommendation
+    const aiSection = document.getElementById('ai-section');
+    const aiContent = document.getElementById('ai-content');
+    if (data.recommendation) {
+      aiSection.style.display = '';
+      aiContent.innerHTML = data.recommendation.replace(/\n/g, '<br>');
+    } else {
+      aiSection.style.display = 'none';
+    }
+
     container.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

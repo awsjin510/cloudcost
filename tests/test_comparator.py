@@ -3,7 +3,7 @@
 import pytest
 
 from cloudcost.comparator import CloudCostComparator
-from cloudcost.models.spec import CloudSpec, Region, StorageType
+from cloudcost.models.spec import CloudSpec, MachineItem, MachineRole, Region, StorageType, WorkloadGroup
 
 
 @pytest.fixture
@@ -55,6 +55,48 @@ class TestCloudCostComparator:
         for est in result.estimates:
             assert est.total_monthly_on_demand > 0
             assert est.on_demand.hourly_cost > 0
+
+    @pytest.mark.asyncio
+    async def test_compare_group(self, comparator):
+        group = WorkloadGroup(
+            name="Test Group",
+            machines=[
+                MachineItem(id="web", name="Web", cpu=2, ram=4, quantity=2, role=MachineRole.WEB),
+                MachineItem(id="db", name="DB", cpu=4, ram=16, storage=200, quantity=1, role=MachineRole.DB),
+            ],
+            region="us-east-1",
+        )
+        result = await comparator.compare_group(group)
+
+        assert len(result.estimates) == 4
+        assert result.cheapest_on_demand is not None
+
+        for est in result.estimates:
+            assert est.total_machines == 3
+            assert len(est.machines) == 2
+            assert est.total_monthly_on_demand > 0
+
+            # Verify subtotals add up to total
+            calc_total = sum(m.subtotal_on_demand for m in est.machines)
+            assert abs(calc_total - est.total_monthly_on_demand) < 0.01
+
+            # Verify subtotal = unit * quantity
+            for md in est.machines:
+                expected = md.unit_monthly_on_demand * md.machine.quantity
+                assert abs(md.subtotal_on_demand - expected) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_compare_group_preserves_group(self, comparator):
+        group = WorkloadGroup(
+            name="My Group",
+            machines=[
+                MachineItem(id="m1", cpu=2, ram=8, quantity=5, role=MachineRole.WORKER),
+            ],
+            region="us-east-1",
+        )
+        result = await comparator.compare_group(group)
+        assert result.group == group
+        assert result.group.name == "My Group"
 
     @pytest.mark.asyncio
     async def test_tokyo_region(self, comparator):

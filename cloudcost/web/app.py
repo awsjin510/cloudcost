@@ -21,8 +21,12 @@ from cloudcost.comparator import CloudCostComparator
 from cloudcost.models.spec import (
     ComparisonResult,
     DatabaseType,
+    GroupComparisonResult,
+    MachineItem,
+    MachineRole,
     Region,
     StorageType,
+    WorkloadGroup,
 )
 from cloudcost.recommender import generate_recommendation
 
@@ -68,6 +72,55 @@ class CompareRequest(BaseModel):
     include_ai: bool = True
 
 
+class GroupMachineRequest(BaseModel):
+    id: str
+    name: str = ""
+    cpu: int
+    ram: float
+    storage: float = 0
+    quantity: int = 1
+    role: str = "web"
+
+
+class GroupCompareRequest(BaseModel):
+    name: str = "My Workload"
+    machines: list[GroupMachineRequest]
+    region: str = "us-east-1"
+    storage_type: str = "ssd"
+    os: str = "linux"
+    monthly_hours: float = 730
+    include_ai: bool = False
+
+
+@app.post("/api/compare-group", response_model=GroupComparisonResult)
+async def api_compare_group(req: GroupCompareRequest) -> GroupComparisonResult:
+    """JSON API: compare cloud costs for a workload group."""
+    machines = [
+        MachineItem(
+            id=m.id,
+            name=m.name,
+            cpu=m.cpu,
+            ram=m.ram,
+            storage=m.storage,
+            quantity=m.quantity,
+            role=MachineRole(m.role),
+        )
+        for m in req.machines
+    ]
+    group = WorkloadGroup(
+        name=req.name,
+        machines=machines,
+        region=req.region,
+        storage_type=req.storage_type,
+        os=req.os,
+        monthly_hours=req.monthly_hours,
+    )
+    result = await comparator.compare_group(group)
+    if req.include_ai:
+        result.recommendation = await generate_recommendation(result)
+    return result
+
+
 @app.post("/api/compare", response_model=ComparisonResult)
 async def api_compare(req: CompareRequest) -> ComparisonResult:
     """JSON API: compare cloud costs."""
@@ -104,6 +157,7 @@ async def index(request: Request):
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "machine_roles": [r.value for r in MachineRole],
             "result": None,
         },
     )
@@ -148,6 +202,7 @@ async def compare_form(
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "machine_roles": [r.value for r in MachineRole],
             "result": result,
             # Preserve form values
             "form": {
