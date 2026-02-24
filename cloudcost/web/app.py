@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -26,11 +27,26 @@ from cloudcost.models.spec import (
 from cloudcost.recommender import generate_recommendation
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="CloudCost", description="Multi-cloud cost comparison engine")
+
+# Module-level comparator — initialized at import time so it is available
+# during tests (which may not trigger ASGI lifespan events).
+comparator = CloudCostComparator()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage the shared HTTP client lifecycle for the web server."""
+    yield
+    await comparator.aclose()
+
+
+app = FastAPI(
+    title="CloudCost",
+    description="Multi-cloud cost comparison engine",
+    lifespan=lifespan,
+)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-comparator = CloudCostComparator()
 
 
 # ---------------------------------------------------------------------------

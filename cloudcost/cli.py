@@ -69,8 +69,8 @@ async def run(args: argparse.Namespace) -> None:
         description=args.description,
     )
 
-    comparator = CloudCostComparator()
-    result = await comparator.compare(spec)
+    async with CloudCostComparator() as comparator:
+        result = await comparator.compare(spec)
 
     # Generate recommendation
     if not args.no_ai:
