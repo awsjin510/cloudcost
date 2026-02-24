@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloudCost — Multi-Cloud Cost Comparison</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>CloudCost</h1>
+    <p class="subtitle">AWS / GCP / Azure / Oracle Cloud 費用比較引擎</p>
+  </header>
+
+  <main>
+    <section class="form-section">
+      <h2>輸入雲端規格</h2>
+      <form method="post" action="/compare">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cpu_cores">CPU 核心數 (vCPU)</label>
+            <input type="number" id="cpu_cores" name="cpu_cores" min="1" max="512"
+                   value="{{ form.cpu_cores if form else 4 }}" required>
+          </div>
+
+          <div class="form-group">
+            <label for="ram_gb">RAM (GB)</label>
+            <input type="number" id="ram_gb" name="ram_gb" min="0.5" max="12288" step="0.5"
+                   value="{{ form.ram_gb if form else 16 }}" required>
+          </div>
+
+          <div class="form-group">
+            <label for="storage_gb">儲存空間 (GB)</label>
+            <input type="number" id="storage_gb" name="storage_gb" min="0" max="65536"
+                   value="{{ form.storage_gb if form else 100 }}">
+          </div>
+
+          <div class="form-group">
+            <label for="storage_type">儲存類型</label>
+            <select id="storage_type" name="storage_type">
+              {% for st in storage_types %}
+              <option value="{{ st }}" {{ 'selected' if form and form.storage_type == st else ('selected' if not form and st == 'ssd' else '') }}>
+                {{ st | upper }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="network_transfer_gb">月流量 (GB)</label>
+            <input type="number" id="network_transfer_gb" name="network_transfer_gb" min="0"
+                   value="{{ form.network_transfer_gb if form else 50 }}">
+          </div>
+
+          <div class="form-group">
+            <label for="region">部署區域</label>
+            <select id="region" name="region">
+              {% for val, label in regions %}
+              <option value="{{ val }}" {{ 'selected' if form and form.region == val else ('selected' if not form and val == 'ap-northeast-1' else '') }}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="monthly_hours">每月使用時數</label>
+            <input type="number" id="monthly_hours" name="monthly_hours" min="0" max="744" step="1"
+                   value="{{ form.monthly_hours if form else 730 }}">
+          </div>
+
+          <div class="form-group">
+            <label for="os_type">作業系統</label>
+            <select id="os_type" name="os_type">
+              <option value="linux" {{ 'selected' if not form or form.os_type == 'linux' }}>Linux</option>
+              <option value="windows" {{ 'selected' if form and form.os_type == 'windows' }}>Windows</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="database_type">資料庫類型</label>
+            <select id="database_type" name="database_type">
+              {% for dt in db_types %}
+              <option value="{{ dt }}" {{ 'selected' if form and form.database_type == dt else ('selected' if not form and dt == 'none' else '') }}>
+                {{ dt if dt != 'none' else '無' }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="include_ai">
+              <input type="checkbox" id="include_ai" name="include_ai" value="true"
+                     {{ 'checked' if form and form.include_ai }}>
+              啟用 AI 智能建議
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group full-width">
+          <label for="description">使用場景描述 (供 AI 分析用)</label>
+          <textarea id="description" name="description" rows="2"
+                    placeholder="例如：台灣新創公司的 Web 應用，預計 1000 DAU，需要 PostgreSQL 資料庫">{{ form.description if form else '' }}</textarea>
+        </div>
+
+        <button type="submit" class="btn-compare">開始比較</button>
+      </form>
+    </section>
+
+    {% if result %}
+    <section class="results-section">
+      <h2>比較結果</h2>
+
+      <div class="spec-summary">
+        <span>{{ result.spec.cpu_cores }} vCPU</span>
+        <span>{{ result.spec.ram_gb }} GB RAM</span>
+        {% if result.spec.storage_gb > 0 %}
+        <span>{{ result.spec.storage_gb }} GB {{ result.spec.storage_type.value | upper }}</span>
+        {% endif %}
+        {% if result.spec.network_transfer_gb > 0 %}
+        <span>{{ result.spec.network_transfer_gb }} GB 流量</span>
+        {% endif %}
+        <span>{{ result.spec.region.value }}</span>
+      </div>
+
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>供應商</th>
+            <th>機型</th>
+            <th>On-Demand / 月</th>
+            <th>Reserved 1Y / 月</th>
+            <th>節省</th>
+            <th>明細</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for est in result.estimates | sort(attribute='total_monthly_on_demand') %}
+          <tr class="{{ 'cheapest' if est.provider == result.cheapest_on_demand }}">
+            <td class="provider-cell">
+              <strong>{{ est.provider.value | upper }}</strong>
+              {% if est.provider == result.cheapest_on_demand %}
+              <span class="badge badge-cheapest">最低價</span>
+              {% endif %}
+            </td>
+            <td><code>{{ est.matched_instance }}</code></td>
+            <td class="price-cell">${{ "%.2f" | format(est.total_monthly_on_demand) }}</td>
+            <td class="price-cell">
+              {% if est.total_monthly_reserved_1y is not none %}
+              ${{ "%.2f" | format(est.total_monthly_reserved_1y) }}
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td>
+              {% if est.total_monthly_reserved_1y is not none %}
+              {% set saving = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100) %}
+              <span class="saving">-{{ "%.0f" | format(saving) }}%</span>
+              {% endif %}
+            </td>
+            <td class="details-cell">
+              <span title="Compute">${{ "%.2f" | format(est.on_demand.details.get('compute', 0)) }}</span>
+              {% if est.on_demand.details.get('storage', 0) > 0 %}
+              + <span title="Storage">${{ "%.2f" | format(est.on_demand.details.get('storage', 0)) }}</span>
+              {% endif %}
+              {% if est.on_demand.details.get('network', 0) > 0 %}
+              + <span title="Network">${{ "%.2f" | format(est.on_demand.details.get('network', 0)) }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% if est.warnings %}
+          <tr class="warning-row">
+            <td colspan="6">
+              {% for w in est.warnings %}
+              <span class="warning-text">{{ w }}</span>
+              {% endfor %}
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+
+      {% if result.recommendation %}
+      <div class="recommendation">
+        <h3>AI 智能建議</h3>
+        <div class="recommendation-content">{{ result.recommendation | replace('\n', '<br>') | safe }}</div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+  </main>
+
+  <footer>
+    <p>CloudCost v0.1 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+  </footer>
+</body>
+</html>
