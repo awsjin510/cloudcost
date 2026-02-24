@@ -29,6 +29,8 @@ from cloudcost.models.spec import (
     ProviderEstimate,
 )
 
+from cloudcost.utils.pricing import calc_tiered_cost
+
 from .base import BaseCalculator
 
 logger = logging.getLogger(__name__)
@@ -74,9 +76,11 @@ _BLOCK_VOLUME_PRICES: dict[str, float] = {
     "nvme": 0.0340,
 }
 
-# Network egress: first 10 TB/month free, then $0.0085/GB
-_FREE_EGRESS_GB = 10240  # 10 TB
-_EGRESS_RATE = 0.0085
+# Network egress tiers: first 10 TB/month free, then $0.0085/GB
+_EGRESS_TIERS: list[tuple[float, float]] = [
+    (10240, 0.00),          # first 10 TB free
+    (float("inf"), 0.0085), # beyond 10 TB
+]
 
 
 class OracleCalculator(BaseCalculator):
@@ -127,13 +131,8 @@ class OracleCalculator(BaseCalculator):
         storage_rate = _BLOCK_VOLUME_PRICES.get(storage_key, 0.0255)
         storage_monthly = spec.storage_gb * storage_rate
 
-        # Network — OCI has generous free tier
-        if spec.network_transfer_gb <= _FREE_EGRESS_GB:
-            network_monthly = 0.0
-        else:
-            network_monthly = (
-                spec.network_transfer_gb - _FREE_EGRESS_GB
-            ) * _EGRESS_RATE
+        # Network — OCI has generous free tier (first 10 TB free)
+        network_monthly = calc_tiered_cost(spec.network_transfer_gb, _EGRESS_TIERS)
 
         total_od = compute_od + storage_monthly + network_monthly
         total_annual = compute_annual + storage_monthly + network_monthly

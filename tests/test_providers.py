@@ -3,7 +3,8 @@
 import pytest
 
 from cloudcost.models.spec import CloudProvider, CloudSpec, PricingTier, Region, StorageType
-from cloudcost.providers.aws import AWSCalculator
+from cloudcost.providers.aws import AWSCalculator, _DATA_TRANSFER_TIERS
+from cloudcost.utils.pricing import calc_tiered_cost
 from cloudcost.providers.azure import AzureCalculator
 from cloudcost.providers.gcp import GCPCalculator
 from cloudcost.providers.oracle import OracleCalculator
@@ -62,10 +63,10 @@ class TestAWSCalculator:
     @pytest.mark.asyncio
     async def test_data_transfer_calculation(self):
         # First 1 GB free
-        cost = AWSCalculator._calc_data_transfer(0.5)
+        cost = calc_tiered_cost(0.5, _DATA_TRANSFER_TIERS)
         assert cost == 0.0
 
-        cost = AWSCalculator._calc_data_transfer(100)
+        cost = calc_tiered_cost(100, _DATA_TRANSFER_TIERS)
         assert cost > 0
 
 

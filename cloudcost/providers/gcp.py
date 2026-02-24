@@ -30,6 +30,8 @@ from cloudcost.models.spec import (
     ProviderEstimate,
 )
 
+from cloudcost.utils.pricing import calc_tiered_cost
+
 from .base import BaseCalculator
 
 logger = logging.getLogger(__name__)
@@ -168,7 +170,7 @@ class GCPCalculator(BaseCalculator):
         storage_monthly = spec.storage_gb * _PD_PRICES.get(pd_type, 0.17)
 
         # Network
-        network_monthly = self._calc_egress(spec.network_transfer_gb)
+        network_monthly = calc_tiered_cost(spec.network_transfer_gb, _EGRESS_TIERS)
 
         total_od = compute_od + storage_monthly + network_monthly
         total_cud = compute_cud + storage_monthly + network_monthly
@@ -354,14 +356,3 @@ class GCPCalculator(BaseCalculator):
         except (ValueError, IndexError):
             return 1
 
-    @staticmethod
-    def _calc_egress(gb: float) -> float:
-        remaining = gb
-        total = 0.0
-        for tier_gb, rate in _EGRESS_TIERS:
-            chunk = min(remaining, tier_gb)
-            total += chunk * rate
-            remaining -= chunk
-            if remaining <= 0:
-                break
-        return round(total, 2)
