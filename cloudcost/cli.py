@@ -11,6 +11,10 @@ import asyncio
 import json
 import sys
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from cloudcost.comparator import CloudCostComparator
 from cloudcost.models.spec import CloudSpec, DatabaseType, Region, StorageType
 from cloudcost.recommender import generate_recommendation
