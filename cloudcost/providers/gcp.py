@@ -1,12 +1,25 @@
-"""GCP cost calculator using publicly known pricing tables.
+"""GCP cost calculator using the Cloud Billing Catalog API.
 
-GCP does not have a simple unauthenticated bulk pricing API like AWS,
-so this module uses curated pricing tables for Compute Engine, Persistent
-Disk, and network egress. The tables are based on published GCP pricing
-pages and can be updated periodically.
+The module queries the public GCP Cloud Billing Catalog API for Compute
+Engine pricing. An API key is required (set GCP_API_KEY env var) but the
+API itself is free to use. No OAuth / service account needed.
+
+API docs: https://cloud.google.com/billing/v1/how-tos/catalog-api
+
+Architecture:
+  1. Query Cloud Billing Catalog API for Compute Engine SKUs.
+  2. Match SKU descriptions to the target instance type + region.
+  3. Extract On-Demand and CUD (Committed Use Discount) pricing.
+  4. Fall back to embedded pricing tables if API key is missing or API fails.
 """
 
 from __future__ import annotations
+
+import logging
+import os
+from typing import Any, Optional
+
+import httpx
 
 from cloudcost.models.naming import get_provider_region, match_instance
 from cloudcost.models.spec import (
@@ -19,10 +32,19 @@ from cloudcost.models.spec import (
 
 from .base import BaseCalculator
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
-# GCP on-demand pricing (USD/hour, us-east1 baseline, Linux)
+# GCP Cloud Billing Catalog API
 # ---------------------------------------------------------------------------
-_GCP_OD_PRICES: dict[str, float] = {
+GCP_BILLING_API = "https://cloudbilling.googleapis.com/v1"
+COMPUTE_SERVICE_ID = "6F81-5844-456A"  # Compute Engine service ID
+
+# ---------------------------------------------------------------------------
+# Fallback on-demand pricing (USD/hour, us-east1 baseline, Linux)
+# Used when API key is missing or API is unreachable
+# ---------------------------------------------------------------------------
+_FALLBACK_PRICES: dict[str, float] = {
     "e2-micro": 0.00838,
     "e2-small": 0.01675,
     "e2-medium": 0.03351,
@@ -47,8 +69,8 @@ _GCP_OD_PRICES: dict[str, float] = {
     "n2-highmem-16": 1.04880,
 }
 
-# 1-year CUD discount ratio (approximate)
-_CUD_1Y_DISCOUNT = 0.63
+# 1-year CUD discount ratio (approximate, used as fallback)
+_FALLBACK_CUD_1Y_DISCOUNT = 0.63
 
 # Persistent Disk pricing (USD per GB-month)
 _PD_PRICES: dict[str, float] = {
@@ -65,8 +87,8 @@ _EGRESS_TIERS: list[tuple[float, float]] = [
     (float("inf"), 0.08),
 ]
 
-# Regional price multipliers relative to us-east1
-_REGION_MULTIPLIER: dict[str, float] = {
+# Fallback regional price multipliers relative to us-east1
+_FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "us-east1": 1.00,
     "us-west1": 1.00,
     "europe-west1": 1.10,
@@ -76,9 +98,29 @@ _REGION_MULTIPLIER: dict[str, float] = {
     "asia-east2": 1.16,
 }
 
+# GCP region to human-readable description mapping (for SKU matching)
+_GCP_REGION_TO_DESCRIPTION: dict[str, list[str]] = {
+    "us-east1": ["us-east1", "americas"],
+    "us-west1": ["us-west1", "americas"],
+    "europe-west1": ["europe-west1", "emea"],
+    "asia-northeast1": ["asia-northeast1", "asia pacific", "tokyo"],
+    "asia-northeast3": ["asia-northeast3", "asia pacific", "seoul"],
+    "asia-southeast1": ["asia-southeast1", "asia pacific", "singapore"],
+    "asia-east2": ["asia-east2", "asia pacific", "hong kong"],
+}
+
 
 class GCPCalculator(BaseCalculator):
-    """GCP Compute Engine cost estimator using curated pricing tables."""
+    """GCP Compute Engine cost estimator using the Cloud Billing Catalog API."""
+
+    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
+        self._client = http_client
+        self._api_key = os.environ.get("GCP_API_KEY", "")
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=30.0)
+        return self._client
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         gcp_region = get_provider_region(spec.region, CloudProvider.GCP)
@@ -87,17 +129,33 @@ class GCPCalculator(BaseCalculator):
 
         warnings: list[str] = []
 
-        # Compute pricing
-        base_hourly = _GCP_OD_PRICES.get(instance_type)
-        if base_hourly is None:
-            base_hourly = 0.10
-            warnings.append(f"No pricing data for {instance_type}, using estimate")
+        # --- Compute pricing (try API first, then fallback) ---
+        api_price = await self._fetch_instance_price(instance_type, gcp_region)
 
-        multiplier = _REGION_MULTIPLIER.get(gcp_region, 1.15)
-        hourly_od = base_hourly * multiplier
-        hourly_cud = hourly_od * _CUD_1Y_DISCOUNT
+        if api_price is not None:
+            hourly_od = api_price
+            hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
+        else:
+            # Fallback to embedded tables
+            base_hourly = _FALLBACK_PRICES.get(instance_type)
+            if base_hourly is None:
+                base_hourly = 0.10
+                warnings.append(f"No pricing data for {instance_type}, using estimate")
+
+            multiplier = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
+            hourly_od = base_hourly * multiplier
+            hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
+
+            if not self._api_key:
+                warnings.append(
+                    "Using fallback pricing — set GCP_API_KEY env var for live API data"
+                )
+            else:
+                warnings.append(
+                    f"Used fallback pricing for {instance_type} — GCP API unreachable"
+                )
+
         monthly_hours = spec.monthly_hours
-
         compute_od = hourly_od * monthly_hours
         compute_cud = hourly_cud * monthly_hours
 
@@ -156,6 +214,145 @@ class GCPCalculator(BaseCalculator):
             total_monthly_reserved_1y=round(total_cud, 2),
             warnings=warnings,
         )
+
+    # ------------------------------------------------------------------
+    # GCP Cloud Billing Catalog API helpers
+    # ------------------------------------------------------------------
+
+    async def _fetch_instance_price(
+        self, instance_type: str, region: str
+    ) -> Optional[float]:
+        """Query the GCP Cloud Billing Catalog API for on-demand hourly price.
+
+        Scans Compute Engine SKUs for the matching instance type and region.
+        Returns hourly price in USD, or None on failure.
+        """
+        if not self._api_key:
+            return None
+
+        try:
+            client = await self._get_client()
+            region_keywords = _GCP_REGION_TO_DESCRIPTION.get(region, [region])
+
+            # Instance type to search terms (e.g., "n2-standard-4" -> "N2 Standard")
+            family, size = self._parse_instance_family(instance_type)
+
+            page_token = ""
+            while True:
+                params: dict[str, Any] = {
+                    "key": self._api_key,
+                    "currencyCode": "USD",
+                    "pageSize": 5000,
+                }
+                if page_token:
+                    params["pageToken"] = page_token
+
+                url = f"{GCP_BILLING_API}/services/{COMPUTE_SERVICE_ID}/skus"
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                data = resp.json()
+
+                skus = data.get("skus", [])
+                for sku in skus:
+                    desc = sku.get("description", "").lower()
+                    category = sku.get("category", {})
+                    resource_group = category.get("resourceGroup", "").lower()
+                    usage_type = category.get("usageType", "")
+
+                    # Match: on-demand, correct family, correct region
+                    if usage_type != "OnDemand":
+                        continue
+                    if family.lower() not in desc:
+                        continue
+                    if "preemptible" in desc or "spot" in desc or "commitment" in desc:
+                        continue
+
+                    # Check region match via service regions
+                    service_regions = [
+                        r.lower() for r in sku.get("serviceRegions", [])
+                    ]
+                    region_match = any(
+                        region.lower() in sr for sr in service_regions
+                    )
+                    if not region_match:
+                        # Also check geo taxonomy
+                        geo = sku.get("geoTaxonomy", {})
+                        geo_regions = [
+                            r.lower() for r in geo.get("regions", [])
+                        ]
+                        region_match = any(
+                            region.lower() in gr for gr in geo_regions
+                        )
+                    if not region_match:
+                        continue
+
+                    # Extract pricing
+                    pricing_info = sku.get("pricingInfo", [])
+                    if not pricing_info:
+                        continue
+                    pricing_expr = (
+                        pricing_info[0]
+                        .get("pricingExpression", {})
+                    )
+                    tiered_rates = pricing_expr.get("tieredRates", [])
+                    if not tiered_rates:
+                        continue
+
+                    # Get the unit price (usually in nanos)
+                    unit_price = tiered_rates[-1].get("unitPrice", {})
+                    nanos = int(unit_price.get("nanos", 0))
+                    units = int(unit_price.get("units", 0))
+                    price = units + nanos / 1_000_000_000
+
+                    if price > 0:
+                        # The API returns price per unit. For VMs, we need
+                        # to multiply by the number of cores/units.
+                        usage_unit = pricing_expr.get("usageUnit", "")
+                        if "hour" in usage_unit.lower():
+                            # Check if this is per-core or per-instance
+                            vcpu_count = self._get_instance_vcpu(instance_type)
+                            if "core" in resource_group or "cpu" in resource_group:
+                                return price * vcpu_count
+                            return price
+
+                page_token = data.get("nextPageToken", "")
+                if not page_token:
+                    break
+
+            return None
+
+        except Exception:
+            logger.debug(
+                "Failed to fetch GCP pricing for %s in %s",
+                instance_type,
+                region,
+                exc_info=True,
+            )
+            return None
+
+    @staticmethod
+    def _parse_instance_family(instance_type: str) -> tuple[str, str]:
+        """Parse instance type like 'n2-standard-4' into ('N2 Standard', '4')."""
+        parts = instance_type.split("-")
+        if len(parts) >= 3:
+            family = f"{parts[0]} {parts[1]}"
+            size = parts[2]
+        elif len(parts) == 2:
+            family = parts[0]
+            size = parts[1]
+        else:
+            family = instance_type
+            size = ""
+        return family, size
+
+    @staticmethod
+    def _get_instance_vcpu(instance_type: str) -> int:
+        """Extract vCPU count from instance type name."""
+        parts = instance_type.split("-")
+        try:
+            return int(parts[-1])
+        except (ValueError, IndexError):
+            return 1
 
     @staticmethod
     def _calc_egress(gb: float) -> float:
