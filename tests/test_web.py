@@ -38,10 +38,12 @@ class TestWebUI:
             },
         )
         assert resp.status_code == 200
-        assert "AWS" in resp.text
-        assert "GCP" in resp.text
-        assert "AZURE" in resp.text
-        assert "ORACLE" in resp.text
+        # Result data is embedded as JSON for client-side rendering
+        body = resp.text.lower()
+        assert "aws" in body
+        assert "gcp" in body
+        assert "azure" in body
+        assert "oracle" in body
 
 
 class TestAPI:

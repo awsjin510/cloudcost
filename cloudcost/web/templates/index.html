@@ -3,196 +3,360 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudCost — Multi-Cloud Cost Comparison</title>
+  <title>CloudCost — 多雲成本計算機</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
   <header>
-    <h1>CloudCost</h1>
-    <p class="subtitle">AWS / GCP / Azure / Oracle Cloud 費用比較引擎</p>
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">&#9729;</span>
+        <h1>CloudCost</h1>
+      </div>
+      <p class="subtitle">AWS / GCP / Azure / Oracle Cloud 費用即時比較計算機</p>
+    </div>
   </header>
 
   <main>
+    <!-- Preset buttons -->
+    <section class="presets-section">
+      <h2>快速方案</h2>
+      <div class="presets-row">
+        <button class="preset-btn" data-cpu="1" data-ram="2" data-storage="20" data-network="10">
+          <span class="preset-icon">&#128187;</span>
+          <span class="preset-label">入門</span>
+          <span class="preset-detail">1 vCPU / 2 GB</span>
+        </button>
+        <button class="preset-btn" data-cpu="2" data-ram="8" data-storage="50" data-network="50">
+          <span class="preset-icon">&#128421;</span>
+          <span class="preset-label">開發</span>
+          <span class="preset-detail">2 vCPU / 8 GB</span>
+        </button>
+        <button class="preset-btn active" data-cpu="4" data-ram="16" data-storage="100" data-network="100">
+          <span class="preset-icon">&#9889;</span>
+          <span class="preset-label">生產</span>
+          <span class="preset-detail">4 vCPU / 16 GB</span>
+        </button>
+        <button class="preset-btn" data-cpu="8" data-ram="32" data-storage="500" data-network="500">
+          <span class="preset-icon">&#128640;</span>
+          <span class="preset-label">高效能</span>
+          <span class="preset-detail">8 vCPU / 32 GB</span>
+        </button>
+        <button class="preset-btn" data-cpu="16" data-ram="64" data-storage="1000" data-network="1000">
+          <span class="preset-icon">&#127981;</span>
+          <span class="preset-label">企業</span>
+          <span class="preset-detail">16 vCPU / 64 GB</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Input form -->
     <section class="form-section">
-      <h2>輸入雲端規格</h2>
-      <form method="post" action="/compare">
+      <h2>自訂規格</h2>
+      <form id="compare-form">
         <div class="form-grid">
           <div class="form-group">
-            <label for="cpu_cores">CPU 核心數 (vCPU)</label>
-            <input type="number" id="cpu_cores" name="cpu_cores" min="1" max="512"
-                   value="{{ form.cpu_cores if form else 4 }}" required>
+            <label for="cpu_cores">CPU 核心數 <span class="unit">vCPU</span></label>
+            <input type="number" id="cpu_cores" name="cpu_cores" min="1" max="512" value="4" required>
           </div>
 
           <div class="form-group">
-            <label for="ram_gb">RAM (GB)</label>
-            <input type="number" id="ram_gb" name="ram_gb" min="0.5" max="12288" step="0.5"
-                   value="{{ form.ram_gb if form else 16 }}" required>
+            <label for="ram_gb">記憶體 <span class="unit">GB</span></label>
+            <input type="number" id="ram_gb" name="ram_gb" min="0.5" max="12288" step="0.5" value="16" required>
           </div>
 
           <div class="form-group">
-            <label for="storage_gb">儲存空間 (GB)</label>
-            <input type="number" id="storage_gb" name="storage_gb" min="0" max="65536"
-                   value="{{ form.storage_gb if form else 100 }}">
+            <label for="storage_gb">儲存空間 <span class="unit">GB</span></label>
+            <input type="number" id="storage_gb" name="storage_gb" min="0" max="65536" value="100">
           </div>
 
           <div class="form-group">
             <label for="storage_type">儲存類型</label>
             <select id="storage_type" name="storage_type">
               {% for st in storage_types %}
-              <option value="{{ st }}" {{ 'selected' if form and form.storage_type == st else ('selected' if not form and st == 'ssd' else '') }}>
-                {{ st | upper }}
-              </option>
+              <option value="{{ st }}" {{ 'selected' if st == 'ssd' }}>{{ st | upper }}</option>
               {% endfor %}
             </select>
           </div>
 
           <div class="form-group">
-            <label for="network_transfer_gb">月流量 (GB)</label>
-            <input type="number" id="network_transfer_gb" name="network_transfer_gb" min="0"
-                   value="{{ form.network_transfer_gb if form else 50 }}">
+            <label for="network_transfer_gb">月出站流量 <span class="unit">GB</span></label>
+            <input type="number" id="network_transfer_gb" name="network_transfer_gb" min="0" value="100">
           </div>
 
           <div class="form-group">
             <label for="region">部署區域</label>
             <select id="region" name="region">
               {% for val, label in regions %}
-              <option value="{{ val }}" {{ 'selected' if form and form.region == val else ('selected' if not form and val == 'ap-northeast-1' else '') }}>
-                {{ label }}
-              </option>
+              <option value="{{ val }}" {{ 'selected' if val == 'ap-northeast-1' }}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
 
           <div class="form-group">
-            <label for="monthly_hours">每月使用時數</label>
-            <input type="number" id="monthly_hours" name="monthly_hours" min="0" max="744" step="1"
-                   value="{{ form.monthly_hours if form else 730 }}">
+            <label for="monthly_hours">每月時數 <span class="unit">hrs</span></label>
+            <input type="number" id="monthly_hours" name="monthly_hours" min="0" max="744" step="1" value="730">
           </div>
 
           <div class="form-group">
             <label for="os_type">作業系統</label>
             <select id="os_type" name="os_type">
-              <option value="linux" {{ 'selected' if not form or form.os_type == 'linux' }}>Linux</option>
-              <option value="windows" {{ 'selected' if form and form.os_type == 'windows' }}>Windows</option>
+              <option value="linux" selected>Linux</option>
+              <option value="windows">Windows</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label for="database_type">資料庫類型</label>
+            <label for="database_type">資料庫</label>
             <select id="database_type" name="database_type">
               {% for dt in db_types %}
-              <option value="{{ dt }}" {{ 'selected' if form and form.database_type == dt else ('selected' if not form and dt == 'none' else '') }}>
+              <option value="{{ dt }}" {{ 'selected' if dt == 'none' }}>
                 {{ dt if dt != 'none' else '無' }}
               </option>
               {% endfor %}
             </select>
           </div>
 
-          <div class="form-group">
+          <div class="form-group checkbox-group">
             <label for="include_ai">
-              <input type="checkbox" id="include_ai" name="include_ai" value="true"
-                     {{ 'checked' if form and form.include_ai }}>
-              啟用 AI 智能建議
+              <input type="checkbox" id="include_ai" name="include_ai">
+              AI 智能建議
             </label>
           </div>
         </div>
 
         <div class="form-group full-width">
-          <label for="description">使用場景描述 (供 AI 分析用)</label>
+          <label for="description">使用場景描述 <span class="unit">供 AI 分析</span></label>
           <textarea id="description" name="description" rows="2"
-                    placeholder="例如：台灣新創公司的 Web 應用，預計 1000 DAU，需要 PostgreSQL 資料庫">{{ form.description if form else '' }}</textarea>
+                    placeholder="例如：台灣新創公司的 Web 應用，預計 1000 DAU，需要 PostgreSQL 資料庫"></textarea>
         </div>
 
-        <button type="submit" class="btn-compare">開始比較</button>
+        <button type="submit" class="btn-compare" id="btn-compare">
+          <span class="btn-text">開始比較</span>
+          <span class="btn-loading" style="display:none;">
+            <span class="spinner"></span> 計算中...
+          </span>
+        </button>
       </form>
     </section>
 
-    {% if result %}
-    <section class="results-section">
-      <h2>比較結果</h2>
+    <!-- Results (hidden until submitted) -->
+    <div id="results-container" style="display:none;">
 
-      <div class="spec-summary">
-        <span>{{ result.spec.cpu_cores }} vCPU</span>
-        <span>{{ result.spec.ram_gb }} GB RAM</span>
-        {% if result.spec.storage_gb > 0 %}
-        <span>{{ result.spec.storage_gb }} GB {{ result.spec.storage_type.value | upper }}</span>
-        {% endif %}
-        {% if result.spec.network_transfer_gb > 0 %}
-        <span>{{ result.spec.network_transfer_gb }} GB 流量</span>
-        {% endif %}
-        <span>{{ result.spec.region.value }}</span>
-      </div>
+      <!-- Spec summary -->
+      <section class="summary-section">
+        <h2>比較規格</h2>
+        <div id="spec-pills" class="spec-summary"></div>
+      </section>
 
-      <table class="results-table">
-        <thead>
-          <tr>
-            <th>供應商</th>
-            <th>機型</th>
-            <th>On-Demand / 月</th>
-            <th>Reserved 1Y / 月</th>
-            <th>節省</th>
-            <th>明細</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for est in result.estimates | sort(attribute='total_monthly_on_demand') %}
-          <tr class="{{ 'cheapest' if est.provider == result.cheapest_on_demand }}">
-            <td class="provider-cell">
-              <strong>{{ est.provider.value | upper }}</strong>
-              {% if est.provider == result.cheapest_on_demand %}
-              <span class="badge badge-cheapest">最低價</span>
-              {% endif %}
-            </td>
-            <td><code>{{ est.matched_instance }}</code></td>
-            <td class="price-cell">${{ "%.2f" | format(est.total_monthly_on_demand) }}</td>
-            <td class="price-cell">
-              {% if est.total_monthly_reserved_1y is not none %}
-              ${{ "%.2f" | format(est.total_monthly_reserved_1y) }}
-              {% else %}
-              —
-              {% endif %}
-            </td>
-            <td>
-              {% if est.total_monthly_reserved_1y is not none %}
-              {% set saving = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100) %}
-              <span class="saving">-{{ "%.0f" | format(saving) }}%</span>
-              {% endif %}
-            </td>
-            <td class="details-cell">
-              <span title="Compute">${{ "%.2f" | format(est.on_demand.details.get('compute', 0)) }}</span>
-              {% if est.on_demand.details.get('storage', 0) > 0 %}
-              + <span title="Storage">${{ "%.2f" | format(est.on_demand.details.get('storage', 0)) }}</span>
-              {% endif %}
-              {% if est.on_demand.details.get('network', 0) > 0 %}
-              + <span title="Network">${{ "%.2f" | format(est.on_demand.details.get('network', 0)) }}</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% if est.warnings %}
-          <tr class="warning-row">
-            <td colspan="6">
-              {% for w in est.warnings %}
-              <span class="warning-text">{{ w }}</span>
-              {% endfor %}
-            </td>
-          </tr>
-          {% endif %}
-          {% endfor %}
-        </tbody>
-      </table>
+      <!-- Price bar chart -->
+      <section class="chart-section">
+        <h2>價格總覽 <span class="unit">On-Demand 月費 (USD)</span></h2>
+        <div id="price-chart" class="price-chart"></div>
+      </section>
 
-      {% if result.recommendation %}
-      <div class="recommendation">
-        <h3>AI 智能建議</h3>
-        <div class="recommendation-content">{{ result.recommendation | replace('\n', '<br>') | safe }}</div>
-      </div>
-      {% endif %}
-    </section>
-    {% endif %}
+      <!-- Provider cards -->
+      <section class="cards-section">
+        <h2>詳細比較</h2>
+        <div id="provider-cards" class="provider-cards"></div>
+      </section>
+
+      <!-- AI recommendation -->
+      <section id="ai-section" class="ai-section" style="display:none;">
+        <h2>AI 智能建議</h2>
+        <div id="ai-content" class="ai-content"></div>
+      </section>
+
+    </div>
   </main>
 
   <footer>
     <p>CloudCost v0.1 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
+
+{% if result %}
+<!-- Server-side result data for form POST fallback -->
+<script id="ssr-data" type="application/json">{{ result.model_dump_json() | safe }}</script>
+{% endif %}
+
+<script>
+(function() {
+  const PROVIDER_META = {
+    aws:    { name: 'AWS',    color: '#ff9900', bg: '#fff8ee' },
+    gcp:    { name: 'GCP',    color: '#4285f4', bg: '#eef4ff' },
+    azure:  { name: 'Azure',  color: '#0078d4', bg: '#eef6ff' },
+    oracle: { name: 'Oracle', color: '#c74634', bg: '#fef0ee' },
+  };
+
+  // Preset buttons
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('cpu_cores').value = btn.dataset.cpu;
+      document.getElementById('ram_gb').value = btn.dataset.ram;
+      document.getElementById('storage_gb').value = btn.dataset.storage;
+      document.getElementById('network_transfer_gb').value = btn.dataset.network;
+    });
+  });
+
+  // Form submit (AJAX)
+  document.getElementById('compare-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btn-compare');
+    const btnText = btn.querySelector('.btn-text');
+    const btnLoad = btn.querySelector('.btn-loading');
+    btn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoad.style.display = 'inline-flex';
+
+    const body = {
+      cpu_cores:           parseInt(document.getElementById('cpu_cores').value),
+      ram_gb:              parseFloat(document.getElementById('ram_gb').value),
+      storage_gb:          parseFloat(document.getElementById('storage_gb').value) || 0,
+      storage_type:        document.getElementById('storage_type').value,
+      network_transfer_gb: parseFloat(document.getElementById('network_transfer_gb').value) || 0,
+      database_type:       document.getElementById('database_type').value,
+      region:              document.getElementById('region').value,
+      monthly_hours:       parseFloat(document.getElementById('monthly_hours').value) || 730,
+      os:                  document.getElementById('os_type').value,
+      description:         document.getElementById('description').value,
+      include_ai:          document.getElementById('include_ai').checked,
+    };
+
+    try {
+      const resp = await fetch('/api/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error('API Error ' + resp.status);
+      const data = await resp.json();
+      renderResults(data);
+    } catch (err) {
+      alert('比較失敗：' + err.message);
+    } finally {
+      btn.disabled = false;
+      btnText.style.display = 'inline';
+      btnLoad.style.display = 'none';
+    }
+  });
+
+  function renderResults(data) {
+    const container = document.getElementById('results-container');
+    container.style.display = '';
+
+    // Spec pills
+    const pills = document.getElementById('spec-pills');
+    const spec = data.spec;
+    let pillsHTML = `<span>${spec.cpu_cores} vCPU</span><span>${spec.ram_gb} GB RAM</span>`;
+    if (spec.storage_gb > 0) pillsHTML += `<span>${spec.storage_gb} GB ${spec.storage_type.toUpperCase()}</span>`;
+    if (spec.network_transfer_gb > 0) pillsHTML += `<span>${spec.network_transfer_gb} GB 流量</span>`;
+    pillsHTML += `<span>${spec.region}</span><span>${spec.os.toUpperCase()}</span>`;
+    if (spec.database_type !== 'none') pillsHTML += `<span>DB: ${spec.database_type}</span>`;
+    pills.innerHTML = pillsHTML;
+
+    // Sort estimates by on-demand price
+    const estimates = data.estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
+    const maxPrice = Math.max(...estimates.map(e => e.total_monthly_on_demand));
+
+    // Bar chart
+    const chart = document.getElementById('price-chart');
+    chart.innerHTML = estimates.map(est => {
+      const meta = PROVIDER_META[est.provider] || { name: est.provider, color: '#888', bg: '#f0f0f0' };
+      const pct = maxPrice > 0 ? (est.total_monthly_on_demand / maxPrice * 100) : 0;
+      const isCheapest = est.provider === data.cheapest_on_demand;
+      return `
+        <div class="chart-row${isCheapest ? ' cheapest' : ''}">
+          <div class="chart-label">
+            <span class="chart-provider" style="color:${meta.color}">${meta.name}</span>
+            <code>${est.matched_instance}</code>
+          </div>
+          <div class="chart-bar-track">
+            <div class="chart-bar" style="width:${pct}%;background:${meta.color}"></div>
+          </div>
+          <div class="chart-price">$${est.total_monthly_on_demand.toFixed(2)}${isCheapest ? ' <span class="badge-cheapest">最低</span>' : ''}</div>
+        </div>
+      `;
+    }).join('');
+
+    // Provider cards
+    const cards = document.getElementById('provider-cards');
+    cards.innerHTML = estimates.map(est => {
+      const meta = PROVIDER_META[est.provider] || { name: est.provider, color: '#888', bg: '#f0f0f0' };
+      const isCheapest = est.provider === data.cheapest_on_demand;
+      const isCheapestRes = est.provider === data.cheapest_reserved;
+      const details = est.on_demand.details || {};
+
+      let saving = '';
+      if (est.total_monthly_reserved_1y != null) {
+        const pct = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100).toFixed(0);
+        saving = `<span class="saving">-${pct}%</span>`;
+      }
+
+      let warningsHTML = '';
+      if (est.warnings && est.warnings.length > 0) {
+        warningsHTML = `<div class="card-warnings">${est.warnings.map(w => `<span>&#9888; ${w}</span>`).join('')}</div>`;
+      }
+
+      return `
+        <div class="provider-card${isCheapest ? ' card-cheapest' : ''}" style="border-top: 3px solid ${meta.color}">
+          <div class="card-header">
+            <span class="card-provider" style="color:${meta.color}">${meta.name}</span>
+            ${isCheapest ? '<span class="badge-cheapest">On-Demand 最低</span>' : ''}
+            ${isCheapestRes ? '<span class="badge-reserved">Reserved 最低</span>' : ''}
+          </div>
+          <div class="card-instance"><code>${est.matched_instance}</code></div>
+          <div class="card-region">${est.region_name}</div>
+          <div class="card-prices">
+            <div class="card-price-block">
+              <span class="price-label">On-Demand</span>
+              <span class="price-value">$${est.total_monthly_on_demand.toFixed(2)}<span class="price-period">/月</span></span>
+              <span class="price-hourly">$${est.on_demand.hourly_cost.toFixed(4)}/hr</span>
+            </div>
+            ${est.total_monthly_reserved_1y != null ? `
+            <div class="card-price-block reserved">
+              <span class="price-label">Reserved 1Y ${saving}</span>
+              <span class="price-value">$${est.total_monthly_reserved_1y.toFixed(2)}<span class="price-period">/月</span></span>
+            </div>
+            ` : ''}
+          </div>
+          <div class="card-breakdown">
+            <div class="breakdown-title">費用明細</div>
+            <div class="breakdown-row"><span>Compute</span><span>$${(details.compute || 0).toFixed(2)}</span></div>
+            ${details.storage > 0 ? `<div class="breakdown-row"><span>Storage</span><span>$${details.storage.toFixed(2)}</span></div>` : ''}
+            ${details.network > 0 ? `<div class="breakdown-row"><span>Network</span><span>$${details.network.toFixed(2)}</span></div>` : ''}
+            ${details.database > 0 ? `<div class="breakdown-row"><span>Database</span><span>$${details.database.toFixed(2)}</span></div>` : ''}
+          </div>
+          ${warningsHTML}
+        </div>
+      `;
+    }).join('');
+
+    // AI recommendation
+    const aiSection = document.getElementById('ai-section');
+    const aiContent = document.getElementById('ai-content');
+    if (data.recommendation) {
+      aiSection.style.display = '';
+      aiContent.innerHTML = data.recommendation.replace(/\n/g, '<br>');
+    } else {
+      aiSection.style.display = 'none';
+    }
+
+    // Scroll to results
+    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Auto-render server-side data if present (form POST fallback)
+  const ssrEl = document.getElementById('ssr-data');
+  if (ssrEl) {
+    try {
+      const data = JSON.parse(ssrEl.textContent);
+      renderResults(data);
+    } catch(e) { /* ignore parse errors */ }
+  }
+})();
+</script>
 </body>
 </html>
