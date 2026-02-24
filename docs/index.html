@@ -208,6 +208,80 @@ footer { text-align: center; padding: 2rem 1rem; color: var(--text-muted); font-
 footer a { color: var(--primary); text-decoration: none; }
 footer a:hover { text-decoration: underline; }
 
+/* Mode tabs */
+.mode-tabs {
+  display: flex; gap: 0; margin-bottom: 1.25rem; border-radius: var(--radius);
+  overflow: hidden; border: 1.5px solid var(--border); background: var(--surface);
+}
+.mode-tab {
+  flex: 1; padding: 0.75rem 1rem; border: none; background: transparent;
+  font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  font-family: inherit; color: var(--text-secondary);
+}
+.mode-tab:hover { background: var(--border-light); }
+.mode-tab.active {
+  background: var(--primary); color: white;
+}
+
+/* Machine list */
+.machine-list-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.machine-list-header h3 { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+.btn-add-machine {
+  padding: 0.4rem 1rem; background: var(--primary); color: white; border: none;
+  border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: all 0.2s;
+}
+.btn-add-machine:hover { background: var(--primary-hover); }
+.machine-list-table { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.machine-list-thead, .machine-row {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr 1.2fr 0.8fr;
+  gap: 0.5rem; padding: 0.5rem 0.75rem; align-items: center;
+}
+.machine-list-thead {
+  background: var(--border-light); font-size: 0.72rem; font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;
+}
+.machine-row { border-top: 1px solid var(--border); }
+.machine-row:first-child { border-top: none; }
+.ml-input {
+  width: 100%; padding: 0.4rem 0.5rem; border: 1.5px solid var(--border);
+  border-radius: 6px; font-size: 0.82rem; font-family: inherit;
+  background: var(--surface); color: var(--text);
+}
+.ml-input:focus { outline: none; border-color: var(--primary); }
+.ml-col-actions { display: flex; gap: 0.3rem; }
+.ml-btn {
+  padding: 0.3rem 0.5rem; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--surface); cursor: pointer; font-size: 0.8rem; transition: all 0.15s;
+}
+.ml-btn:hover { background: var(--border-light); }
+.ml-btn-delete:hover { background: #fee2e2; border-color: #fca5a5; }
+.machine-summary {
+  margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-secondary);
+  padding: 0.5rem 0.75rem; background: var(--border-light); border-radius: var(--radius-sm);
+}
+.machine-summary strong { color: var(--primary); }
+
+/* Role badges */
+.role-badge {
+  display: inline-block; padding: 0.1rem 0.5rem; border-radius: 100px;
+  font-size: 0.68rem; font-weight: 700; color: white; margin-right: 0.3rem;
+}
+.role-badge.role-web { background: #3b82f6; }
+.role-badge.role-api { background: #059669; }
+.role-badge.role-db { background: #d97706; }
+.role-badge.role-cache { background: #7c3aed; }
+.role-badge.role-worker { background: #dc2626; }
+
+/* Group card specifics */
+.group-card { grid-column: 1 / -1; }
+.group-card .provider-cards { grid-template-columns: 1fr; }
+.machine-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; font-size: 0.82rem; gap: 0.5rem; }
+.machine-detail-row code { font-size: 0.72rem; color: var(--text-muted); background: var(--border-light); padding: 0.1rem 0.4rem; border-radius: 4px; }
+
 @media (max-width: 768px) {
   header { padding: 1.5rem 1rem; }
   .logo h1 { font-size: 1.6rem; }
@@ -224,11 +298,22 @@ footer a:hover { text-decoration: underline; }
   .chart-price { font-size: 0.85rem; }
   .chart-bar-track { height: 24px; }
   .provider-cards { grid-template-columns: 1fr; }
+  .machine-list-thead, .machine-row {
+    grid-template-columns: 1.5fr 0.8fr 0.8fr 0.8fr 0.6fr 1fr 0.6fr;
+    gap: 0.3rem; padding: 0.4rem 0.5rem; font-size: 0.75rem;
+  }
+  .ml-input { padding: 0.3rem 0.35rem; font-size: 0.78rem; }
 }
 @media (max-width: 480px) {
   .form-grid { grid-template-columns: 1fr; }
   .chart-row { grid-template-columns: 70px 1fr 80px; gap: 0.35rem; }
   .chart-label code { display: none; }
+  .machine-list-thead { display: none; }
+  .machine-row {
+    grid-template-columns: 1fr 1fr; gap: 0.4rem; padding: 0.75rem;
+    border-top: 2px solid var(--border);
+  }
+  .ml-col-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
   </style>
 </head>
@@ -249,6 +334,15 @@ footer a:hover { text-decoration: underline; }
   </header>
 
   <main>
+    <!-- Mode tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="single">單台機器</button>
+      <button class="mode-tab" data-mode="group">多台機器組合</button>
+    </div>
+
+    <!-- ==================== SINGLE MACHINE MODE ==================== -->
+    <div id="single-mode">
+
     <section>
       <h2>快速方案</h2>
       <div class="presets-row">
@@ -347,6 +441,80 @@ footer a:hover { text-decoration: underline; }
       </form>
     </section>
 
+    </div><!-- end single-mode -->
+
+    <!-- ==================== GROUP MODE ==================== -->
+    <div id="group-mode" style="display:none;">
+
+    <section>
+      <h2>工作負載群組</h2>
+      <form id="group-form">
+        <div class="form-grid" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label for="group_name">群組名稱</label>
+            <input type="text" id="group_name" value="My Workload" class="ml-input" style="padding:0.55rem 0.75rem;font-size:0.9rem;">
+          </div>
+          <div class="form-group">
+            <label for="group_region">部署區域</label>
+            <select id="group_region">
+              <option value="us-east-1">US East (N. Virginia)</option>
+              <option value="us-west-2">US West (Oregon)</option>
+              <option value="ap-northeast-1" selected>Asia Pacific (Tokyo)</option>
+              <option value="ap-northeast-2">Asia Pacific (Seoul)</option>
+              <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+              <option value="ap-east-1">Asia Pacific (Hong Kong)</option>
+              <option value="eu-west-1">Europe (Ireland)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_storage_type">儲存類型</label>
+            <select id="group_storage_type">
+              <option value="ssd" selected>SSD</option>
+              <option value="hdd">HDD</option>
+              <option value="nvme">NVME</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_os">作業系統</label>
+            <select id="group_os">
+              <option value="linux" selected>Linux</option>
+              <option value="windows">Windows</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="group_hours">每月時數 <span class="unit">hrs</span></label>
+            <input type="number" id="group_hours" min="0" max="744" value="730">
+          </div>
+        </div>
+
+        <div class="machine-list-header">
+          <h3>機器清單</h3>
+          <button type="button" class="btn-add-machine" id="btn-add-machine">+ 新增機器</button>
+        </div>
+
+        <div class="machine-list-table">
+          <div class="machine-list-thead">
+            <span>名稱</span>
+            <span>CPU</span>
+            <span>RAM</span>
+            <span>儲存</span>
+            <span>數量</span>
+            <span>角色</span>
+            <span>操作</span>
+          </div>
+          <div id="machine-list-body"></div>
+        </div>
+
+        <div class="machine-summary" id="machine-summary">
+          總計：<strong>0</strong> 台機器
+        </div>
+
+        <button type="submit" class="btn-compare">開始比較</button>
+      </form>
+    </section>
+
+    </div><!-- end group-mode -->
+
     <div id="results-container" style="display:none;">
       <section>
         <h2>比較規格</h2>
@@ -371,7 +539,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.2 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.3 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;"><a href="https://github.com/awsjin510/cloudcost" target="_blank">GitHub</a></p>
   </footer>
 
@@ -644,11 +812,80 @@ function generateShareURL(spec) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// GROUP COMPARISON ENGINE
+// ════════════════════════════════════════════════════════════════
+
+const ROLE_LABELS = { web: 'Web', api: 'API', db: 'DB', cache: 'Cache', worker: 'Worker' };
+
+function compareGroup(group) {
+  const providers = ['aws','gcp','azure','oracle'];
+  const estimates = providers.map(provider => {
+    let totalOD = 0, totalRes = 0, totalMachines = 0;
+    const allWarnings = [];
+    const machineDetails = group.machines.map(m => {
+      const spec = {
+        cpu_cores: m.cpu, ram_gb: m.ram,
+        storage_gb: m.storage, storage_type: group.storage_type,
+        network_transfer_gb: 0, region: group.region,
+        monthly_hours: group.monthly_hours, os: group.os,
+        database_type: 'none',
+      };
+      const est = calcProvider(provider, spec);
+      const unitOD = est.total_monthly_on_demand;
+      const unitRes = est.total_monthly_reserved_1y;
+      const subtotalOD = unitOD * m.quantity;
+      const subtotalRes = unitRes * m.quantity;
+      totalOD += subtotalOD;
+      totalRes += subtotalRes;
+      totalMachines += m.quantity;
+      est.warnings.forEach(w => { if (!allWarnings.includes(w)) allWarnings.push(w); });
+      return {
+        machine: m,
+        matched_instance: est.matched_instance,
+        unit_monthly_on_demand: unitOD,
+        unit_monthly_reserved_1y: unitRes,
+        subtotal_on_demand: subtotalOD,
+        subtotal_reserved_1y: subtotalRes,
+      };
+    });
+    return {
+      provider,
+      region_name: REGION_NAMES[group.region] || group.region,
+      machines: machineDetails,
+      total_monthly_on_demand: totalOD,
+      total_monthly_reserved_1y: totalRes,
+      total_machines: totalMachines,
+      warnings: allWarnings,
+    };
+  });
+  let cheapOD = estimates[0], cheapRes = estimates[0];
+  for (const e of estimates) {
+    if (e.total_monthly_on_demand < cheapOD.total_monthly_on_demand) cheapOD = e;
+    if (e.total_monthly_reserved_1y < cheapRes.total_monthly_reserved_1y) cheapRes = e;
+  }
+  return { group, estimates, cheapest_on_demand: cheapOD.provider, cheapest_reserved: cheapRes.provider };
+}
+
+// ════════════════════════════════════════════════════════════════
 // UI LOGIC
 // ════════════════════════════════════════════════════════════════
 
 let lastSpec = null;
+let currentMode = 'single';
 
+// ── Mode tabs ──
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentMode = tab.dataset.mode;
+    document.getElementById('single-mode').style.display = currentMode === 'single' ? '' : 'none';
+    document.getElementById('group-mode').style.display = currentMode === 'group' ? '' : 'none';
+    document.getElementById('results-container').style.display = 'none';
+  });
+});
+
+// ── Preset buttons (single mode) ──
 document.querySelectorAll('.preset-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
@@ -660,6 +897,7 @@ document.querySelectorAll('.preset-btn').forEach(btn => {
   });
 });
 
+// ── Single-machine form submit ──
 document.getElementById('compare-form').addEventListener('submit', (e) => {
   e.preventDefault();
   lastSpec = {
@@ -676,17 +914,140 @@ document.getElementById('compare-form').addEventListener('submit', (e) => {
   renderResults(compare(lastSpec));
 });
 
+// ════════════════════════════════════════════════════════════════
+// GROUP MODE: MACHINE LIST MANAGEMENT
+// ════════════════════════════════════════════════════════════════
+
+let machineIdCounter = 0;
+
+function createMachineRow(preset) {
+  machineIdCounter++;
+  const id = 'machine-' + machineIdCounter;
+  const p = preset || { name: '', cpu: 2, ram: 8, storage: 50, quantity: 1, role: 'web' };
+
+  const row = document.createElement('div');
+  row.className = 'machine-row';
+  row.dataset.id = id;
+
+  const roleOptions = ['web','api','db','cache','worker'].map(r =>
+    '<option value="' + r + '"' + (r === p.role ? ' selected' : '') + '>' + (ROLE_LABELS[r] || r) + '</option>'
+  ).join('');
+
+  row.innerHTML =
+    '<input type="text" class="ml-col ml-input" placeholder="例如：Web Server" value="' + (p.name || '') + '">' +
+    '<input type="number" class="ml-col ml-input" min="1" max="512" value="' + p.cpu + '">' +
+    '<input type="number" class="ml-col ml-input" min="0.5" max="12288" step="0.5" value="' + p.ram + '">' +
+    '<input type="number" class="ml-col ml-input" min="0" max="65536" value="' + p.storage + '">' +
+    '<input type="number" class="ml-col ml-input" min="1" max="1000" value="' + p.quantity + '">' +
+    '<select class="ml-col ml-input">' + roleOptions + '</select>' +
+    '<div class="ml-col ml-col-actions">' +
+      '<button type="button" class="ml-btn ml-btn-clone" title="複製此機器">&#128203;</button>' +
+      '<button type="button" class="ml-btn ml-btn-delete" title="刪除">&#128465;</button>' +
+    '</div>';
+
+  row.querySelector('.ml-btn-clone').addEventListener('click', () => {
+    const inputs = row.querySelectorAll('.ml-input');
+    const cloned = {
+      name: inputs[0].value, cpu: parseInt(inputs[1].value),
+      ram: parseFloat(inputs[2].value), storage: parseFloat(inputs[3].value),
+      quantity: parseInt(inputs[4].value), role: inputs[5].value,
+    };
+    const newRow = createMachineRow(cloned);
+    document.getElementById('machine-list-body').insertBefore(newRow, row.nextSibling);
+    updateMachineSummary();
+  });
+
+  row.querySelector('.ml-btn-delete').addEventListener('click', () => {
+    row.remove();
+    updateMachineSummary();
+  });
+
+  row.querySelectorAll('.ml-input').forEach(input => {
+    input.addEventListener('input', updateMachineSummary);
+  });
+
+  return row;
+}
+
+function updateMachineSummary() {
+  const rows = document.querySelectorAll('#machine-list-body .machine-row');
+  let total = 0;
+  rows.forEach(row => {
+    const qty = parseInt(row.querySelectorAll('.ml-input')[4].value) || 1;
+    total += qty;
+  });
+  document.getElementById('machine-summary').innerHTML =
+    '\u7E3D\u8A08\uFF1A<strong>' + total + '</strong> \u53F0\u6A5F\u5668\uFF08' + rows.length + ' \u7A2E\u898F\u683C\uFF09';
+}
+
+function getMachinesFromForm() {
+  const rows = document.querySelectorAll('#machine-list-body .machine-row');
+  const machines = [];
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('.ml-input');
+    machines.push({
+      id: row.dataset.id,
+      name: inputs[0].value || ('Machine ' + row.dataset.id.split('-')[1]),
+      cpu: parseInt(inputs[1].value) || 2,
+      ram: parseFloat(inputs[2].value) || 8,
+      storage: parseFloat(inputs[3].value) || 0,
+      quantity: parseInt(inputs[4].value) || 1,
+      role: inputs[5].value || 'web',
+    });
+  });
+  return machines;
+}
+
+document.getElementById('btn-add-machine').addEventListener('click', () => {
+  document.getElementById('machine-list-body').appendChild(createMachineRow());
+  updateMachineSummary();
+});
+
+// Initialize with default machines
+(function initDefaultMachines() {
+  const defaults = [
+    { name: 'Web Server',  cpu: 2, ram: 4,  storage: 50,  quantity: 2, role: 'web' },
+    { name: 'API Server',  cpu: 4, ram: 16, storage: 100, quantity: 2, role: 'api' },
+    { name: 'DB Server',   cpu: 4, ram: 32, storage: 500, quantity: 1, role: 'db' },
+  ];
+  const body = document.getElementById('machine-list-body');
+  defaults.forEach(d => body.appendChild(createMachineRow(d)));
+  updateMachineSummary();
+})();
+
+// ── Group form submit ──
+document.getElementById('group-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const machines = getMachinesFromForm();
+  if (machines.length === 0) { showToast('請至少新增一台機器'); return; }
+
+  const group = {
+    name: document.getElementById('group_name').value || 'My Workload',
+    machines: machines,
+    region: document.getElementById('group_region').value,
+    storage_type: document.getElementById('group_storage_type').value,
+    os: document.getElementById('group_os').value,
+    monthly_hours: parseFloat(document.getElementById('group_hours').value) || 730,
+  };
+
+  renderGroupResults(compareGroup(group));
+});
+
+// ════════════════════════════════════════════════════════════════
+// RENDER SINGLE-MACHINE RESULTS
+// ════════════════════════════════════════════════════════════════
+
 function renderResults(data) {
   const container = document.getElementById('results-container');
   container.style.display = '';
   const spec = data.spec;
 
   // Spec pills
-  let pillsHTML = `<span>${spec.cpu_cores} vCPU</span><span>${spec.ram_gb} GB RAM</span>`;
-  if (spec.storage_gb > 0) pillsHTML += `<span>${spec.storage_gb} GB ${spec.storage_type.toUpperCase()}</span>`;
-  if (spec.network_transfer_gb > 0) pillsHTML += `<span>${spec.network_transfer_gb} GB 流量</span>`;
-  pillsHTML += `<span>${REGION_NAMES[spec.region] || spec.region}</span><span>${spec.os.toUpperCase()}</span>`;
-  if (spec.database_type !== 'none') pillsHTML += `<span>DB: ${spec.database_type}</span>`;
+  let pillsHTML = '<span>' + spec.cpu_cores + ' vCPU</span><span>' + spec.ram_gb + ' GB RAM</span>';
+  if (spec.storage_gb > 0) pillsHTML += '<span>' + spec.storage_gb + ' GB ' + spec.storage_type.toUpperCase() + '</span>';
+  if (spec.network_transfer_gb > 0) pillsHTML += '<span>' + spec.network_transfer_gb + ' GB \u6D41\u91CF</span>';
+  pillsHTML += '<span>' + (REGION_NAMES[spec.region] || spec.region) + '</span><span>' + spec.os.toUpperCase() + '</span>';
+  if (spec.database_type !== 'none') pillsHTML += '<span>DB: ' + spec.database_type + '</span>';
   document.getElementById('spec-pills').innerHTML = pillsHTML;
 
   const estimates = data.estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
@@ -697,11 +1058,11 @@ function renderResults(data) {
     const meta = PROVIDER_META[est.provider];
     const pct = maxPrice > 0 ? (est.total_monthly_on_demand / maxPrice * 100) : 0;
     const isCheapest = est.provider === data.cheapest_on_demand;
-    return `<div class="chart-row${isCheapest ? ' cheapest' : ''}">
-      <div class="chart-label"><span class="chart-provider" style="color:${meta.color}">${meta.name}</span><code>${est.matched_instance}</code></div>
-      <div class="chart-bar-track"><div class="chart-bar" style="width:${pct}%;background:${meta.color}"></div></div>
-      <div class="chart-price">$${est.total_monthly_on_demand.toFixed(2)}${isCheapest ? ' <span class="badge-cheapest">最低</span>' : ''}</div>
-    </div>`;
+    return '<div class="chart-row' + (isCheapest ? ' cheapest' : '') + '">' +
+      '<div class="chart-label"><span class="chart-provider" style="color:' + meta.color + '">' + meta.name + '</span><code>' + est.matched_instance + '</code></div>' +
+      '<div class="chart-bar-track"><div class="chart-bar" style="width:' + pct + '%;background:' + meta.color + '"></div></div>' +
+      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + '</div>' +
+    '</div>';
   }).join('');
 
   // Provider cards
@@ -712,56 +1073,132 @@ function renderResults(data) {
     const d = est.on_demand.details;
     const savePct = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100).toFixed(0);
     const warns = est.warnings.length > 0
-      ? `<div class="card-warnings">${est.warnings.map(w => `<span>&#9888; ${w}</span>`).join('')}</div>` : '';
-    return `<div class="provider-card${isCheapest ? ' card-cheapest' : ''}" style="border-top:3px solid ${meta.color}">
-      <div class="card-header">
-        <span class="card-provider" style="color:${meta.color}">${meta.name}</span>
-        ${isCheapest ? '<span class="badge-cheapest">On-Demand 最低</span>' : ''}
-        ${isCheapestRes ? '<span class="badge-reserved">Reserved 最低</span>' : ''}
-      </div>
-      <div class="card-instance"><code>${est.matched_instance}</code></div>
-      <div class="card-region">${est.region_name}</div>
-      <div class="card-prices">
-        <div class="card-price-block">
-          <span class="price-label">On-Demand</span>
-          <span class="price-value">$${est.total_monthly_on_demand.toFixed(2)}<span class="price-period">/月</span></span>
-          <span class="price-hourly">$${est.on_demand.hourly_cost.toFixed(4)}/hr</span>
-        </div>
-        <div class="card-price-block reserved">
-          <span class="price-label">Reserved 1Y <span class="saving">-${savePct}%</span></span>
-          <span class="price-value">$${est.total_monthly_reserved_1y.toFixed(2)}<span class="price-period">/月</span></span>
-        </div>
-      </div>
-      <div class="card-breakdown">
-        <div class="breakdown-title">費用明細</div>
-        <div class="breakdown-row"><span>Compute</span><span>$${d.compute.toFixed(2)}</span></div>
-        ${d.storage > 0 ? `<div class="breakdown-row"><span>Storage</span><span>$${d.storage.toFixed(2)}</span></div>` : ''}
-        ${d.network > 0 ? `<div class="breakdown-row"><span>Network</span><span>$${d.network.toFixed(2)}</span></div>` : ''}
-      </div>
-      ${warns}
-    </div>`;
+      ? '<div class="card-warnings">' + est.warnings.map(w => '<span>&#9888; ' + w + '</span>').join('') + '</div>' : '';
+    return '<div class="provider-card' + (isCheapest ? ' card-cheapest' : '') + '" style="border-top:3px solid ' + meta.color + '">' +
+      '<div class="card-header">' +
+        '<span class="card-provider" style="color:' + meta.color + '">' + meta.name + '</span>' +
+        (isCheapest ? '<span class="badge-cheapest">On-Demand \u6700\u4F4E</span>' : '') +
+        (isCheapestRes ? '<span class="badge-reserved">Reserved \u6700\u4F4E</span>' : '') +
+      '</div>' +
+      '<div class="card-instance"><code>' + est.matched_instance + '</code></div>' +
+      '<div class="card-region">' + est.region_name + '</div>' +
+      '<div class="card-prices">' +
+        '<div class="card-price-block"><span class="price-label">On-Demand</span>' +
+          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span>' +
+          '<span class="price-hourly">$' + est.on_demand.hourly_cost.toFixed(4) + '/hr</span></div>' +
+        '<div class="card-price-block reserved"><span class="price-label">Reserved 1Y <span class="saving">-' + savePct + '%</span></span>' +
+          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' +
+      '</div>' +
+      '<div class="card-breakdown"><div class="breakdown-title">\u8CBB\u7528\u660E\u7D30</div>' +
+        '<div class="breakdown-row"><span>Compute</span><span>$' + d.compute.toFixed(2) + '</span></div>' +
+        (d.storage > 0 ? '<div class="breakdown-row"><span>Storage</span><span>$' + d.storage.toFixed(2) + '</span></div>' : '') +
+        (d.network > 0 ? '<div class="breakdown-row"><span>Network</span><span>$' + d.network.toFixed(2) + '</span></div>' : '') +
+      '</div>' +
+      warns +
+    '</div>';
   }).join('');
 
   container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Share buttons
+// ════════════════════════════════════════════════════════════════
+// RENDER GROUP RESULTS
+// ════════════════════════════════════════════════════════════════
+
+function renderGroupResults(data) {
+  const container = document.getElementById('results-container');
+  container.style.display = '';
+  const group = data.group;
+  const totalQty = group.machines.reduce((s, m) => s + m.quantity, 0);
+
+  // Spec pills
+  let pillsHTML = '<span>' + group.name + '</span><span>' + totalQty + ' \u53F0\u6A5F\u5668</span><span>' + group.machines.length + ' \u7A2E\u898F\u683C</span>';
+  pillsHTML += '<span>' + (REGION_NAMES[group.region] || group.region) + '</span><span>' + group.os.toUpperCase() + '</span>';
+  group.machines.forEach(m => {
+    pillsHTML += '<span>' + (m.name || m.id) + ': ' + m.cpu + 'C/' + m.ram + 'G x' + m.quantity + ' (' + (ROLE_LABELS[m.role] || m.role) + ')</span>';
+  });
+  document.getElementById('spec-pills').innerHTML = pillsHTML;
+
+  const estimates = data.estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
+  const maxPrice = Math.max(...estimates.map(e => e.total_monthly_on_demand));
+
+  // Bar chart
+  document.getElementById('price-chart').innerHTML = estimates.map(est => {
+    const meta = PROVIDER_META[est.provider];
+    const pct = maxPrice > 0 ? (est.total_monthly_on_demand / maxPrice * 100) : 0;
+    const isCheapest = est.provider === data.cheapest_on_demand;
+    return '<div class="chart-row' + (isCheapest ? ' cheapest' : '') + '">' +
+      '<div class="chart-label"><span class="chart-provider" style="color:' + meta.color + '">' + meta.name + '</span><code>' + est.total_machines + ' \u53F0</code></div>' +
+      '<div class="chart-bar-track"><div class="chart-bar" style="width:' + pct + '%;background:' + meta.color + '"></div></div>' +
+      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + '</div>' +
+    '</div>';
+  }).join('');
+
+  // Provider cards with machine breakdown
+  document.getElementById('provider-cards').innerHTML = estimates.map(est => {
+    const meta = PROVIDER_META[est.provider];
+    const isCheapest = est.provider === data.cheapest_on_demand;
+    const isCheapestRes = est.provider === data.cheapest_reserved;
+    let savePct = '';
+    if (est.total_monthly_reserved_1y != null && est.total_monthly_on_demand > 0) {
+      savePct = ((1 - est.total_monthly_reserved_1y / est.total_monthly_on_demand) * 100).toFixed(0);
+    }
+
+    // Machine breakdown
+    const machinesHTML = est.machines.map(md => {
+      const m = md.machine;
+      const roleLabel = ROLE_LABELS[m.role] || m.role;
+      return '<div class="breakdown-row machine-detail-row">' +
+        '<span><span class="role-badge role-' + m.role + '">' + roleLabel + '</span> ' +
+          (m.name || m.id) + ' <code>' + md.matched_instance + '</code></span>' +
+        '<span>$' + md.unit_monthly_on_demand.toFixed(2) + ' x ' + m.quantity + ' = $' + md.subtotal_on_demand.toFixed(2) + '</span>' +
+      '</div>';
+    }).join('');
+
+    const warnsHTML = est.warnings.length > 0
+      ? '<div class="card-warnings">' + est.warnings.map(w => '<span>&#9888; ' + w + '</span>').join('') + '</div>' : '';
+
+    return '<div class="provider-card group-card' + (isCheapest ? ' card-cheapest' : '') + '" style="border-top:3px solid ' + meta.color + '">' +
+      '<div class="card-header">' +
+        '<span class="card-provider" style="color:' + meta.color + '">' + meta.name + '</span>' +
+        (isCheapest ? '<span class="badge-cheapest">On-Demand \u6700\u4F4E</span>' : '') +
+        (isCheapestRes ? '<span class="badge-reserved">Reserved \u6700\u4F4E</span>' : '') +
+      '</div>' +
+      '<div class="card-region">' + est.region_name + ' \u2014 ' + est.total_machines + ' \u53F0\u6A5F\u5668</div>' +
+      '<div class="card-prices">' +
+        '<div class="card-price-block"><span class="price-label">ON-DEMAND \u7E3D\u8A08</span>' +
+          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' +
+        (est.total_monthly_reserved_1y != null ? '<div class="card-price-block reserved"><span class="price-label">Reserved 1Y \u7E3D\u8A08 <span class="saving">-' + savePct + '%</span></span>' +
+          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' : '') +
+      '</div>' +
+      '<div class="card-breakdown"><div class="breakdown-title">\u6BCF\u53F0\u660E\u7D30</div>' + machinesHTML + '</div>' +
+      warnsHTML +
+    '</div>';
+  }).join('');
+
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ════════════════════════════════════════════════════════════════
+// SHARE BUTTONS
+// ════════════════════════════════════════════════════════════════
+
 function doShare() {
-  if (!lastSpec) { showToast('請先執行比較'); return; }
+  if (!lastSpec) { showToast('\u8ACB\u5148\u57F7\u884C\u6BD4\u8F03'); return; }
   const url = generateShareURL(lastSpec);
   const bar = document.getElementById('share-bar');
   const inp = document.getElementById('share-url');
   bar.style.display = 'flex';
   inp.value = url;
   inp.select();
-  navigator.clipboard.writeText(url).then(() => showToast('已複製分享連結!')).catch(() => {});
+  navigator.clipboard.writeText(url).then(() => showToast('\u5DF2\u8907\u88FD\u5206\u4EAB\u9023\u7D50!')).catch(() => {});
 }
 document.getElementById('btn-share').addEventListener('click', doShare);
 document.getElementById('btn-share-results').addEventListener('click', doShare);
 document.getElementById('btn-copy-url').addEventListener('click', () => {
   const inp = document.getElementById('share-url');
   inp.select();
-  navigator.clipboard.writeText(inp.value).then(() => showToast('已複製分享連結!'));
+  navigator.clipboard.writeText(inp.value).then(() => showToast('\u5DF2\u8907\u88FD\u5206\u4EAB\u9023\u7D50!'));
 });
 
 // On page load: restore from URL params or use defaults
