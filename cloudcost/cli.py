@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
-from cloudcost.models.spec import CloudSpec, DatabaseType, Region, StorageType
 from cloudcost.recommender import generate_recommendation
 
 
@@ -56,14 +56,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 async def run(args: argparse.Namespace) -> None:
-    spec = CloudSpec(
+    spec = build_cloud_spec(
         cpu_cores=args.cpu,
         ram_gb=args.ram,
         storage_gb=args.storage,
-        storage_type=StorageType(args.storage_type),
+        storage_type=args.storage_type,
         network_transfer_gb=args.network,
-        database_type=DatabaseType(args.db),
-        region=Region(args.region),
+        database_type=args.db,
+        region=args.region,
         monthly_hours=args.hours,
         os=args.os,
         description=args.description,

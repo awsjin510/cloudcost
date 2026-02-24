@@ -16,9 +16,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
 from cloudcost.models.spec import (
-    CloudSpec,
     ComparisonResult,
     DatabaseType,
     Region,
@@ -71,14 +71,14 @@ class CompareRequest(BaseModel):
 @app.post("/api/compare", response_model=ComparisonResult)
 async def api_compare(req: CompareRequest) -> ComparisonResult:
     """JSON API: compare cloud costs."""
-    spec = CloudSpec(
+    spec = build_cloud_spec(
         cpu_cores=req.cpu_cores,
         ram_gb=req.ram_gb,
         storage_gb=req.storage_gb,
-        storage_type=StorageType(req.storage_type),
+        storage_type=req.storage_type,
         network_transfer_gb=req.network_transfer_gb,
-        database_type=DatabaseType(req.database_type),
-        region=Region(req.region),
+        database_type=req.database_type,
+        region=req.region,
         monthly_hours=req.monthly_hours,
         os=req.os,
         description=req.description,
@@ -125,14 +125,14 @@ async def compare_form(
     include_ai: bool = Form(False),
 ):
     """Handle form submission and show results."""
-    spec = CloudSpec(
+    spec = build_cloud_spec(
         cpu_cores=cpu_cores,
         ram_gb=ram_gb,
         storage_gb=storage_gb,
-        storage_type=StorageType(storage_type),
+        storage_type=storage_type,
         network_transfer_gb=network_transfer_gb,
-        database_type=DatabaseType(database_type),
-        region=Region(region),
+        database_type=database_type,
+        region=region,
         monthly_hours=monthly_hours,
         os=os_type,
         description=description,
