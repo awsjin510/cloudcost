@@ -31,6 +31,8 @@ from cloudcost.models.spec import (
     ProviderEstimate,
 )
 
+from cloudcost.utils.pricing import calc_tiered_cost
+
 from .base import BaseCalculator
 
 logger = logging.getLogger(__name__)
@@ -144,7 +146,7 @@ class AWSCalculator(BaseCalculator):
         storage_monthly = spec.storage_gb * _EBS_PRICE_PER_GB_MONTH.get(ebs_type, 0.08)
 
         # --- Network pricing ---
-        network_monthly = self._calc_data_transfer(spec.network_transfer_gb)
+        network_monthly = calc_tiered_cost(spec.network_transfer_gb, _DATA_TRANSFER_TIERS)
 
         # --- Totals ---
         total_od = compute_od + storage_monthly + network_monthly
@@ -242,15 +244,3 @@ class AWSCalculator(BaseCalculator):
             )
             return None
 
-    @staticmethod
-    def _calc_data_transfer(gb: float) -> float:
-        """Calculate AWS data-transfer-out cost using tiered pricing."""
-        remaining = gb
-        total = 0.0
-        for tier_gb, rate in _DATA_TRANSFER_TIERS:
-            chunk = min(remaining, tier_gb)
-            total += chunk * rate
-            remaining -= chunk
-            if remaining <= 0:
-                break
-        return round(total, 2)

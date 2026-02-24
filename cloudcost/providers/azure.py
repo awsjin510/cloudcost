@@ -28,6 +28,8 @@ from cloudcost.models.spec import (
     ProviderEstimate,
 )
 
+from cloudcost.utils.pricing import calc_tiered_cost
+
 from .base import BaseCalculator
 
 logger = logging.getLogger(__name__)
@@ -145,7 +147,7 @@ class AzureCalculator(BaseCalculator):
         storage_monthly = spec.storage_gb * _DISK_PRICES.get(disk_type, 0.132)
 
         # --- Network pricing ---
-        network_monthly = self._calc_bandwidth(spec.network_transfer_gb)
+        network_monthly = calc_tiered_cost(spec.network_transfer_gb, _BANDWIDTH_TIERS)
 
         # --- Totals ---
         total_od = compute_od + storage_monthly + network_monthly
@@ -301,14 +303,3 @@ class AzureCalculator(BaseCalculator):
                         return float(price) / 730
         return None
 
-    @staticmethod
-    def _calc_bandwidth(gb: float) -> float:
-        remaining = gb
-        total = 0.0
-        for tier_gb, rate in _BANDWIDTH_TIERS:
-            chunk = min(remaining, tier_gb)
-            total += chunk * rate
-            remaining -= chunk
-            if remaining <= 0:
-                break
-        return round(total, 2)

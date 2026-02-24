@@ -12,10 +12,13 @@ from cloudcost.models.spec import (
     CloudProvider,
     CloudSpec,
     DatabaseType,
+    MachineItem,
+    MachineRole,
     PricingResult,
     PricingTier,
     Region,
     StorageType,
+    WorkloadGroup,
 )
 
 
@@ -98,6 +101,43 @@ class TestInstanceMatching:
         spec = CloudSpec(cpu_cores=512, ram_gb=12288)
         with pytest.raises(ValueError, match="No aws instance found"):
             match_instance(spec, CloudProvider.AWS)
+
+
+class TestMachineItem:
+    def test_defaults(self):
+        m = MachineItem(id="m1", cpu=2, ram=8)
+        assert m.quantity == 1
+        assert m.role == MachineRole.WEB
+        assert m.storage == 0
+
+    def test_all_roles(self):
+        for role in MachineRole:
+            m = MachineItem(id="m1", cpu=1, ram=1, role=role)
+            assert m.role == role
+
+    def test_validation_cpu_min(self):
+        with pytest.raises(Exception):
+            MachineItem(id="m1", cpu=0, ram=1)
+
+    def test_validation_quantity_min(self):
+        with pytest.raises(Exception):
+            MachineItem(id="m1", cpu=1, ram=1, quantity=0)
+
+
+class TestWorkloadGroup:
+    def test_creation(self):
+        machines = [
+            MachineItem(id="web", name="Web Server", cpu=2, ram=4, quantity=3, role=MachineRole.WEB),
+            MachineItem(id="db", name="DB Server", cpu=4, ram=32, quantity=1, role=MachineRole.DB),
+        ]
+        group = WorkloadGroup(name="Prod", machines=machines, region="us-east-1")
+        assert len(group.machines) == 2
+        assert group.name == "Prod"
+        assert sum(m.quantity for m in group.machines) == 4
+
+    def test_empty_machines_rejected(self):
+        with pytest.raises(Exception):
+            WorkloadGroup(name="Empty", machines=[])
 
 
 class TestPricingResult:

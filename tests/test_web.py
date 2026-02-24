@@ -65,6 +65,52 @@ class TestAPI:
         assert data["cheapest_on_demand"] is not None
 
     @pytest.mark.asyncio
+    async def test_api_compare_group(self, client):
+        resp = await client.post(
+            "/api/compare-group",
+            json={
+                "name": "Test Workload",
+                "machines": [
+                    {"id": "web1", "name": "Web", "cpu": 2, "ram": 4, "storage": 50, "quantity": 2, "role": "web"},
+                    {"id": "db1", "name": "DB", "cpu": 4, "ram": 16, "storage": 200, "quantity": 1, "role": "db"},
+                ],
+                "region": "us-east-1",
+                "include_ai": False,
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["estimates"]) == 4
+        assert data["cheapest_on_demand"] is not None
+        # Each provider should have 2 machine entries
+        for est in data["estimates"]:
+            assert len(est["machines"]) == 2
+            assert est["total_machines"] == 3  # 2 + 1
+            assert est["total_monthly_on_demand"] > 0
+            # Verify subtotals: web has quantity=2 so subtotal = unit * 2
+            web_machine = next(m for m in est["machines"] if m["machine"]["id"] == "web1")
+            assert abs(web_machine["subtotal_on_demand"] - web_machine["unit_monthly_on_demand"] * 2) < 0.01
+
+    @pytest.mark.asyncio
+    async def test_api_compare_group_single_machine(self, client):
+        resp = await client.post(
+            "/api/compare-group",
+            json={
+                "machines": [
+                    {"id": "m1", "cpu": 4, "ram": 16, "quantity": 1, "role": "api"},
+                ],
+                "region": "us-east-1",
+                "include_ai": False,
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        providers = {e["provider"] for e in data["estimates"]}
+        assert providers == {"aws", "gcp", "azure", "oracle"}
+        for est in data["estimates"]:
+            assert est["total_machines"] == 1
+
+    @pytest.mark.asyncio
     async def test_api_compare_tokyo(self, client):
         resp = await client.post(
             "/api/compare",

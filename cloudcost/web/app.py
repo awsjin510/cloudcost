@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -15,22 +16,41 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
 from cloudcost.models.spec import (
-    CloudSpec,
     ComparisonResult,
     DatabaseType,
+    GroupComparisonResult,
+    MachineItem,
+    MachineRole,
     Region,
     StorageType,
+    WorkloadGroup,
 )
 from cloudcost.recommender import generate_recommendation
 
 BASE_DIR = Path(__file__).parent
-app = FastAPI(title="CloudCost", description="Multi-cloud cost comparison engine")
+
+# Module-level comparator — initialized at import time so it is available
+# during tests (which may not trigger ASGI lifespan events).
+comparator = CloudCostComparator()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage the shared HTTP client lifecycle for the web server."""
+    yield
+    await comparator.aclose()
+
+
+app = FastAPI(
+    title="CloudCost",
+    description="Multi-cloud cost comparison engine",
+    lifespan=lifespan,
+)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-
-comparator = CloudCostComparator()
 
 
 # ---------------------------------------------------------------------------
@@ -52,17 +72,66 @@ class CompareRequest(BaseModel):
     include_ai: bool = True
 
 
+class GroupMachineRequest(BaseModel):
+    id: str
+    name: str = ""
+    cpu: int
+    ram: float
+    storage: float = 0
+    quantity: int = 1
+    role: str = "web"
+
+
+class GroupCompareRequest(BaseModel):
+    name: str = "My Workload"
+    machines: list[GroupMachineRequest]
+    region: str = "us-east-1"
+    storage_type: str = "ssd"
+    os: str = "linux"
+    monthly_hours: float = 730
+    include_ai: bool = False
+
+
+@app.post("/api/compare-group", response_model=GroupComparisonResult)
+async def api_compare_group(req: GroupCompareRequest) -> GroupComparisonResult:
+    """JSON API: compare cloud costs for a workload group."""
+    machines = [
+        MachineItem(
+            id=m.id,
+            name=m.name,
+            cpu=m.cpu,
+            ram=m.ram,
+            storage=m.storage,
+            quantity=m.quantity,
+            role=MachineRole(m.role),
+        )
+        for m in req.machines
+    ]
+    group = WorkloadGroup(
+        name=req.name,
+        machines=machines,
+        region=req.region,
+        storage_type=req.storage_type,
+        os=req.os,
+        monthly_hours=req.monthly_hours,
+    )
+    result = await comparator.compare_group(group)
+    if req.include_ai:
+        result.recommendation = await generate_recommendation(result)
+    return result
+
+
 @app.post("/api/compare", response_model=ComparisonResult)
 async def api_compare(req: CompareRequest) -> ComparisonResult:
     """JSON API: compare cloud costs."""
-    spec = CloudSpec(
+    spec = build_cloud_spec(
         cpu_cores=req.cpu_cores,
         ram_gb=req.ram_gb,
         storage_gb=req.storage_gb,
-        storage_type=StorageType(req.storage_type),
+        storage_type=req.storage_type,
         network_transfer_gb=req.network_transfer_gb,
-        database_type=DatabaseType(req.database_type),
-        region=Region(req.region),
+        database_type=req.database_type,
+        region=req.region,
         monthly_hours=req.monthly_hours,
         os=req.os,
         description=req.description,
@@ -88,6 +157,7 @@ async def index(request: Request):
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "machine_roles": [r.value for r in MachineRole],
             "result": None,
         },
     )
@@ -109,14 +179,14 @@ async def compare_form(
     include_ai: bool = Form(False),
 ):
     """Handle form submission and show results."""
-    spec = CloudSpec(
+    spec = build_cloud_spec(
         cpu_cores=cpu_cores,
         ram_gb=ram_gb,
         storage_gb=storage_gb,
-        storage_type=StorageType(storage_type),
+        storage_type=storage_type,
         network_transfer_gb=network_transfer_gb,
-        database_type=DatabaseType(database_type),
-        region=Region(region),
+        database_type=database_type,
+        region=region,
         monthly_hours=monthly_hours,
         os=os_type,
         description=description,
@@ -132,6 +202,7 @@ async def compare_form(
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "machine_roles": [r.value for r in MachineRole],
             "result": result,
             # Preserve form values
             "form": {
