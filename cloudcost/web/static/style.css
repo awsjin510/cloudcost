@@ -1,27 +1,27 @@
 /* CloudCost — Professional Cloud Calculator UI */
 
 :root {
-  --bg: #f0f2f5;
-  --surface: #ffffff;
-  --text: #1a1a2e;
-  --text-secondary: #4a5568;
-  --text-muted: #8898aa;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #dbeafe;
-  --border: #e2e8f0;
-  --border-light: #f1f5f9;
-  --success: #059669;
-  --success-bg: #ecfdf5;
-  --warning: #d97706;
-  --warning-bg: #fffbeb;
-  --reserved: #7c3aed;
-  --reserved-bg: #f5f3ff;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --text: #e8e0d0;
+  --text-secondary: #b0a890;
+  --text-muted: #706850;
+  --primary: #d4a843;
+  --primary-hover: #e0b84d;
+  --primary-light: rgba(212,168,67,0.12);
+  --border: #2a2520;
+  --border-light: #1a1814;
+  --success: #50c878;
+  --success-bg: rgba(80,200,120,0.10);
+  --warning: #e8a020;
+  --warning-bg: rgba(232,160,32,0.10);
+  --reserved: #b888e0;
+  --reserved-bg: rgba(184,136,224,0.10);
   --radius: 12px;
   --radius-sm: 8px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.08);
+  --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,7 +36,8 @@ body {
 
 /* ─── Header ─── */
 header {
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  background: linear-gradient(135deg, #0f0d08 0%, #1a1508 50%, #0f0d08 100%);
+  border-bottom: 1px solid rgba(212,168,67,0.25);
   color: white;
   padding: 2.5rem 1rem 2rem;
   text-align: center;
@@ -48,13 +49,13 @@ header {
   font-size: 2.2rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+  background: linear-gradient(135deg, #f0d070 0%, #d4a843 50%, #b8902a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 .subtitle {
-  color: #94a3b8;
+  color: #b0a890;
   margin-top: 0.5rem;
   font-size: 0.95rem;
   font-weight: 400;
@@ -113,7 +114,7 @@ section h2 .unit {
   font-family: inherit;
 }
 .preset-btn:hover { border-color: var(--primary); background: var(--primary-light); }
-.preset-btn.active { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 3px rgba(37,99,235,0.15); }
+.preset-btn.active { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 3px rgba(212,168,67,0.2); }
 .preset-icon { font-size: 1.5rem; }
 .preset-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
 .preset-detail { font-size: 0.72rem; color: var(--text-muted); }
@@ -169,7 +170,7 @@ textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+  box-shadow: 0 0 0 3px rgba(212,168,67,0.15);
 }
 textarea { width: 100%; resize: vertical; }
 input[type="checkbox"] {
@@ -187,20 +188,20 @@ input[type="checkbox"] {
   max-width: 320px;
   margin: 1.5rem auto 0;
   padding: 0.85rem 2rem;
-  background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%);
-  color: white;
+  background: linear-gradient(135deg, #d4a843 0%, #b8902a 100%);
+  color: #0a0a0a;
   border: none;
   border-radius: 10px;
   font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 14px rgba(37,99,235,0.3);
+  box-shadow: 0 4px 14px rgba(212,168,67,0.3);
   font-family: inherit;
 }
 .btn-compare:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 100%);
-  box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+  background: linear-gradient(135deg, #e0b84d 0%, #d4a843 100%);
+  box-shadow: 0 6px 20px rgba(212,168,67,0.4);
   transform: translateY(-1px);
 }
 .btn-compare:disabled {
@@ -336,7 +337,7 @@ input[type="checkbox"] {
 }
 .provider-card.card-cheapest {
   background: var(--success-bg);
-  border-color: #a7f3d0;
+  border-color: rgba(80,200,120,0.3);
 }
 
 .card-header {
@@ -553,7 +554,7 @@ input[type="checkbox"] {
   align-items: center;
   transition: background 0.15s;
 }
-.machine-row:hover { background: #fafbfc; }
+.machine-row:hover { background: rgba(212,168,67,0.05); }
 
 .ml-input {
   width: 100%;
@@ -569,7 +570,7 @@ input[type="checkbox"] {
 .ml-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+  box-shadow: 0 0 0 2px rgba(212,168,67,0.12);
 }
 
 .ml-btn {
@@ -586,7 +587,7 @@ input[type="checkbox"] {
   transition: all 0.15s;
 }
 .ml-btn:hover { background: var(--border-light); }
-.ml-btn-delete:hover { background: #fef2f2; border-color: #fca5a5; }
+.ml-btn-delete:hover { background: rgba(220,80,80,0.1); border-color: rgba(220,80,80,0.4); }
 .ml-col-actions { display: flex; gap: 0.3rem; }
 
 .machine-summary {
@@ -613,11 +614,11 @@ input[type="checkbox"] {
   margin-right: 0.3rem;
   vertical-align: middle;
 }
-.role-web    { background: #dbeafe; color: #1e40af; }
-.role-api    { background: #dcfce7; color: #166534; }
-.role-db     { background: #fef3c7; color: #92400e; }
-.role-cache  { background: #ede9fe; color: #5b21b6; }
-.role-worker { background: #fee2e2; color: #991b1b; }
+.role-web    { background: rgba(59,130,246,0.15); color: #6aa3f8; }
+.role-api    { background: rgba(80,200,120,0.15); color: #50c878; }
+.role-db     { background: rgba(212,168,67,0.15); color: #d4a843; }
+.role-cache  { background: rgba(184,136,224,0.15); color: #b888e0; }
+.role-worker { background: rgba(220,80,80,0.15); color: #e06060; }
 
 /* ─── Group Card Styles ─── */
 .group-card .card-breakdown {
