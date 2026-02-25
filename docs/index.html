@@ -1101,7 +1101,8 @@ function renderResults(data) {
       '<div class="card-breakdown"><div class="breakdown-title">\u8CBB\u7528\u660E\u7D30</div>' +
         '<div class="breakdown-row"><span>Compute</span><span>$' + d.compute.toFixed(2) + '</span></div>' +
         (d.storage > 0 ? '<div class="breakdown-row"><span>Storage</span><span>$' + d.storage.toFixed(2) + '</span></div>' : '') +
-        (d.network > 0 ? '<div class="breakdown-row"><span>Network</span><span>$' + d.network.toFixed(2) + '</span></div>' : '') +
+        (d.network > 0 ? '<div class="breakdown-row"><span>Network</span><span>$' + d.network.toFixed(2) + '</span></div>' :
+          est.provider === 'oracle' ? '<div class="breakdown-row"><span>Network</span><span style="color:var(--success)">$0.00 (首 10 TB 免費)</span></div>' : '') +
       '</div>' +
       warns +
     '</div>';
