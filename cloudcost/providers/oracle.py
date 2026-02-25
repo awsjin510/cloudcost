@@ -48,22 +48,17 @@ _OCI_INSTANCE_TO_PART: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Fallback pricing (USD/hour) when API is unreachable
+# Fallback OCPU rates (USD per OCPU per hour) when API is unreachable.
+# OCI Flex shapes charge OCPU and memory separately.
 # ---------------------------------------------------------------------------
-_FALLBACK_PRICES: dict[str, float] = {
-    "VM.Standard.E4.Flex-1": 0.01,
-    "VM.Standard.E4.Flex-2": 0.02,
-    "VM.Standard.E4.Flex-4": 0.04,
-    "VM.Standard.E4.Flex-8": 0.08,
-    "VM.Standard.E4.Flex-16": 0.16,
-    "VM.Standard3.Flex-2": 0.032,
-    "VM.Standard3.Flex-4": 0.064,
-    "VM.Standard3.Flex-8": 0.128,
-    "VM.Standard3.Flex-16": 0.256,
-    "VM.Optimized3.Flex-2": 0.036,
-    "VM.Optimized3.Flex-4": 0.072,
-    "VM.Optimized3.Flex-8": 0.144,
+_FALLBACK_OCPU_RATES: dict[str, float] = {
+    "VM.Standard.E4.Flex": 0.025,      # E4 (AMD EPYC)
+    "VM.Standard3.Flex": 0.04,         # Standard3 (Intel Xeon)
+    "VM.Optimized3.Flex": 0.054,       # Optimized3 (Intel Xeon HPC)
 }
+
+# Memory is priced the same across all OCI Flex shapes
+_MEMORY_RATE_PER_GB_HOUR = 0.0015  # USD per GB per hour
 
 # OCI doesn't have traditional reserved instances in the same way;
 # they offer Annual Flex pricing at roughly 50% discount.
@@ -98,29 +93,37 @@ class OracleCalculator(BaseCalculator):
         oci_region = get_provider_region(spec.region, CloudProvider.ORACLE)
         instance = match_instance(spec, CloudProvider.ORACLE)
         instance_type = instance["type"]
+        instance_ram = instance["ram"]
 
         warnings: list[str] = []
 
-        # --- Compute pricing (try API first, then fallback) ---
+        # OCI Flex shapes charge OCPU and memory separately.
+        # Memory cost is always computed from the matched instance's RAM.
+        memory_hourly = instance_ram * _MEMORY_RATE_PER_GB_HOUR
+
+        base_family, ocpu_count = self._parse_instance_type(instance_type)
+
+        # --- OCPU pricing (try API first, then fallback) ---
         api_prices = await self._fetch_compute_price(instance_type)
 
         if api_prices:
-            hourly_od = api_prices["on_demand"]
-            hourly_annual = api_prices.get(
-                "annual_flex", hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
+            # API returns per-OCPU price × OCPU count (OCPU cost only)
+            ocpu_hourly_od = api_prices["on_demand"]
+            ocpu_hourly_annual = api_prices.get(
+                "annual_flex", ocpu_hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
             )
         else:
-            # Fallback to embedded tables
-            base_hourly = _FALLBACK_PRICES.get(instance_type)
-            if base_hourly is None:
-                base_hourly = 0.03
-                warnings.append(f"No pricing data for {instance_type}, using estimate")
-
-            hourly_od = base_hourly
-            hourly_annual = hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
+            # Fallback to embedded OCPU rates
+            ocpu_rate = _FALLBACK_OCPU_RATES.get(base_family, 0.025)
+            ocpu_hourly_od = ocpu_rate * ocpu_count
+            ocpu_hourly_annual = ocpu_hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
             warnings.append(
                 f"Used fallback pricing for {instance_type} — OCI API unreachable"
             )
+
+        # Total hourly = OCPU + memory
+        hourly_od = ocpu_hourly_od + memory_hourly
+        hourly_annual = ocpu_hourly_annual + memory_hourly
 
         monthly_hours = spec.monthly_hours
         compute_od = hourly_od * monthly_hours
