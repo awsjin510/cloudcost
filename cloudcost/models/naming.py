@@ -129,19 +129,21 @@ AZURE_INSTANCE_CATALOG: list[dict] = [
     {"type": "Standard_E16s_v5", "vcpu": 16, "ram": 128.0},
 ]
 
+# OCI: 1 OCPU = 2 vCPU (x86).  vcpu below = real vCPU count (2 × OCPU).
+# Default RAM: E4 & Std3 = 16 GB/OCPU, Optimized3 = 14 GB/OCPU.
 ORACLE_INSTANCE_CATALOG: list[dict] = [
-    {"type": "VM.Standard.E4.Flex-1", "vcpu": 1, "ram": 8.0},
-    {"type": "VM.Standard.E4.Flex-2", "vcpu": 2, "ram": 16.0},
-    {"type": "VM.Standard.E4.Flex-4", "vcpu": 4, "ram": 32.0},
-    {"type": "VM.Standard.E4.Flex-8", "vcpu": 8, "ram": 64.0},
-    {"type": "VM.Standard.E4.Flex-16", "vcpu": 16, "ram": 128.0},
-    {"type": "VM.Standard3.Flex-2", "vcpu": 2, "ram": 16.0},
-    {"type": "VM.Standard3.Flex-4", "vcpu": 4, "ram": 32.0},
-    {"type": "VM.Standard3.Flex-8", "vcpu": 8, "ram": 64.0},
-    {"type": "VM.Standard3.Flex-16", "vcpu": 16, "ram": 128.0},
-    {"type": "VM.Optimized3.Flex-2", "vcpu": 2, "ram": 16.0},
-    {"type": "VM.Optimized3.Flex-4", "vcpu": 4, "ram": 32.0},
-    {"type": "VM.Optimized3.Flex-8", "vcpu": 8, "ram": 64.0},
+    {"type": "VM.Standard.E4.Flex-1", "vcpu": 2, "ram": 16.0},
+    {"type": "VM.Standard.E4.Flex-2", "vcpu": 4, "ram": 32.0},
+    {"type": "VM.Standard.E4.Flex-4", "vcpu": 8, "ram": 64.0},
+    {"type": "VM.Standard.E4.Flex-8", "vcpu": 16, "ram": 128.0},
+    {"type": "VM.Standard.E4.Flex-16", "vcpu": 32, "ram": 256.0},
+    {"type": "VM.Standard3.Flex-2", "vcpu": 4, "ram": 32.0},
+    {"type": "VM.Standard3.Flex-4", "vcpu": 8, "ram": 64.0},
+    {"type": "VM.Standard3.Flex-8", "vcpu": 16, "ram": 128.0},
+    {"type": "VM.Standard3.Flex-16", "vcpu": 32, "ram": 256.0},
+    {"type": "VM.Optimized3.Flex-2", "vcpu": 4, "ram": 28.0},
+    {"type": "VM.Optimized3.Flex-4", "vcpu": 8, "ram": 56.0},
+    {"type": "VM.Optimized3.Flex-8", "vcpu": 16, "ram": 112.0},
 ]
 
 PROVIDER_CATALOGS: dict[CloudProvider, list[dict]] = {

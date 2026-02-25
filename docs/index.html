@@ -678,21 +678,24 @@ function azureNetworkCost(gb) {
   return cost;
 }
 
+// OCI: 1 OCPU = 2 vCPU (x86). Pricing = OCPU + Memory ($0.0015/GB/hr).
 const ORACLE_INSTANCES = [
-  { name: 'VM.Standard.E4.Flex-1', vcpu: 1, ram: 16 }, { name: 'VM.Standard.E4.Flex-2', vcpu: 2, ram: 32 },
-  { name: 'VM.Standard.E4.Flex-4', vcpu: 4, ram: 64 }, { name: 'VM.Standard.E4.Flex-8', vcpu: 8, ram: 128 },
-  { name: 'VM.Standard.E4.Flex-16', vcpu: 16, ram: 256 },
-  { name: 'VM.Standard3.Flex-2', vcpu: 2, ram: 32 }, { name: 'VM.Standard3.Flex-4', vcpu: 4, ram: 56 },
-  { name: 'VM.Standard3.Flex-8', vcpu: 8, ram: 112 }, { name: 'VM.Standard3.Flex-16', vcpu: 16, ram: 224 },
-  { name: 'VM.Optimized3.Flex-2', vcpu: 2, ram: 30 }, { name: 'VM.Optimized3.Flex-4', vcpu: 4, ram: 60 },
-  { name: 'VM.Optimized3.Flex-8', vcpu: 8, ram: 120 },
+  { name: 'VM.Standard.E4.Flex-1', vcpu: 2, ram: 16 }, { name: 'VM.Standard.E4.Flex-2', vcpu: 4, ram: 32 },
+  { name: 'VM.Standard.E4.Flex-4', vcpu: 8, ram: 64 }, { name: 'VM.Standard.E4.Flex-8', vcpu: 16, ram: 128 },
+  { name: 'VM.Standard.E4.Flex-16', vcpu: 32, ram: 256 },
+  { name: 'VM.Standard3.Flex-2', vcpu: 4, ram: 32 }, { name: 'VM.Standard3.Flex-4', vcpu: 8, ram: 64 },
+  { name: 'VM.Standard3.Flex-8', vcpu: 16, ram: 128 }, { name: 'VM.Standard3.Flex-16', vcpu: 32, ram: 256 },
+  { name: 'VM.Optimized3.Flex-2', vcpu: 4, ram: 28 }, { name: 'VM.Optimized3.Flex-4', vcpu: 8, ram: 56 },
+  { name: 'VM.Optimized3.Flex-8', vcpu: 16, ram: 112 },
 ];
+// Total hourly = OCPU_rate × OCPU_count + $0.0015 × RAM_GB
+// E4: $0.025/OCPU, Std3: $0.04/OCPU, Opt3: $0.054/OCPU
 const ORACLE_PRICES = {
-  'VM.Standard.E4.Flex-1':0.01,'VM.Standard.E4.Flex-2':0.02,
-  'VM.Standard.E4.Flex-4':0.04,'VM.Standard.E4.Flex-8':0.08,'VM.Standard.E4.Flex-16':0.16,
-  'VM.Standard3.Flex-2':0.032,'VM.Standard3.Flex-4':0.064,
-  'VM.Standard3.Flex-8':0.128,'VM.Standard3.Flex-16':0.256,
-  'VM.Optimized3.Flex-2':0.036,'VM.Optimized3.Flex-4':0.072,'VM.Optimized3.Flex-8':0.144,
+  'VM.Standard.E4.Flex-1':0.049,'VM.Standard.E4.Flex-2':0.098,
+  'VM.Standard.E4.Flex-4':0.196,'VM.Standard.E4.Flex-8':0.392,'VM.Standard.E4.Flex-16':0.784,
+  'VM.Standard3.Flex-2':0.128,'VM.Standard3.Flex-4':0.256,
+  'VM.Standard3.Flex-8':0.512,'VM.Standard3.Flex-16':1.024,
+  'VM.Optimized3.Flex-2':0.150,'VM.Optimized3.Flex-4':0.300,'VM.Optimized3.Flex-8':0.600,
 };
 const ORACLE_STORAGE = { ssd: 0.0255, hdd: 0.0255, nvme: 0.0340 };
 const ORACLE_RESERVED_DISCOUNT = 0.50;
