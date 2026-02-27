@@ -110,6 +110,13 @@ section h2 .unit { font-size: 0.8rem; font-weight: 400; color: var(--text-muted)
 .preset-icon { font-size: 1.5rem; }
 .preset-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
 .preset-detail { font-size: 0.72rem; color: var(--text-muted); }
+.form-group-full { grid-column: 1 / -1; }
+.ai-badge { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.15rem 0.55rem; border-radius: 20px; vertical-align: middle; }
+.ai-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+.ai-card { background: var(--border-light); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; }
+.ai-card-icon { font-size: 1.1rem; margin-bottom: 0.35rem; }
+.ai-card-title { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; }
+.ai-card-body { font-size: 0.82rem; color: var(--text); line-height: 1.65; white-space: pre-wrap; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 1rem; }
 .form-group { display: flex; flex-direction: column; }
 label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.3rem; letter-spacing: 0.01em; }
@@ -442,6 +449,10 @@ footer a:hover { text-decoration: underline; }
               <option value="oracle">Oracle</option>
             </select>
           </div>
+          <div class="form-group form-group-full">
+            <label for="description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
+            <input type="text" id="description" name="description" placeholder="例如：新創電商平台、台灣用戶為主的 Web 服務、CI/CD 建置環境…">
+          </div>
         </div>
         <button type="submit" class="btn-compare" id="btn-compare">開始比較</button>
       </form>
@@ -515,6 +526,11 @@ footer a:hover { text-decoration: underline; }
           總計：<strong>0</strong> 台機器
         </div>
 
+        <div class="form-group form-group-full" style="margin-top:1rem;">
+          <label for="group_description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
+          <input type="text" id="group_description" placeholder="例如：生產環境三層架構、新創 MVP 服務、高流量媒體平台…">
+        </div>
+
         <button type="submit" class="btn-compare">開始比較</button>
       </form>
     </section>
@@ -540,6 +556,10 @@ footer a:hover { text-decoration: underline; }
           <button id="btn-copy-url">複製連結</button>
         </div>
         <div id="provider-cards" class="provider-cards" style="margin-top:1rem;"></div>
+      </section>
+      <section id="ai-section" style="display:none;">
+        <h2>AI 費用分析建議 <span class="ai-badge">AI</span></h2>
+        <div class="ai-cards" id="ai-cards"></div>
       </section>
     </div>
   </main>
@@ -920,7 +940,9 @@ document.getElementById('compare-form').addEventListener('submit', (e) => {
     os: document.getElementById('os_type').value,
     database_type: document.getElementById('database_type').value,
   };
-  renderResults(compare(lastSpec));
+  const result = compare(lastSpec);
+  renderResults(result);
+  renderAISection(result, document.getElementById('description').value, false);
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1039,7 +1061,9 @@ document.getElementById('group-form').addEventListener('submit', (e) => {
     monthly_hours: parseFloat(document.getElementById('group_hours').value) || 730,
   };
 
-  renderGroupResults(compareGroup(group));
+  const groupResult = compareGroup(group);
+  renderGroupResults(groupResult);
+  renderAISection(groupResult, document.getElementById('group_description').value, true);
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1190,6 +1214,87 @@ function renderGroupResults(data) {
 }
 
 // ════════════════════════════════════════════════════════════════
+// AI RECOMMENDATION ENGINE (local analysis)
+// ════════════════════════════════════════════════════════════════
+
+function generateLocalAI(data, description, isGroup) {
+  const estimates = data.estimates;
+  const sortedOD = estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
+  const sortedRes = estimates.slice().sort((a, b) => a.total_monthly_reserved_1y - b.total_monthly_reserved_1y);
+  const cheapestOD = sortedOD[0];
+  const priciest = sortedOD[sortedOD.length - 1];
+  const cheapestRes = sortedRes[0];
+  const names = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', oracle: 'Oracle Cloud' };
+
+  const savePct = ((1 - cheapestOD.total_monthly_on_demand / priciest.total_monthly_on_demand) * 100).toFixed(0);
+  const resSavePct = ((1 - cheapestOD.total_monthly_reserved_1y / cheapestOD.total_monthly_on_demand) * 100).toFixed(0);
+  const monthlyResSave = (cheapestOD.total_monthly_on_demand - cheapestOD.total_monthly_reserved_1y).toFixed(0);
+
+  // CP 值最高方案
+  let cpText = names[cheapestOD.provider] + ' 是目前 On-Demand 定價最低的方案，比最貴的 ' + names[priciest.provider] + ' 便宜約 ' + savePct + '%（每月差 $' + (priciest.total_monthly_on_demand - cheapestOD.total_monthly_on_demand).toFixed(0) + '）。';
+  if (cheapestOD.provider === 'oracle') cpText += '\nOracle Cloud 在此規格下具有明顯價格優勢，適合成本敏感型工作負載，但生態系與支援資源相對較少。';
+  else if (cheapestOD.provider === 'gcp') cpText += '\nGCP 在亞太區域定價具競爭力，並支援 Committed Use Discounts（CUD），按月承諾即可享折扣、不需鎖定 1 年。';
+  else if (cheapestOD.provider === 'aws') cpText += '\nAWS 擁有最豐富的服務生態，最低價方案結合其成熟的支援體系，整體 CP 值高。';
+  else if (cheapestOD.provider === 'azure') cpText += '\nAzure 若搭配現有 Microsoft 授權（Hybrid Benefit），實際費用可再降低 20–40%。';
+
+  // 降低成本策略
+  let costText = '選擇 ' + names[cheapestOD.provider] + ' 的 1 年 Reserved 方案，可比 On-Demand 節省約 ' + resSavePct + '%，每月省 $' + monthlyResSave + '，一年累積節省 $' + (parseInt(monthlyResSave) * 12) + '。';
+  if (parseInt(resSavePct) >= 50) costText += '\n折扣幅度相當可觀，若工作負載穩定，強烈建議鎖定 Reserved。';
+  costText += '\n\n其他節費策略：\n• 開發 / 測試環境排程關機，可再省 40–70%\n• Spot / Preemptible 適合批次處理或 CI/CD 任務\n• 善用各家免費額度（Oracle 永久免費層特別豐富）';
+
+  // 使用場景建議
+  const desc = (description || '').toLowerCase();
+  let scenarioText = '';
+  if (desc.includes('新創') || desc.includes('startup') || desc.includes('mvp')) {
+    scenarioText = '新創 / MVP 建議：\n先以 On-Demand 保持彈性，驗證產品後再轉 Reserved 鎖定成本。Oracle Cloud 或 GCP 可降低初期燒錢速度。建議搭配 Auto Scaling，避免閒置浪費。';
+  } else if (desc.includes('生產') || desc.includes('production') || desc.includes('prod')) {
+    scenarioText = '生產環境建議：\nReserved 1 年方案確保成本可控。建議多可用區部署（Multi-AZ）提升可靠性。Load Balancer + Auto Scaling 組合，需額外計算 LB 每小時費用。';
+  } else if (desc.includes('開發') || desc.includes('dev') || desc.includes('test') || desc.includes('測試')) {
+    scenarioText = '開發 / 測試環境建議：\n使用 On-Demand，工作時間外排程關機。可考慮 Spot Instance 大幅降低成本。不需跨區高可用，單區部署即可省去跨區流量費。';
+  } else if (desc.includes('台灣') || desc.includes('taiwan')) {
+    scenarioText = '台灣用戶為主：\n最近可用區域為東京（ap-northeast-1）。建議評估各家延遲：AWS / GCP / Azure 東京均有良好覆蓋。Oracle 在東京亦有節點且定價最低，可優先評估。';
+  } else if (desc) {
+    scenarioText = '根據您的描述，建議以最低 On-Demand 方案開始，觀察 1–2 個月的實際用量後，再決定是否購買 Reserved 方案以進一步降低成本。';
+  } else {
+    scenarioText = '若工作負載穩定（7×24 運行），Reserved 1 年方案最划算。\n若流量波動大，建議 On-Demand + Auto Scaling 組合。\n若為批次或不定期任務，Spot / Preemptible 可省 60–80%。';
+  }
+
+  // 隱藏費用警示
+  const hiddenItems = [];
+  if (!isGroup) {
+    const spec = data.spec;
+    if (!spec.network_transfer_gb || spec.network_transfer_gb === 0) hiddenItems.push('出站流量費用尚未計入，實際可能佔總費 10–30%');
+    if (spec.database_type === 'none') hiddenItems.push('托管資料庫（RDS / Cloud SQL）費用可達計算費的 1–2 倍');
+    if (spec.storage_gb > 0) hiddenItems.push('快照（Snapshot）備份依容量額外收費');
+  }
+  hiddenItems.push('Load Balancer 以小時計費，閒置仍收費（AWS ALB ~$0.008/hr）');
+  hiddenItems.push('NAT Gateway 依資料量計費，高流量環境費用顯著');
+  hiddenItems.push('跨可用區資料傳輸 ~$0.01/GB，頻繁跨區互通需注意');
+  hiddenItems.push('DNS 查詢、CloudWatch / Cloud Monitoring 等監控費用');
+  const hiddenText = hiddenItems.map(i => '• ' + i).join('\n');
+
+  return { cpText, costText, scenarioText, hiddenText };
+}
+
+function renderAISection(data, description, isGroup) {
+  const ai = generateLocalAI(data, description, isGroup);
+  const cards = [
+    { icon: '💰', title: 'CP 值最高方案', body: ai.cpText },
+    { icon: '📉', title: '降低成本策略', body: ai.costText },
+    { icon: '🎯', title: '使用場景建議', body: ai.scenarioText },
+    { icon: '⚠️', title: '隱藏費用警示', body: ai.hiddenText },
+  ];
+  document.getElementById('ai-cards').innerHTML = cards.map(c =>
+    '<div class="ai-card">' +
+      '<div class="ai-card-icon">' + c.icon + '</div>' +
+      '<div class="ai-card-title">' + c.title + '</div>' +
+      '<div class="ai-card-body">' + c.body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+    '</div>'
+  ).join('');
+  document.getElementById('ai-section').style.display = '';
+}
+
+// ════════════════════════════════════════════════════════════════
 // SHARE BUTTONS
 // ════════════════════════════════════════════════════════════════
 
@@ -1216,7 +1321,9 @@ const urlSpec = paramsToSpec();
 if (urlSpec) {
   fillForm(urlSpec);
   lastSpec = urlSpec;
-  renderResults(compare(urlSpec));
+  const urlResult = compare(urlSpec);
+  renderResults(urlResult);
+  renderAISection(urlResult, '', false);
 } else {
   document.getElementById('compare-form').dispatchEvent(new Event('submit'));
 }
