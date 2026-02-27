@@ -111,6 +111,12 @@ section h2 .unit { font-size: 0.8rem; font-weight: 400; color: var(--text-muted)
 .preset-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
 .preset-detail { font-size: 0.72rem; color: var(--text-muted); }
 .form-group-full { grid-column: 1 / -1; }
+.ai-toggle-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; }
+.toggle-switch { appearance: none; -webkit-appearance: none; width: 38px; height: 21px; background: var(--border); border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
+.toggle-switch:checked { background: #7c3aed; }
+.toggle-switch::after { content: ''; position: absolute; top: 2.5px; left: 2.5px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.toggle-switch:checked::after { transform: translateX(17px); }
+.toggle-text { font-size: 0.85rem; color: var(--text); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.4rem; }
 .ai-badge { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.15rem 0.55rem; border-radius: 20px; vertical-align: middle; }
 .ai-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
 .ai-card { background: var(--border-light); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; }
@@ -452,6 +458,10 @@ footer a:hover { text-decoration: underline; }
           <div class="form-group form-group-full">
             <label for="description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
             <input type="text" id="description" name="description" placeholder="例如：新創電商平台、台灣用戶為主的 Web 服務、CI/CD 建置環境…">
+            <div class="ai-toggle-row" style="margin-top:0.55rem;">
+              <input type="checkbox" class="toggle-switch" id="ai-toggle" checked>
+              <label class="toggle-text" for="ai-toggle">啟用 AI 費用分析建議 <span class="ai-badge">AI</span></label>
+            </div>
           </div>
         </div>
         <button type="submit" class="btn-compare" id="btn-compare">開始比較</button>
@@ -529,6 +539,10 @@ footer a:hover { text-decoration: underline; }
         <div class="form-group form-group-full" style="margin-top:1rem;">
           <label for="group_description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
           <input type="text" id="group_description" placeholder="例如：生產環境三層架構、新創 MVP 服務、高流量媒體平台…">
+          <div class="ai-toggle-row" style="margin-top:0.55rem;">
+            <input type="checkbox" class="toggle-switch" id="group-ai-toggle" checked>
+            <label class="toggle-text" for="group-ai-toggle">啟用 AI 費用分析建議 <span class="ai-badge">AI</span></label>
+          </div>
         </div>
 
         <button type="submit" class="btn-compare">開始比較</button>
@@ -942,7 +956,11 @@ document.getElementById('compare-form').addEventListener('submit', (e) => {
   };
   const result = compare(lastSpec);
   renderResults(result);
-  renderAISection(result, document.getElementById('description').value, false);
+  if (document.getElementById('ai-toggle').checked) {
+    renderAISection(result, document.getElementById('description').value, false);
+  } else {
+    document.getElementById('ai-section').style.display = 'none';
+  }
 });
 
 // ════════════════════════════════════════════════════════════════
@@ -1063,7 +1081,11 @@ document.getElementById('group-form').addEventListener('submit', (e) => {
 
   const groupResult = compareGroup(group);
   renderGroupResults(groupResult);
-  renderAISection(groupResult, document.getElementById('group_description').value, true);
+  if (document.getElementById('group-ai-toggle').checked) {
+    renderAISection(groupResult, document.getElementById('group_description').value, true);
+  } else {
+    document.getElementById('ai-section').style.display = 'none';
+  }
 });
 
 // ════════════════════════════════════════════════════════════════
