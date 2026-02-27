@@ -123,6 +123,7 @@ section h2 .unit { font-size: 0.8rem; font-weight: 400; color: var(--text-muted)
 .ai-card-icon { font-size: 1.1rem; margin-bottom: 0.35rem; }
 .ai-card-title { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; }
 .ai-card-body { font-size: 0.82rem; color: var(--text); line-height: 1.65; white-space: pre-wrap; }
+.card-pricing-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 1rem; }
 .form-group { display: flex; flex-direction: column; }
 label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.3rem; letter-spacing: 0.01em; }
@@ -1137,6 +1138,7 @@ function renderResults(data) {
       '</div>' +
       '<div class="card-instance"><code>' + est.matched_instance + '</code></div>' +
       '<div class="card-region">' + est.region_name + '</div>' +
+      (est.provider === 'oracle' ? '<div class="card-pricing-note">&#127760; 全球統一定價，無額外區域費用</div>' : '') +
       '<div class="card-prices">' +
         '<div class="card-price-block"><span class="price-label">On-Demand</span>' +
           '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span>' +
@@ -1221,6 +1223,7 @@ function renderGroupResults(data) {
         (isCheapestRes ? '<span class="badge-reserved">Reserved \u6700\u4F4E</span>' : '') +
       '</div>' +
       '<div class="card-region">' + est.region_name + ' \u2014 ' + est.total_machines + ' \u53F0\u6A5F\u5668</div>' +
+      (est.provider === 'oracle' ? '<div class="card-pricing-note">&#127760; 全球統一定價，無額外區域費用</div>' : '') +
       '<div class="card-prices">' +
         '<div class="card-price-block"><span class="price-label">ON-DEMAND \u7E3D\u8A08</span>' +
           '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' +
