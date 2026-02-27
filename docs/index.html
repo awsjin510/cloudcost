@@ -334,12 +334,52 @@ footer a:hover { text-decoration: underline; }
   }
   .ml-col-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
+
+/* ── Currency bar ── */
+.currency-bar {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px; padding: 0.35rem 0.65rem; font-size: 0.8rem;
+  color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 0.3rem;
+  white-space: nowrap;
+}
+.currency-bar input {
+  width: 48px; background: transparent; border: none; color: white; font-size: 0.82rem;
+  font-family: inherit; text-align: center; outline: none; font-weight: 700;
+}
+.currency-bar input::-webkit-inner-spin-button { opacity: 0.5; }
+
+/* ── TWD hint ── */
+.twd-hint {
+  font-size: 0.72rem; font-weight: 400; color: var(--text-muted); font-family: inherit;
+}
+.chart-price .twd-hint { display: block; margin-top: 0.05rem; text-align: right; }
+
+/* ── Instance tooltip ── */
+.tip-wrap {
+  position: relative; display: inline-flex; align-items: center; vertical-align: middle;
+}
+.tip-icon {
+  font-size: 0.7rem; color: var(--text-muted); margin-left: 0.25rem;
+  cursor: help; line-height: 1; user-select: none;
+}
+.tip-box {
+  display: none; position: absolute; bottom: calc(100% + 5px); left: 50%;
+  transform: translateX(-50%); background: var(--text); color: var(--bg);
+  border-radius: 6px; padding: 0.45rem 0.7rem; font-size: 0.75rem;
+  box-shadow: var(--shadow-md); z-index: 20; white-space: normal;
+  width: 210px; line-height: 1.55; font-family: inherit; font-weight: 400;
+  text-align: left; pointer-events: none;
+}
+.tip-wrap:hover .tip-box { display: block; }
   </style>
 </head>
 <body>
 
   <header>
     <div class="header-actions">
+      <div class="currency-bar" title="設定顯示匯率">
+        1 USD = <input type="number" id="usd-rate" value="32" min="1" max="9999" step="0.5"> TWD
+      </div>
       <button class="btn-icon" id="btn-dark" title="切換深色模式">&#9789;</button>
       <button class="btn-icon" id="btn-share" title="分享此配置">&#128279;</button>
     </div>
@@ -581,6 +621,12 @@ footer a:hover { text-decoration: underline; }
 
   <footer>
     <p>CloudCost v0.5 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p style="margin-top:0.3rem;">定價資料更新：2025-01 ｜ 官方計算機：
+      <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
+      <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
+      <a href="https://azure.microsoft.com/zh-tw/pricing/calculator/" target="_blank">Azure</a> ·
+      <a href="https://www.oracle.com/cloud/price-list.html" target="_blank">Oracle</a>
+    </p>
     <p style="margin-top:0.3rem;"><a href="https://github.com/awsjin510/cloudcost" target="_blank">GitHub</a></p>
   </footer>
 
@@ -608,6 +654,24 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ── Currency ──
+let exchangeRate = 32;
+const rateInput = document.getElementById('usd-rate');
+if (rateInput) {
+  rateInput.addEventListener('input', () => {
+    const v = parseFloat(rateInput.value);
+    if (v > 0) {
+      exchangeRate = v;
+      document.querySelectorAll('.twd-hint[data-usd]').forEach(el => {
+        el.textContent = ' ≈ NT$' + Math.round(parseFloat(el.dataset.usd) * exchangeRate).toLocaleString();
+      });
+    }
+  });
+}
+function twdSpan(usd) {
+  return '<span class="twd-hint" data-usd="' + usd + '"> ≈ NT$' + Math.round(usd * exchangeRate).toLocaleString() + '</span>';
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1115,9 +1179,9 @@ function renderResults(data) {
     const pct = maxPrice > 0 ? (est.total_monthly_on_demand / maxPrice * 100) : 0;
     const isCheapest = est.provider === data.cheapest_on_demand;
     return '<div class="chart-row' + (isCheapest ? ' cheapest' : '') + '">' +
-      '<div class="chart-label"><span class="chart-provider" style="color:' + meta.color + '">' + meta.name + '</span><code>' + est.matched_instance + '</code></div>' +
+      '<div class="chart-label"><span class="chart-provider" style="color:' + meta.color + '">' + meta.name + '</span><span class="tip-wrap"><code>' + est.matched_instance + '</code><span class="tip-icon">ⓘ</span><span class="tip-box">系統自動選出符合 ' + spec.cpu_cores + ' vCPU / ' + spec.ram_gb + ' GB RAM 需求的最小可用機型</span></span></div>' +
       '<div class="chart-bar-track"><div class="chart-bar" style="width:' + pct + '%;background:' + meta.color + '"></div></div>' +
-      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + '</div>' +
+      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + twdSpan(est.total_monthly_on_demand) + '</div>' +
     '</div>';
   }).join('');
 
@@ -1136,15 +1200,15 @@ function renderResults(data) {
         (isCheapest ? '<span class="badge-cheapest">On-Demand \u6700\u4F4E</span>' : '') +
         (isCheapestRes ? '<span class="badge-reserved">Reserved \u6700\u4F4E</span>' : '') +
       '</div>' +
-      '<div class="card-instance"><code>' + est.matched_instance + '</code></div>' +
+      '<div class="card-instance"><span class="tip-wrap"><code>' + est.matched_instance + '</code><span class="tip-icon">ⓘ</span><span class="tip-box">系統自動選出符合 ' + spec.cpu_cores + ' vCPU / ' + spec.ram_gb + ' GB RAM 需求的最小可用機型</span></span></div>' +
       '<div class="card-region">' + est.region_name + '</div>' +
       (est.provider === 'oracle' ? '<div class="card-pricing-note">&#127760; 全球統一定價，無額外區域費用</div>' : '') +
       '<div class="card-prices">' +
         '<div class="card-price-block"><span class="price-label">On-Demand</span>' +
-          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span>' +
+          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span>' + twdSpan(est.total_monthly_on_demand) + '</span>' +
           '<span class="price-hourly">$' + est.on_demand.hourly_cost.toFixed(4) + '/hr</span></div>' +
         '<div class="card-price-block reserved"><span class="price-label">Reserved 1Y <span class="saving">-' + savePct + '%</span></span>' +
-          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' +
+          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span>' + twdSpan(est.total_monthly_reserved_1y) + '</span></div>' +
       '</div>' +
       '<div class="card-breakdown"><div class="breakdown-title">\u8CBB\u7528\u660E\u7D30</div>' +
         '<div class="breakdown-row"><span>Compute</span><span>$' + d.compute.toFixed(2) + '</span></div>' +
@@ -1188,7 +1252,7 @@ function renderGroupResults(data) {
     return '<div class="chart-row' + (isCheapest ? ' cheapest' : '') + '">' +
       '<div class="chart-label"><span class="chart-provider" style="color:' + meta.color + '">' + meta.name + '</span><code>' + est.total_machines + ' \u53F0</code></div>' +
       '<div class="chart-bar-track"><div class="chart-bar" style="width:' + pct + '%;background:' + meta.color + '"></div></div>' +
-      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + '</div>' +
+      '<div class="chart-price">$' + est.total_monthly_on_demand.toFixed(2) + (isCheapest ? ' <span class="badge-cheapest">\u6700\u4F4E</span>' : '') + twdSpan(est.total_monthly_on_demand) + '</div>' +
     '</div>';
   }).join('');
 
@@ -1208,7 +1272,7 @@ function renderGroupResults(data) {
       const roleLabel = ROLE_LABELS[m.role] || m.role;
       return '<div class="breakdown-row machine-detail-row">' +
         '<span><span class="role-badge role-' + m.role + '">' + roleLabel + '</span> ' +
-          (m.name || m.id) + ' <code>' + md.matched_instance + '</code></span>' +
+          (m.name || m.id) + ' <span class="tip-wrap"><code>' + md.matched_instance + '</code><span class="tip-icon">ⓘ</span><span class="tip-box">符合 ' + m.cpu + ' vCPU / ' + m.ram + ' GB RAM 需求的最小可用機型</span></span></span>' +
         '<span>$' + md.unit_monthly_on_demand.toFixed(2) + ' x ' + m.quantity + ' = $' + md.subtotal_on_demand.toFixed(2) + '</span>' +
       '</div>';
     }).join('');
@@ -1226,9 +1290,9 @@ function renderGroupResults(data) {
       (est.provider === 'oracle' ? '<div class="card-pricing-note">&#127760; 全球統一定價，無額外區域費用</div>' : '') +
       '<div class="card-prices">' +
         '<div class="card-price-block"><span class="price-label">ON-DEMAND \u7E3D\u8A08</span>' +
-          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' +
+          '<span class="price-value">$' + est.total_monthly_on_demand.toFixed(2) + '<span class="price-period">/\u6708</span>' + twdSpan(est.total_monthly_on_demand) + '</span></div>' +
         (est.total_monthly_reserved_1y != null ? '<div class="card-price-block reserved"><span class="price-label">Reserved 1Y \u7E3D\u8A08 <span class="saving">-' + savePct + '%</span></span>' +
-          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span></span></div>' : '') +
+          '<span class="price-value">$' + est.total_monthly_reserved_1y.toFixed(2) + '<span class="price-period">/\u6708</span>' + twdSpan(est.total_monthly_reserved_1y) + '</span></div>' : '') +
       '</div>' +
       '<div class="card-breakdown"><div class="breakdown-title">\u6BCF\u53F0\u660E\u7D30</div>' + machinesHTML + '</div>' +
       warnsHTML +
