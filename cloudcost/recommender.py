@@ -19,17 +19,24 @@ logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
 You are a cloud cost optimization expert. You will receive a JSON object \
-containing cost estimates from four cloud providers (AWS, GCP, Azure, Oracle Cloud) \
-along with a user-described usage scenario.
+containing cost estimates from four cloud providers (AWS, GCP, Azure, Oracle Cloud).
+
+The top-level field "usage_scenario" describes the user's actual use case. \
+**This is the most important input for personalising your response.** \
+If it is non-empty, every section of your answer must reflect that scenario. \
+If it is empty, give generic advice.
 
 Your task is to provide a structured recommendation in **Traditional Chinese (繁體中文)** \
 covering the following points:
 
-1. **CP值最高方案** — Which provider offers the best cost-performance ratio and why.
+1. **CP值最高方案** — Which provider offers the best cost-performance ratio and why, \
+   taking the usage scenario into account.
 2. **降低成本策略** — Which services can leverage Reserved Instances, Committed Use \
 Discounts, Spot/Preemptible instances, or Annual Flex pricing to reduce costs.
-3. **使用場景建議** — Tailored advice based on the described scenario \
-(startup, enterprise, Taiwan-local needs, etc.).
+3. **使用場景建議** — Tailored advice that directly addresses the described scenario \
+(startup, enterprise, Taiwan-local needs, etc.). \
+If a usage_scenario is provided, explicitly reference it and give specific advice \
+for that scenario. If no scenario is given, give general advice.
 4. **隱藏費用警示** — Hidden costs to watch out for: data transfer fees, \
 support plans, cross-region replication, DNS queries, load balancer hours, \
 managed NAT gateway, etc.
@@ -98,6 +105,7 @@ def _build_payload(result: ComparisonResult | GroupComparisonResult) -> str:
         estimates_summary.append(entry)
 
     data = {
+        "usage_scenario": result.spec.description,
         "spec": {
             "cpu_cores": result.spec.cpu_cores,
             "ram_gb": result.spec.ram_gb,
@@ -108,7 +116,6 @@ def _build_payload(result: ComparisonResult | GroupComparisonResult) -> str:
             "region": result.spec.region.value,
             "monthly_hours": result.spec.monthly_hours,
             "os": result.spec.os,
-            "description": result.spec.description,
         },
         "estimates": estimates_summary,
         "cheapest_on_demand": (
@@ -186,6 +193,13 @@ def _fallback_recommendation(result: ComparisonResult | GroupComparisonResult) -
     if not result.estimates:
         return "無法取得任何雲端供應商的報價。"
 
+    # Include the usage scenario so the user knows it was received
+    description = ""
+    if isinstance(result, ComparisonResult) and result.spec.description:
+        description = result.spec.description
+    if description:
+        lines.append(f"**使用場景**：{description}\n")
+
     if isinstance(result, GroupComparisonResult):
         total_qty = sum(m.quantity for m in result.group.machines)
         lines.append(f"*工作負載群組：{result.group.name}（共 {total_qty} 台機器）*\n")
@@ -231,7 +245,8 @@ def _fallback_recommendation(result: ComparisonResult | GroupComparisonResult) -
             f"- Reserved 方案推薦：**{result.cheapest_reserved.value.upper()}**"
         )
     lines.append(
-        "\n> 注意：以上為基本比較。設定 ANTHROPIC_API_KEY 環境變數即可啟用 AI 智能建議。"
+        "\n> 注意：以上為基本比較，場景描述無法在此模式下影響建議內容。"
+        "設定 ANTHROPIC_API_KEY 環境變數即可啟用場景化 AI 智能建議。"
     )
 
     return "\n".join(lines)
