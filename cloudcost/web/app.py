@@ -240,4 +240,5 @@ def start():
     import uvicorn
 
     port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run("cloudcost.web.app:app", host="0.0.0.0", port=port, reload=True)
+    dev = os.environ.get("CLOUDCOST_DEV", "").lower() in ("1", "true")
+    uvicorn.run("cloudcost.web.app:app", host="0.0.0.0", port=port, reload=dev)

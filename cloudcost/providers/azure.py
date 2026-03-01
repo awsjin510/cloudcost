@@ -100,14 +100,6 @@ _BANDWIDTH_TIERS: list[tuple[float, float]] = [
 class AzureCalculator(BaseCalculator):
     """Azure VM cost estimator using the Azure Retail Prices API."""
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
-        self._client = http_client
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
-
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         azure_region = get_provider_region(spec.region, CloudProvider.AZURE)
         instance = match_instance(spec, CloudProvider.AZURE)
@@ -258,7 +250,7 @@ class AzureCalculator(BaseCalculator):
             return result
 
         except Exception:
-            logger.debug(
+            logger.warning(
                 "Failed to fetch Azure pricing for %s in %s",
                 instance_type,
                 region,

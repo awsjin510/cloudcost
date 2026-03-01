@@ -116,13 +116,8 @@ class GCPCalculator(BaseCalculator):
     """GCP Compute Engine cost estimator using the Cloud Billing Catalog API."""
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
-        self._client = http_client
+        super().__init__(http_client)
         self._api_key = os.environ.get("GCP_API_KEY", "")
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         gcp_region = get_provider_region(spec.region, CloudProvider.GCP)
@@ -324,7 +319,7 @@ class GCPCalculator(BaseCalculator):
             return None
 
         except Exception:
-            logger.debug(
+            logger.warning(
                 "Failed to fetch GCP pricing for %s in %s",
                 instance_type,
                 region,

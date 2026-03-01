@@ -106,14 +106,6 @@ _RESERVED_1Y_DISCOUNT = 0.60  # pay ~60% of on-demand
 class AWSCalculator(BaseCalculator):
     """AWS EC2 cost estimator using the public Price List API."""
 
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
-        self._client = http_client
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
-
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
@@ -238,7 +230,7 @@ class AWSCalculator(BaseCalculator):
             return None
 
         except Exception:
-            logger.debug(
+            logger.warning(
                 "Failed to fetch AWS pricing for %s in %s", instance_type, region,
                 exc_info=True,
             )

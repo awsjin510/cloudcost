@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 import httpx
 
@@ -91,7 +92,7 @@ class CloudCostComparator:
         provider has a full machine-by-machine breakdown plus totals.
         """
         # Build a CloudSpec per unique machine and run comparisons
-        per_machine_results: list[tuple[any, ComparisonResult]] = []
+        per_machine_results: list[tuple[Any, ComparisonResult]] = []
         for machine in group.machines:
             spec = CloudSpec(
                 cpu_cores=machine.cpu,
