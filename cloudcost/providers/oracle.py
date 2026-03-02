@@ -88,8 +88,9 @@ class OracleCalculator(BaseCalculator):
         warnings: list[str] = []
 
         # OCI Flex shapes charge OCPU and memory separately.
-        # Memory cost is always computed from the matched instance's RAM.
-        memory_hourly = instance_ram * _MEMORY_RATE_PER_GB_HOUR
+        # Use the user-requested RAM (spec.ram_gb) since E4.Flex is a flexible
+        # shape — you pay for exactly the RAM you allocate, not the catalog entry.
+        memory_hourly = spec.ram_gb * _MEMORY_RATE_PER_GB_HOUR
 
         base_family, ocpu_count = self._parse_instance_type(instance_type)
 

@@ -859,7 +859,15 @@ function calcProvider(provider, spec) {
       break;
   }
   const inst = matchInstance(instances, spec.cpu_cores, spec.ram_gb);
-  const baseHourly = (prices[inst.name] || 0.10) * regionMult;
+  let baseHourly;
+  if (provider === 'oracle') {
+    // E4.Flex is a flexible shape: pay for exactly the OCPUs and RAM you request.
+    // 1 OCPU = 2 vCPUs; minimum 1 OCPU.
+    const ocpuCount = Math.max(1, Math.ceil(spec.cpu_cores / 2));
+    baseHourly = ocpuCount * 0.025 + spec.ram_gb * 0.0015;
+  } else {
+    baseHourly = (prices[inst.name] || 0.10) * regionMult;
+  }
   const computeCost = baseHourly * spec.monthly_hours;
   const storageCost = spec.storage_gb * (storagePrices[spec.storage_type] || storagePrices.ssd);
   const networkCost = networkFn(spec.network_transfer_gb);
