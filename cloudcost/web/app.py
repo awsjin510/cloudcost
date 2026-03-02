@@ -89,6 +89,7 @@ class GroupCompareRequest(BaseModel):
     storage_type: str = "ssd"
     os: str = "linux"
     monthly_hours: float = 730
+    description: str = ""
     include_ai: bool = False
 
 
@@ -114,6 +115,7 @@ async def api_compare_group(req: GroupCompareRequest) -> GroupComparisonResult:
         storage_type=req.storage_type,
         os=req.os,
         monthly_hours=req.monthly_hours,
+        description=req.description,
     )
     result = await comparator.compare_group(group)
     if req.include_ai:

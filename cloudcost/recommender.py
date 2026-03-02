@@ -182,6 +182,7 @@ def _build_group_payload(result: GroupComparisonResult) -> str:
         for est in result.estimates
     ]
     data = {
+        "usage_scenario": group.description,
         "type": "workload_group",
         "group_name": group.name,
         "machines": machines,

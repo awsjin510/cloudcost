@@ -161,6 +161,7 @@ class WorkloadGroup(BaseModel):
     storage_type: str = Field(default="ssd")
     os: str = Field(default="linux")
     monthly_hours: float = Field(default=730, ge=0, le=744)
+    description: str = Field(default="", description="Free-form usage scenario description")
 
 
 class MachineEstimateDetail(BaseModel):
