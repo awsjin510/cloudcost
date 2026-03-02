@@ -98,7 +98,7 @@
             <label for="region">部署區域</label>
             <select id="region" name="region">
               {% for val, label in regions %}
-              <option value="{{ val }}" {{ 'selected' if val == 'ap-northeast-1' }}>{{ label }}</option>
+              <option value="{{ val }}" {{ 'selected' if val == 'ap-east-2' }}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -169,7 +169,7 @@
             <label for="group_region">部署區域</label>
             <select id="group_region">
               {% for val, label in regions %}
-              <option value="{{ val }}" {{ 'selected' if val == 'ap-northeast-1' }}>{{ label }}</option>
+              <option value="{{ val }}" {{ 'selected' if val == 'ap-east-2' }}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
