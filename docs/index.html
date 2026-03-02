@@ -383,8 +383,8 @@ footer a:hover { text-decoration: underline; }
       <div class="currency-bar" title="設定顯示匯率">
         1 USD = <input type="number" id="usd-rate" value="32" min="1" max="9999" step="0.5"> TWD
       </div>
-      <button class="btn-icon" id="btn-dark" title="切換深色模式">&#9789;</button>
-      <button class="btn-icon" id="btn-share" title="分享此配置">&#128279;</button>
+      <button class="btn-icon" id="btn-dark" title="切換深色模式" aria-label="切換深色模式">&#9789;</button>
+      <button class="btn-icon" id="btn-share" title="分享此配置" aria-label="分享此配置">&#128279;</button>
     </div>
     <div class="header-inner">
       <div class="logo">
@@ -675,6 +675,14 @@ if (rateInput) {
 }
 function twdSpan(usd) {
   return '<span class="twd-hint" data-usd="' + usd + '"> ≈ NT$' + Math.round(usd * exchangeRate).toLocaleString() + '</span>';
+}
+function escHtml(str) {
+  return String(str == null ? '' : str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1051,7 +1059,7 @@ function createMachineRow(preset) {
   ).join('');
 
   row.innerHTML =
-    '<input type="text" class="ml-col ml-input" placeholder="例如：Web Server" value="' + (p.name || '') + '">' +
+    '<input type="text" class="ml-col ml-input" placeholder="例如：Web Server" value="' + escHtml(p.name || '') + '">' +
     '<input type="number" class="ml-col ml-input" min="1" max="512" value="' + p.cpu + '">' +
     '<input type="number" class="ml-col ml-input" min="0.5" max="12288" step="0.5" value="' + p.ram + '">' +
     '<input type="number" class="ml-col ml-input" min="0" max="65536" value="' + p.storage + '">' +
@@ -1240,7 +1248,7 @@ function renderGroupResults(data) {
   let pillsHTML = '<span>' + group.name + '</span><span>' + totalQty + ' \u53F0\u6A5F\u5668</span><span>' + group.machines.length + ' \u7A2E\u898F\u683C</span>';
   pillsHTML += '<span>' + (REGION_NAMES[group.region] || group.region) + '</span><span>' + group.os.toUpperCase() + '</span>';
   group.machines.forEach(m => {
-    pillsHTML += '<span>' + (m.name || m.id) + ': ' + m.cpu + 'C/' + m.ram + 'G x' + m.quantity + ' (' + (ROLE_LABELS[m.role] || m.role) + ')</span>';
+    pillsHTML += '<span>' + escHtml(m.name || m.id) + ': ' + m.cpu + 'C/' + m.ram + 'G x' + m.quantity + ' (' + escHtml(ROLE_LABELS[m.role] || m.role) + ')</span>';
   });
   document.getElementById('spec-pills').innerHTML = pillsHTML;
 
@@ -1274,8 +1282,8 @@ function renderGroupResults(data) {
       const m = md.machine;
       const roleLabel = ROLE_LABELS[m.role] || m.role;
       return '<div class="breakdown-row machine-detail-row">' +
-        '<span><span class="role-badge role-' + m.role + '">' + roleLabel + '</span> ' +
-          (m.name || m.id) + ' <span class="tip-wrap"><code>' + md.matched_instance + '</code><span class="tip-icon">ⓘ</span><span class="tip-box">符合 ' + m.cpu + ' vCPU / ' + m.ram + ' GB RAM 需求的最小可用機型</span></span></span>' +
+        '<span><span class="role-badge role-' + escHtml(m.role) + '">' + escHtml(roleLabel) + '</span> ' +
+          escHtml(m.name || m.id) + ' <span class="tip-wrap"><code>' + escHtml(md.matched_instance) + '</code><span class="tip-icon">ⓘ</span><span class="tip-box">符合 ' + m.cpu + ' vCPU / ' + m.ram + ' GB RAM 需求的最小可用機型</span></span></span>' +
         '<span>$' + md.unit_monthly_on_demand.toFixed(2) + ' x ' + m.quantity + ' = $' + md.subtotal_on_demand.toFixed(2) + '</span>' +
       '</div>';
     }).join('');
@@ -1319,8 +1327,9 @@ function generateLocalAI(data, description, isGroup) {
   const names = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', oracle: 'Oracle Cloud' };
 
   const savePct = ((1 - cheapestOD.total_monthly_on_demand / priciest.total_monthly_on_demand) * 100).toFixed(0);
-  const resSavePct = ((1 - cheapestOD.total_monthly_reserved_1y / cheapestOD.total_monthly_on_demand) * 100).toFixed(0);
-  const monthlyResSave = (cheapestOD.total_monthly_on_demand - cheapestOD.total_monthly_reserved_1y).toFixed(0);
+  const hasReserved = cheapestOD.total_monthly_reserved_1y != null && cheapestOD.total_monthly_on_demand > 0;
+  const resSavePct = hasReserved ? ((1 - cheapestOD.total_monthly_reserved_1y / cheapestOD.total_monthly_on_demand) * 100).toFixed(0) : '0';
+  const monthlyResSave = hasReserved ? (cheapestOD.total_monthly_on_demand - cheapestOD.total_monthly_reserved_1y).toFixed(0) : '0';
 
   // CP 值最高方案
   let cpText = names[cheapestOD.provider] + ' 是目前 On-Demand 定價最低的方案，比最貴的 ' + names[priciest.provider] + ' 便宜約 ' + savePct + '%（每月差 $' + (priciest.total_monthly_on_demand - cheapestOD.total_monthly_on_demand).toFixed(0) + '）。';
@@ -1380,7 +1389,7 @@ function renderAISection(data, description, isGroup) {
     '<div class="ai-card">' +
       '<div class="ai-card-icon">' + c.icon + '</div>' +
       '<div class="ai-card-title">' + c.title + '</div>' +
-      '<div class="ai-card-body">' + c.body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +
+      '<div class="ai-card-body">' + escHtml(c.body) + '</div>' +
     '</div>'
   ).join('');
   document.getElementById('ai-section').style.display = '';

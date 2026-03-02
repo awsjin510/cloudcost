@@ -98,6 +98,7 @@ _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "asia-northeast3": 1.22,
     "asia-southeast1": 1.13,
     "asia-east2": 1.16,
+    "asia-east1": 1.11,
 }
 
 # GCP region to human-readable description mapping (for SKU matching)
@@ -109,6 +110,7 @@ _GCP_REGION_TO_DESCRIPTION: dict[str, list[str]] = {
     "asia-northeast3": ["asia-northeast3", "asia pacific", "seoul"],
     "asia-southeast1": ["asia-southeast1", "asia pacific", "singapore"],
     "asia-east2": ["asia-east2", "asia pacific", "hong kong"],
+    "asia-east1": ["asia-east1", "asia pacific", "taiwan"],
 }
 
 
@@ -116,13 +118,8 @@ class GCPCalculator(BaseCalculator):
     """GCP Compute Engine cost estimator using the Cloud Billing Catalog API."""
 
     def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
-        self._client = http_client
+        super().__init__(http_client)
         self._api_key = os.environ.get("GCP_API_KEY", "")
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         gcp_region = get_provider_region(spec.region, CloudProvider.GCP)
@@ -324,7 +321,7 @@ class GCPCalculator(BaseCalculator):
             return None
 
         except Exception:
-            logger.debug(
+            logger.warning(
                 "Failed to fetch GCP pricing for %s in %s",
                 instance_type,
                 region,

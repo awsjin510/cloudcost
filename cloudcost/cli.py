@@ -17,6 +17,7 @@ load_dotenv()
 
 from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
+from cloudcost.models.spec import DatabaseType, Region, StorageType
 from cloudcost.recommender import generate_recommendation
 
 

@@ -200,6 +200,12 @@
           </div>
         </div>
 
+        <div class="form-group full-width">
+          <label for="group_description">使用場景描述 <span class="unit">供 AI 分析</span></label>
+          <textarea id="group_description" rows="2"
+                    placeholder="例如：台灣電商平台，尖峰流量約 10,000 DAU，需要高可用資料庫"></textarea>
+        </div>
+
         <!-- Machine list -->
         <div class="machine-list-header">
           <h3>機器清單</h3>
@@ -266,7 +272,7 @@
   </main>
 
   <footer>
-    <p>CloudCost v0.1 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.6 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
 
 {% if result %}
@@ -480,6 +486,7 @@
       storage_type: document.getElementById('group_storage_type').value,
       os: document.getElementById('group_os').value,
       monthly_hours: parseFloat(document.getElementById('group_hours').value) || 730,
+      description: document.getElementById('group_description').value,
       include_ai: document.getElementById('group_include_ai').checked,
     };
 

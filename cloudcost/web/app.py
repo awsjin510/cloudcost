@@ -89,6 +89,7 @@ class GroupCompareRequest(BaseModel):
     storage_type: str = "ssd"
     os: str = "linux"
     monthly_hours: float = 730
+    description: str = ""
     include_ai: bool = False
 
 
@@ -114,6 +115,7 @@ async def api_compare_group(req: GroupCompareRequest) -> GroupComparisonResult:
         storage_type=req.storage_type,
         os=req.os,
         monthly_hours=req.monthly_hours,
+        description=req.description,
     )
     result = await comparator.compare_group(group)
     if req.include_ai:
@@ -230,6 +232,7 @@ def _region_label(r: Region) -> str:
         Region.AP_NORTHEAST_2: "Asia Pacific (Seoul)",
         Region.AP_SOUTHEAST_1: "Asia Pacific (Singapore)",
         Region.AP_EAST_1: "Asia Pacific (Hong Kong)",
+        Region.AP_EAST_2: "Asia Pacific (Taipei)",
         Region.EU_WEST_1: "Europe (Ireland)",
     }
     return labels.get(r, r.value)
@@ -240,4 +243,5 @@ def start():
     import uvicorn
 
     port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run("cloudcost.web.app:app", host="0.0.0.0", port=port, reload=True)
+    dev = os.environ.get("CLOUDCOST_DEV", "").lower() in ("1", "true")
+    uvicorn.run("cloudcost.web.app:app", host="0.0.0.0", port=port, reload=dev)

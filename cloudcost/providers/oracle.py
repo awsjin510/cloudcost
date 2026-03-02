@@ -18,8 +18,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-import httpx
-
 from cloudcost.models.naming import get_provider_region, match_instance
 from cloudcost.models.spec import (
     CloudProvider,
@@ -80,14 +78,6 @@ _EGRESS_TIERS: list[tuple[float, float]] = [
 
 class OracleCalculator(BaseCalculator):
     """OCI cost estimator using the public Oracle pricing API."""
-
-    def __init__(self, http_client: Optional[httpx.AsyncClient] = None) -> None:
-        self._client = http_client
-
-    async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
-        return self._client
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         oci_region = get_provider_region(spec.region, CloudProvider.ORACLE)
@@ -238,7 +228,7 @@ class OracleCalculator(BaseCalculator):
             return None
 
         except Exception:
-            logger.debug(
+            logger.warning(
                 "Failed to fetch OCI pricing for %s",
                 instance_type,
                 exc_info=True,
