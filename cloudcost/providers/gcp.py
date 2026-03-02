@@ -74,6 +74,11 @@ _FALLBACK_PRICES: dict[str, float] = {
 # 1-year CUD discount ratio (approximate, used as fallback)
 _FALLBACK_CUD_1Y_DISCOUNT = 0.63
 
+# E2 custom instance per-unit rates (us-east1 baseline, USD/hr)
+# When requested RAM < matched standard instance's RAM, custom is cheaper.
+_E2_CUSTOM_VCPU_RATE = 0.022859
+_E2_CUSTOM_RAM_RATE = 0.003067
+
 # Persistent Disk pricing (USD per GB-month)
 _PD_PRICES: dict[str, float] = {
     "pd-ssd": 0.170,
@@ -153,6 +158,24 @@ class GCPCalculator(BaseCalculator):
                 warnings.append(
                     f"Used fallback pricing for {instance_type} — GCP API unreachable"
                 )
+
+        # Check if an e2-custom instance is cheaper than the matched standard
+        # instance. This happens when the user's requested RAM is less than
+        # the standard instance's RAM (e.g. 2 GB requested → e2-medium has 4 GB).
+        region_mult = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
+        custom_hourly = (
+            spec.cpu_cores * _E2_CUSTOM_VCPU_RATE
+            + spec.ram_gb * _E2_CUSTOM_RAM_RATE
+        ) * region_mult
+        if custom_hourly < hourly_od:
+            hourly_od = custom_hourly
+            hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
+            instance_type = (
+                f"e2-custom-{spec.cpu_cores}-{int(spec.ram_gb * 1024)}"
+            )
+            warnings.append(
+                "Using e2-custom instance (more cost-effective for this spec)"
+            )
 
         monthly_hours = spec.monthly_hours
         compute_od = hourly_od * monthly_hours

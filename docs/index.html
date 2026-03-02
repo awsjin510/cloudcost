@@ -865,6 +865,12 @@ function calcProvider(provider, spec) {
     // 1 OCPU = 2 vCPUs; minimum 1 OCPU.
     const ocpuCount = Math.max(1, Math.ceil(spec.cpu_cores / 2));
     baseHourly = ocpuCount * 0.025 + spec.ram_gb * 0.0015;
+  } else if (provider === 'gcp') {
+    // GCP e2-custom allows any vCPU/RAM combo. Use it when cheaper than
+    // the matched standard instance (e.g. user needs 2 GB but e2-medium has 4 GB).
+    const standardHourly = (prices[inst.name] || 0.10) * regionMult;
+    const customHourly = (spec.cpu_cores * 0.022859 + spec.ram_gb * 0.003067) * regionMult;
+    baseHourly = Math.min(standardHourly, customHourly);
   } else {
     baseHourly = (prices[inst.name] || 0.10) * regionMult;
   }
