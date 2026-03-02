@@ -78,6 +78,7 @@ _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "koreacentral": 1.22,
     "southeastasia": 1.12,
     "eastasia": 1.15,
+    "taiwannorth": 1.20,
 }
 
 # Managed Disk pricing (USD per GB-month)

@@ -43,6 +43,7 @@ class Region(str, Enum):
     AP_NORTHEAST_2 = "ap-northeast-2"  # Seoul
     AP_SOUTHEAST_1 = "ap-southeast-1"  # Singapore
     AP_EAST_1 = "ap-east-1"  # Hong Kong
+    AP_EAST_2 = "ap-east-2"  # Taipei
     # US
     US_EAST_1 = "us-east-1"  # N. Virginia
     US_WEST_2 = "us-west-2"  # Oregon

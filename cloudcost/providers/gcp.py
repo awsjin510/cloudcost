@@ -98,6 +98,7 @@ _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "asia-northeast3": 1.22,
     "asia-southeast1": 1.13,
     "asia-east2": 1.16,
+    "asia-east1": 1.11,
 }
 
 # GCP region to human-readable description mapping (for SKU matching)
@@ -109,6 +110,7 @@ _GCP_REGION_TO_DESCRIPTION: dict[str, list[str]] = {
     "asia-northeast3": ["asia-northeast3", "asia pacific", "seoul"],
     "asia-southeast1": ["asia-southeast1", "asia pacific", "singapore"],
     "asia-east2": ["asia-east2", "asia pacific", "hong kong"],
+    "asia-east1": ["asia-east1", "asia pacific", "taiwan"],
 }
 
 

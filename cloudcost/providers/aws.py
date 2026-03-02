@@ -53,6 +53,7 @@ _REGION_DISPLAY: dict[str, str] = {
     "ap-northeast-2": "Asia Pacific (Seoul)",
     "ap-southeast-1": "Asia Pacific (Singapore)",
     "ap-east-1": "Asia Pacific (Hong Kong)",
+    "ap-east-2": "Asia Pacific (Taipei)",
 }
 
 # EBS pricing per GB-month (approximate, varies slightly by region)

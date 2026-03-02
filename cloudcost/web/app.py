@@ -232,6 +232,7 @@ def _region_label(r: Region) -> str:
         Region.AP_NORTHEAST_2: "Asia Pacific (Seoul)",
         Region.AP_SOUTHEAST_1: "Asia Pacific (Singapore)",
         Region.AP_EAST_1: "Asia Pacific (Hong Kong)",
+        Region.AP_EAST_2: "Asia Pacific (Taipei)",
         Region.EU_WEST_1: "Europe (Ireland)",
     }
     return labels.get(r, r.value)
