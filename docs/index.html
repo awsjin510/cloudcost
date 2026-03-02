@@ -474,6 +474,7 @@ footer a:hover { text-decoration: underline; }
               <option value="ap-northeast-2">Asia Pacific (Seoul)</option>
               <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
               <option value="ap-east-1">Asia Pacific (Hong Kong)</option>
+              <option value="ap-east-2">Asia Pacific (Taipei)</option>
               <option value="eu-west-1">Europe (Ireland)</option>
             </select>
           </div>
@@ -534,6 +535,7 @@ footer a:hover { text-decoration: underline; }
               <option value="ap-northeast-2">Asia Pacific (Seoul)</option>
               <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
               <option value="ap-east-1">Asia Pacific (Hong Kong)</option>
+              <option value="ap-east-2">Asia Pacific (Taipei)</option>
               <option value="eu-west-1">Europe (Ireland)</option>
             </select>
           </div>
@@ -623,7 +625,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.5 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.6 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-02 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -747,7 +749,7 @@ const GCP_PRICES = {
 };
 const GCP_STORAGE = { ssd: 0.170, hdd: 0.040, nvme: 0.250 };
 const GCP_RESERVED_DISCOUNT = 0.63;
-const GCP_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.10,'ap-northeast-1':1.22,'ap-northeast-2':1.22,'ap-southeast-1':1.13,'ap-east-1':1.16 };
+const GCP_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.10,'ap-northeast-1':1.22,'ap-northeast-2':1.22,'ap-southeast-1':1.13,'ap-east-1':1.16,'ap-east-2':1.11 };
 function gcpNetworkCost(gb) {
   if (gb <= 1) return 0;
   let cost = 0, r = gb - 1;
@@ -778,7 +780,7 @@ const AZURE_PRICES = {
 };
 const AZURE_STORAGE = { ssd: 0.132, hdd: 0.040, nvme: 0.200 };
 const AZURE_RESERVED_DISCOUNT = 0.58;
-const AZURE_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.08,'ap-northeast-1':1.25,'ap-northeast-2':1.22,'ap-southeast-1':1.12,'ap-east-1':1.15 };
+const AZURE_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.08,'ap-northeast-1':1.25,'ap-northeast-2':1.22,'ap-southeast-1':1.12,'ap-east-1':1.15,'ap-east-2':1.20 };
 function azureNetworkCost(gb) {
   if (gb <= 5) return 0;
   let cost = 0, r = gb - 5;
@@ -815,6 +817,7 @@ const REGION_NAMES = {
   'us-east-1':'US East (N. Virginia)','us-west-2':'US West (Oregon)',
   'ap-northeast-1':'Asia Pacific (Tokyo)','ap-northeast-2':'Asia Pacific (Seoul)',
   'ap-southeast-1':'Asia Pacific (Singapore)','ap-east-1':'Asia Pacific (Hong Kong)',
+  'ap-east-2':'Asia Pacific (Taipei)',
   'eu-west-1':'Europe (Ireland)',
 };
 const PROVIDER_META = {
@@ -838,6 +841,7 @@ function calcProvider(provider, spec) {
       instances = AWS_INSTANCES; prices = AWS_PRICES; storagePrices = AWS_STORAGE;
       reservedDiscount = AWS_RESERVED_DISCOUNT; networkFn = awsNetworkCost;
       if (['ap-northeast-1','ap-northeast-2','ap-east-1'].includes(spec.region)) regionMult = 1.30;
+      else if (['ap-east-2'].includes(spec.region)) regionMult = 1.10;
       else if (['ap-southeast-1'].includes(spec.region)) regionMult = 1.15;
       else if (['eu-west-1'].includes(spec.region)) regionMult = 1.10;
       break;
