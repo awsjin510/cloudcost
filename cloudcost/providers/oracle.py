@@ -62,6 +62,10 @@ _MEMORY_RATE_PER_GB_HOUR = 0.0015  # USD per GB per hour
 # they offer Annual Flex pricing at roughly 50% discount.
 _FALLBACK_ANNUAL_FLEX_DISCOUNT = 0.50
 
+# Regions used as a nearest alternative when Oracle has no direct presence.
+# A warning is shown to the user whenever one of these is selected.
+_OCI_FALLBACK_REGIONS: set[str] = {"ap-singapore-1"}
+
 # Block Volume pricing (USD per GB-month)
 _BLOCK_VOLUME_PRICES: dict[str, float] = {
     "ssd": 0.0255,
@@ -85,6 +89,12 @@ class OracleCalculator(BaseCalculator):
         instance_type = instance["type"]
 
         warnings: list[str] = []
+
+        if oci_region in _OCI_FALLBACK_REGIONS:
+            warnings.append(
+                f"Oracle Cloud has no {spec.region.value} region; "
+                f"using {oci_region} pricing as nearest alternative"
+            )
 
         # OCI Flex shapes charge OCPU and memory separately.
         # Use the user-requested RAM (spec.ram_gb) since E4.Flex is a flexible
