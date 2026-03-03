@@ -42,7 +42,7 @@ REGION_MAP: dict[Region, dict[CloudProvider, str]] = {
         CloudProvider.AWS: "ap-east-1",
         CloudProvider.GCP: "asia-east2",
         CloudProvider.AZURE: "eastasia",
-        CloudProvider.ORACLE: "ap-melbourne-1",
+        CloudProvider.ORACLE: "ap-singapore-1",
     },
     Region.AP_EAST_2: {
         CloudProvider.AWS: "ap-east-2",
