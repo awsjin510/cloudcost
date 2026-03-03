@@ -811,6 +811,10 @@ const ORACLE_PRICES = {
 };
 const ORACLE_STORAGE = { ssd: 0.0255, hdd: 0.0255, nvme: 0.0340 };
 const ORACLE_RESERVED_DISCOUNT = 0.50;
+const ORACLE_E4_OCPU_RATE = 0.025;    // USD per OCPU per hour (E4.Flex)
+const ORACLE_MEMORY_RATE = 0.0015;    // USD per GB per hour (all Flex shapes)
+const GCP_E2_CUSTOM_VCPU_RATE = 0.022859; // USD per vCPU per hour (us-east1 baseline)
+const GCP_E2_CUSTOM_RAM_RATE  = 0.003067; // USD per GB per hour (us-east1 baseline)
 function oracleNetworkCost(gb) { return gb <= 10240 ? 0 : (gb - 10240) * 0.0085; }
 
 const REGION_NAMES = {
@@ -841,9 +845,9 @@ function calcProvider(provider, spec) {
       instances = AWS_INSTANCES; prices = AWS_PRICES; storagePrices = AWS_STORAGE;
       reservedDiscount = AWS_RESERVED_DISCOUNT; networkFn = awsNetworkCost;
       if (['ap-northeast-1','ap-northeast-2','ap-east-1'].includes(spec.region)) regionMult = 1.30;
-      else if (['ap-east-2'].includes(spec.region)) regionMult = 1.10;
-      else if (['ap-southeast-1'].includes(spec.region)) regionMult = 1.15;
-      else if (['eu-west-1'].includes(spec.region)) regionMult = 1.10;
+      else if (spec.region === 'ap-east-2') regionMult = 1.10;
+      else if (spec.region === 'ap-southeast-1') regionMult = 1.15;
+      else if (spec.region === 'eu-west-1') regionMult = 1.10;
       break;
     case 'gcp':
       instances = GCP_INSTANCES; prices = GCP_PRICES; storagePrices = GCP_STORAGE;
@@ -861,15 +865,15 @@ function calcProvider(provider, spec) {
   const inst = matchInstance(instances, spec.cpu_cores, spec.ram_gb);
   let baseHourly;
   if (provider === 'oracle') {
-    // E4.Flex is a flexible shape: pay for exactly the OCPUs and RAM you request.
-    // 1 OCPU = 2 vCPUs; minimum 1 OCPU.
-    const ocpuCount = Math.max(1, Math.ceil(spec.cpu_cores / 2));
-    baseHourly = ocpuCount * 0.025 + spec.ram_gb * 0.0015;
+    // E4.Flex: OCPU count comes from the matched instance name suffix
+    // (e.g. "VM.Standard.E4.Flex-4" → 4 OCPUs), matching backend logic.
+    const ocpuCount = parseInt(inst.name.split('-').pop()) || 1;
+    baseHourly = ocpuCount * ORACLE_E4_OCPU_RATE + spec.ram_gb * ORACLE_MEMORY_RATE;
   } else if (provider === 'gcp') {
     // GCP e2-custom allows any vCPU/RAM combo. Use it when cheaper than
     // the matched standard instance (e.g. user needs 2 GB but e2-medium has 4 GB).
     const standardHourly = (prices[inst.name] || 0.10) * regionMult;
-    const customHourly = (spec.cpu_cores * 0.022859 + spec.ram_gb * 0.003067) * regionMult;
+    const customHourly = (spec.cpu_cores * GCP_E2_CUSTOM_VCPU_RATE + spec.ram_gb * GCP_E2_CUSTOM_RAM_RATE) * regionMult;
     baseHourly = Math.min(standardHourly, customHourly);
   } else {
     baseHourly = (prices[inst.name] || 0.10) * regionMult;

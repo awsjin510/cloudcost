@@ -83,7 +83,6 @@ class OracleCalculator(BaseCalculator):
         oci_region = get_provider_region(spec.region, CloudProvider.ORACLE)
         instance = match_instance(spec, CloudProvider.ORACLE)
         instance_type = instance["type"]
-        instance_ram = instance["ram"]
 
         warnings: list[str] = []
 

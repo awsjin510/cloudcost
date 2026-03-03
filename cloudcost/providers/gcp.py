@@ -135,6 +135,7 @@ class GCPCalculator(BaseCalculator):
 
         # --- Compute pricing (try API first, then fallback) ---
         api_price = await self._fetch_instance_price(instance_type, gcp_region)
+        region_mult = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
 
         if api_price is not None:
             hourly_od = api_price
@@ -146,8 +147,7 @@ class GCPCalculator(BaseCalculator):
                 base_hourly = 0.10
                 warnings.append(f"No pricing data for {instance_type}, using estimate")
 
-            multiplier = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
-            hourly_od = base_hourly * multiplier
+            hourly_od = base_hourly * region_mult
             hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
 
             if not self._api_key:
@@ -162,7 +162,6 @@ class GCPCalculator(BaseCalculator):
         # Check if an e2-custom instance is cheaper than the matched standard
         # instance. This happens when the user's requested RAM is less than
         # the standard instance's RAM (e.g. 2 GB requested → e2-medium has 4 GB).
-        region_mult = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
         custom_hourly = (
             spec.cpu_cores * _E2_CUSTOM_VCPU_RATE
             + spec.ram_gb * _E2_CUSTOM_RAM_RATE
