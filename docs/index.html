@@ -111,6 +111,23 @@ section h2 .unit { font-size: 0.8rem; font-weight: 400; color: var(--text-muted)
 .preset-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
 .preset-detail { font-size: 0.72rem; color: var(--text-muted); }
 .form-group-full { grid-column: 1 / -1; }
+textarea.description-field {
+  width: 100%; resize: vertical; padding: 0.65rem 0.85rem;
+  border: 2px solid #7c3aed; background: rgba(124,58,237,0.05);
+  border-radius: 10px; min-height: 88px; font-size: 0.92rem; line-height: 1.6;
+  font-family: inherit; color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+textarea.description-field:focus {
+  outline: none; border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.18);
+  background: rgba(124,58,237,0.08);
+}
+.description-label-ai {
+  display: inline-block; background: linear-gradient(135deg, #7c3aed, #4f46e5);
+  color: #fff; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+  padding: 0.12rem 0.5rem; border-radius: 20px; vertical-align: middle; margin-left: 0.4rem;
+}
 .ai-toggle-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.25rem; }
 .toggle-switch { appearance: none; -webkit-appearance: none; width: 38px; height: 21px; background: var(--border); border-radius: 11px; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0; }
 .toggle-switch:checked { background: #7c3aed; }
@@ -501,8 +518,8 @@ footer a:hover { text-decoration: underline; }
             </select>
           </div>
           <div class="form-group form-group-full">
-            <label for="description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
-            <input type="text" id="description" name="description" placeholder="例如：新創電商平台、台灣用戶為主的 Web 服務、CI/CD 建置環境…">
+            <label for="description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span><span class="description-label-ai">AI</span></label>
+            <textarea id="description" name="description" rows="4" class="description-field" placeholder="例如：新創電商平台、台灣用戶為主的 Web 服務、CI/CD 建置環境…"></textarea>
             <div class="ai-toggle-row" style="margin-top:0.55rem;">
               <input type="checkbox" class="toggle-switch" id="ai-toggle" checked>
               <label class="toggle-text" for="ai-toggle">啟用 AI 費用分析建議 <span class="ai-badge">AI</span></label>
@@ -583,8 +600,8 @@ footer a:hover { text-decoration: underline; }
         </div>
 
         <div class="form-group form-group-full" style="margin-top:1rem;">
-          <label for="group_description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span></label>
-          <input type="text" id="group_description" placeholder="例如：生產環境三層架構、新創 MVP 服務、高流量媒體平台…">
+          <label for="group_description">使用場景描述 <span class="unit">選填，用於 AI 費用建議</span><span class="description-label-ai">AI</span></label>
+          <textarea id="group_description" rows="4" class="description-field" placeholder="例如：生產環境三層架構、新創 MVP 服務、高流量媒體平台…"></textarea>
           <div class="ai-toggle-row" style="margin-top:0.55rem;">
             <input type="checkbox" class="toggle-switch" id="group-ai-toggle" checked>
             <label class="toggle-text" for="group-ai-toggle">啟用 AI 費用分析建議 <span class="ai-badge">AI</span></label>
