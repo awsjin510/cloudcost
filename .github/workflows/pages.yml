@@ -6,6 +6,7 @@ on:
       - claude/check-content-updates-9E4TV
     paths:
       - docs/**
+  workflow_dispatch:
 
 permissions:
   contents: read
