@@ -1356,50 +1356,165 @@ function renderGroupResults(data) {
 // AI RECOMMENDATION ENGINE (local analysis)
 // ════════════════════════════════════════════════════════════════
 
+// Scenario keyword → recommended provider mapping
+const SCENARIO_RULES = [
+  { keywords: ['k8s','kubernetes','容器','container','gke','eks','微服務','microservice','microservices'], provider: 'gcp', tag: 'k8s', reason: 'GKE 由 Kubernetes 原生發明者打造，自動升級、自動修復、自動擴展，可減少約 20% 維運人力成本' },
+  { keywords: ['ai','ml','機器學習','深度學習','llm','gpu','訓練','training','tensorflow','pytorch','模型'], provider: 'gcp', tag: 'ai', reason: 'Vertex AI 統一 ML 平台搭配 TPU，推理成本僅 GPU 的 1/3，ML 工具鏈最完整' },
+  { keywords: ['大數據','bigquery','analytics','數據分析','資料倉儲','data warehouse','etl'], provider: 'gcp', tag: 'bigdata', reason: 'BigQuery 無伺服器即時分析，按掃描量計費，免管理基礎設施，PB 級查詢秒級回應' },
+  { keywords: ['.net','c#','windows server','microsoft','office','m365','active directory','sharepoint','teams','exchange'], provider: 'azure', tag: 'microsoft', reason: '與 Microsoft 生態無縫整合，Azure Hybrid Benefit 可重複使用既有授權，最多省 40%' },
+  { keywords: ['sap','erp','企業系統'], provider: 'azure', tag: 'sap', reason: 'Azure 為 SAP 認證首選合作夥伴，提供專屬 SAP HANA 大型執行個體' },
+  { keywords: ['混合雲','hybrid','on-premises','地端','arc'], provider: 'azure', tag: 'hybrid', reason: 'Azure Arc 統一管理地端、多雲與邊緣環境的 Kubernetes 與 SQL 資源' },
+  { keywords: ['電商','ecommerce','web','網站','高流量','api gateway','rest api'], provider: 'aws', tag: 'web', reason: '最成熟的 Web 服務生態系，CloudFront CDN 600+ 全球節點 + ALB + Auto Scaling 輕鬆應對流量尖峰' },
+  { keywords: ['iot','物聯網','感測器','sensor','edge computing'], provider: 'aws', tag: 'iot', reason: 'AWS IoT Core + Greengrass 邊緣運算，從裝置到雲端的完整 IoT 解決方案' },
+  { keywords: ['遊戲','gaming','game server','多人線上','mmorpg'], provider: 'aws', tag: 'gaming', reason: 'GameLift 全球伺服器託管 + 全球基礎設施，毫秒級延遲的多人遊戲體驗' },
+  { keywords: ['cdn','媒體','串流','streaming','影音','video','直播','轉碼'], provider: 'aws', tag: 'media', reason: 'CloudFront 全球 600+ 節點，搭配 MediaConvert 影音轉碼，媒體處理成本最低' },
+  { keywords: ['新創','startup','mvp','成本敏感','預算有限','省錢'], provider: 'oracle', tag: 'cost', reason: '永久免費層業界最豐富（2 台 VM + 200 GB 儲存），初期可零成本運行' },
+  { keywords: ['oracle database','oracle db','autonomous','plsql'], provider: 'oracle', tag: 'oracledb', reason: 'Oracle Autonomous Database 自動調優、自動備份、自動擴展，DBA 維運成本趨近於零' },
+  { keywords: ['資料庫','database','postgresql','mysql','rds','aurora','mariadb'], provider: 'aws', tag: 'database', reason: 'RDS 支援 6 種引擎，Aurora 效能比標準 MySQL 快 5 倍，讀取延遲低於 1ms' },
+  { keywords: ['ci/cd','cicd','devops','jenkins','github actions','自動化部署','pipeline'], provider: 'gcp', tag: 'cicd', reason: 'Cloud Build 按秒計費、與 GKE 深度整合，搭配 Artifact Registry 建構完整 CI/CD 流水線' },
+  { keywords: ['合規','compliance','金融','銀行','政府','government','hipaa','pci','sox'], provider: 'aws', tag: 'compliance', reason: 'AWS GovCloud + 業界最多合規認證（SOC 1/2/3、PCI DSS、HIPAA、FedRAMP）' },
+  { keywords: ['hpc','高效能運算','科學計算','平行運算'], provider: 'aws', tag: 'hpc', reason: 'HPC 最佳化機型齊全（Hpc6a/Hpc7g），ParallelCluster 一鍵部署 HPC 叢集' },
+  { keywords: ['生產','production','prod','正式環境'], provider: 'aws', tag: 'production', reason: '全球 33 個 Region、99.99% SLA，生產環境穩定性與支援體系業界最成熟' },
+];
+
+// Per-provider static strengths
+const PROVIDER_STRENGTHS = {
+  aws: {
+    name: 'AWS',
+    general: '全球最大雲端生態系，200+ 服務，第三方整合與技術支援資源最豐富，企業首選',
+    scenarios: {
+      web: 'CloudFront CDN 搭配 ALB + Auto Scaling，輕鬆處理百萬級流量峰值',
+      database: 'RDS Aurora 效能比標準 MySQL 快 5x，支援 6 種資料庫引擎',
+      iot: 'IoT Core + Greengrass 邊緣運算，裝置到雲端完整方案',
+      gaming: 'GameLift 全球遊戲伺服器 + DynamoDB 毫秒級讀寫',
+      media: 'CloudFront + MediaConvert 一站式影音處理與全球分發',
+      compliance: 'GovCloud + 最多合規認證，金融與政府場景首選',
+      hpc: 'Hpc6a/Hpc7g + ParallelCluster 一鍵建構 HPC 叢集',
+      production: '33 個全球 Region、成熟的 Well-Architected 框架與 24/7 支援',
+    },
+  },
+  gcp: {
+    name: 'GCP',
+    general: 'Google 等級網路效能，GKE / BigQuery 業界領先，CUD 彈性承諾折扣不需預付',
+    scenarios: {
+      k8s: 'GKE 由 K8S 發明者打造，自動升級修復，Autopilot 模式免管節點',
+      ai: 'Vertex AI + TPU v5 推理成本僅 GPU 1/3，TensorFlow / JAX 原生整合',
+      bigdata: 'BigQuery 無伺服器分析，PB 級資料秒級查詢，按掃描量計費',
+      cicd: 'Cloud Build 按秒計費 + Artifact Registry，與 GKE 深度整合',
+    },
+  },
+  azure: {
+    name: 'Azure',
+    general: 'Microsoft 生態深度整合，Azure AD + M365 企業 IT 管理最方便，Hybrid Benefit 省 20-40%',
+    scenarios: {
+      microsoft: 'Hybrid Benefit 重複使用 Windows/SQL 授權，最多省 40% 費用',
+      sap: 'SAP 認證合作夥伴，專屬 HANA 大型執行個體，ERP 遷移首選',
+      hybrid: 'Azure Arc 統一管理地端 / 多雲 / 邊緣的 K8S 與 SQL 資源',
+    },
+  },
+  oracle: {
+    name: 'Oracle Cloud',
+    general: '永久免費層業界最豐富，Flex Shape 按需分配不浪費，小規格 OCPU 定價極具優勢',
+    scenarios: {
+      cost: '永久免費方案含 2 台 VM（各 1 OCPU/1 GB）+ 200 GB Block Storage + 10 GB Object Storage',
+      oracledb: 'Autonomous Database 自動調優 / 備份 / 擴展，DBA 維運趨近零成本',
+    },
+  },
+};
+
 function generateLocalAI(data, description, isGroup) {
   const estimates = data.estimates;
-  const sortedOD = estimates.slice().sort((a, b) => a.total_monthly_on_demand - b.total_monthly_on_demand);
-  const sortedRes = estimates.slice().sort((a, b) => a.total_monthly_reserved_1y - b.total_monthly_reserved_1y);
+  const sortedOD = estimates.slice().sort(function(a, b) { return a.total_monthly_on_demand - b.total_monthly_on_demand; });
+  const sortedRes = estimates.slice().sort(function(a, b) { return a.total_monthly_reserved_1y - b.total_monthly_reserved_1y; });
   const cheapestOD = sortedOD[0];
   const priciest = sortedOD[sortedOD.length - 1];
-  const cheapestRes = sortedRes[0];
   const names = { aws: 'AWS', gcp: 'GCP', azure: 'Azure', oracle: 'Oracle Cloud' };
 
-  const savePct = ((1 - cheapestOD.total_monthly_on_demand / priciest.total_monthly_on_demand) * 100).toFixed(0);
+  const desc = (description || '').toLowerCase();
+  const hasDescription = desc.trim().length > 0;
+
+  // --- Match scenario rules ---
+  const providerHits = { aws: [], gcp: [], azure: [], oracle: [] };
+  const providerTags = { aws: new Set(), gcp: new Set(), azure: new Set(), oracle: new Set() };
+  for (var ri = 0; ri < SCENARIO_RULES.length; ri++) {
+    var rule = SCENARIO_RULES[ri];
+    for (var ki = 0; ki < rule.keywords.length; ki++) {
+      if (desc.indexOf(rule.keywords[ki]) !== -1) {
+        providerHits[rule.provider].push(rule.reason);
+        providerTags[rule.provider].add(rule.tag);
+        break;
+      }
+    }
+  }
+  var bestProvider = 'aws', bestCount = 0;
+  var hitProviders = ['aws','gcp','azure','oracle'];
+  for (var pi = 0; pi < hitProviders.length; pi++) {
+    if (providerHits[hitProviders[pi]].length > bestCount) {
+      bestCount = providerHits[hitProviders[pi]].length;
+      bestProvider = hitProviders[pi];
+    }
+  }
+  const hasScenarioMatch = bestCount > 0;
+
+  function priceOf(p) { for (var i = 0; i < estimates.length; i++) { if (estimates[i].provider === p) return estimates[i].total_monthly_on_demand; } return 0; }
+
+  // ========== Card 1: 場景最適方案 ==========
+  var bestFitText = '';
+  if (hasScenarioMatch) {
+    var recProvider = bestProvider;
+    var recName = names[recProvider];
+    var recPrice = priceOf(recProvider);
+    var cheapPrice = cheapestOD.total_monthly_on_demand;
+    var reasons = [];
+    providerHits[recProvider].forEach(function(r) { if (reasons.indexOf(r) === -1) reasons.push(r); });
+
+    bestFitText = '針對您的場景，最推薦 ' + recName + '\n\n推薦理由：\n';
+    reasons.forEach(function(r) { bestFitText += '• ' + r + '\n'; });
+
+    if (recProvider !== cheapestOD.provider && cheapPrice > 0) {
+      var priceDiffPct = ((recPrice - cheapPrice) / cheapPrice * 100).toFixed(0);
+      bestFitText += '\n' + recName + ' 月費 $' + recPrice.toFixed(0) + '（比最低的 ' + names[cheapestOD.provider] + ' $' + cheapPrice.toFixed(0) + ' 高 ' + priceDiffPct + '%），但上述技術優勢可有效降低維運成本與風險，長期 TCO 更具競爭力。';
+    } else {
+      bestFitText += '\n' + recName + ' 同時也是本規格下的最低價方案（$' + recPrice.toFixed(0) + '/月），兼具場景適性與成本優勢。';
+    }
+  } else if (hasDescription) {
+    bestFitText = '未偵測到特定技術場景需求，以成本為主要考量。\n\n' +
+      names[cheapestOD.provider] + ' 是目前 On-Demand 定價最低的方案（$' + cheapestOD.total_monthly_on_demand.toFixed(0) + '/月），' +
+      '比最貴的 ' + names[priciest.provider] + ' 便宜約 ' + ((1 - cheapestOD.total_monthly_on_demand / priciest.total_monthly_on_demand) * 100).toFixed(0) + '%。\n\n' +
+      '建議在描述中加入更多技術細節（如 K8S、.NET、AI/ML 等），系統將推薦最適合的雲端平台。';
+  } else {
+    bestFitText = '請在「使用場景描述」欄位輸入您的需求（如「微服務 + K8S」「.NET 企業應用」「電商高流量」等），系統將依場景推薦最適合的雲端平台。\n\n目前以成本排序：\n';
+    sortedOD.forEach(function(e) { bestFitText += '• ' + names[e.provider] + '：$' + e.total_monthly_on_demand.toFixed(0) + '/月\n'; });
+  }
+
+  // ========== Card 2: 各雲優勢分析 ==========
+  var strengthsText = '';
+  sortedOD.forEach(function(e, idx) {
+    var p = e.provider;
+    var s = PROVIDER_STRENGTHS[p];
+    if (!s) return;
+    if (idx > 0) strengthsText += '\n';
+    strengthsText += s.name + '（$' + e.total_monthly_on_demand.toFixed(0) + '/月）';
+    if (p === cheapestOD.provider) strengthsText += ' ★ 最低價';
+    strengthsText += '\n' + s.general + '\n';
+    var tags = providerTags[p];
+    if (tags.size > 0 && s.scenarios) {
+      tags.forEach(function(tag) {
+        if (s.scenarios[tag]) strengthsText += '→ 本場景優勢：' + s.scenarios[tag] + '\n';
+      });
+    }
+  });
+
+  // ========== Card 3: 降低成本策略 ==========
   const hasReserved = cheapestOD.total_monthly_reserved_1y != null && cheapestOD.total_monthly_on_demand > 0;
   const resSavePct = hasReserved ? ((1 - cheapestOD.total_monthly_reserved_1y / cheapestOD.total_monthly_on_demand) * 100).toFixed(0) : '0';
   const monthlyResSave = hasReserved ? (cheapestOD.total_monthly_on_demand - cheapestOD.total_monthly_reserved_1y).toFixed(0) : '0';
 
-  // CP 值最高方案
-  let cpText = names[cheapestOD.provider] + ' 是目前 On-Demand 定價最低的方案，比最貴的 ' + names[priciest.provider] + ' 便宜約 ' + savePct + '%（每月差 $' + (priciest.total_monthly_on_demand - cheapestOD.total_monthly_on_demand).toFixed(0) + '）。';
-  if (cheapestOD.provider === 'oracle') cpText += '\nOracle Cloud 在此規格下具有明顯價格優勢，適合成本敏感型工作負載，但生態系與支援資源相對較少。';
-  else if (cheapestOD.provider === 'gcp') cpText += '\nGCP 在亞太區域定價具競爭力，並支援 Committed Use Discounts（CUD），按月承諾即可享折扣、不需鎖定 1 年。';
-  else if (cheapestOD.provider === 'aws') cpText += '\nAWS 擁有最豐富的服務生態，最低價方案結合其成熟的支援體系，整體 CP 值高。';
-  else if (cheapestOD.provider === 'azure') cpText += '\nAzure 若搭配現有 Microsoft 授權（Hybrid Benefit），實際費用可再降低 20–40%。';
-
-  // 降低成本策略
-  let costText = '選擇 ' + names[cheapestOD.provider] + ' 的 1 年 Reserved 方案，可比 On-Demand 節省約 ' + resSavePct + '%，每月省 $' + monthlyResSave + '，一年累積節省 $' + (parseInt(monthlyResSave) * 12) + '。';
+  var costText = '選擇最低價方案（' + names[cheapestOD.provider] + '）的 1 年 Reserved，可比 On-Demand 節省約 ' + resSavePct + '%，每月省 $' + monthlyResSave + '，一年累積節省 $' + (parseInt(monthlyResSave) * 12) + '。';
   if (parseInt(resSavePct) >= 50) costText += '\n折扣幅度相當可觀，若工作負載穩定，強烈建議鎖定 Reserved。';
-  costText += '\n\n其他節費策略：\n• 開發 / 測試環境排程關機，可再省 40–70%\n• Spot / Preemptible 適合批次處理或 CI/CD 任務\n• 善用各家免費額度（Oracle 永久免費層特別豐富）';
+  costText += '\n\n其他節費策略：\n• 開發 / 測試環境排程關機，可再省 40–70%\n• Spot / Preemptible 適合批次處理或 CI/CD 任務\n• 善用各家免費額度（Oracle 永久免費層特別豐富）\n• GCP CUD 按月承諾即享折扣，不需預付或鎖定長約';
 
-  // 使用場景建議
-  const desc = (description || '').toLowerCase();
-  let scenarioText = '';
-  if (desc.includes('新創') || desc.includes('startup') || desc.includes('mvp')) {
-    scenarioText = '新創 / MVP 建議：\n先以 On-Demand 保持彈性，驗證產品後再轉 Reserved 鎖定成本。Oracle Cloud 或 GCP 可降低初期燒錢速度。建議搭配 Auto Scaling，避免閒置浪費。';
-  } else if (desc.includes('生產') || desc.includes('production') || desc.includes('prod')) {
-    scenarioText = '生產環境建議：\nReserved 1 年方案確保成本可控。建議多可用區部署（Multi-AZ）提升可靠性。Load Balancer + Auto Scaling 組合，需額外計算 LB 每小時費用。';
-  } else if (desc.includes('開發') || desc.includes('dev') || desc.includes('test') || desc.includes('測試')) {
-    scenarioText = '開發 / 測試環境建議：\n使用 On-Demand，工作時間外排程關機。可考慮 Spot Instance 大幅降低成本。不需跨區高可用，單區部署即可省去跨區流量費。';
-  } else if (desc.includes('台灣') || desc.includes('taiwan')) {
-    scenarioText = '台灣用戶為主：\n最近可用區域為東京（ap-northeast-1）。建議評估各家延遲：AWS / GCP / Azure 東京均有良好覆蓋。Oracle 在東京亦有節點且定價最低，可優先評估。';
-  } else if (desc) {
-    scenarioText = '根據您的描述，建議以最低 On-Demand 方案開始，觀察 1–2 個月的實際用量後，再決定是否購買 Reserved 方案以進一步降低成本。';
-  } else {
-    scenarioText = '若工作負載穩定（7×24 運行），Reserved 1 年方案最划算。\n若流量波動大，建議 On-Demand + Auto Scaling 組合。\n若為批次或不定期任務，Spot / Preemptible 可省 60–80%。';
-  }
-
-  // 隱藏費用警示
+  // ========== Card 4: 隱藏費用警示 ==========
   const hiddenItems = [];
   if (!isGroup) {
     const spec = data.spec;
@@ -1411,26 +1526,26 @@ function generateLocalAI(data, description, isGroup) {
   hiddenItems.push('NAT Gateway 依資料量計費，高流量環境費用顯著');
   hiddenItems.push('跨可用區資料傳輸 ~$0.01/GB，頻繁跨區互通需注意');
   hiddenItems.push('DNS 查詢、CloudWatch / Cloud Monitoring 等監控費用');
-  const hiddenText = hiddenItems.map(i => '• ' + i).join('\n');
+  const hiddenText = hiddenItems.map(function(i) { return '• ' + i; }).join('\n');
 
-  return { cpText, costText, scenarioText, hiddenText };
+  return { bestFitText: bestFitText, strengthsText: strengthsText, costText: costText, hiddenText: hiddenText };
 }
 
 function renderAISection(data, description, isGroup) {
   const ai = generateLocalAI(data, description, isGroup);
   const cards = [
-    { icon: '💰', title: 'CP 值最高方案', body: ai.cpText },
-    { icon: '📉', title: '降低成本策略', body: ai.costText },
-    { icon: '🎯', title: '使用場景建議', body: ai.scenarioText },
-    { icon: '⚠️', title: '隱藏費用警示', body: ai.hiddenText },
+    { icon: '\uD83C\uDFAF', title: '\u5834\u666F\u6700\u9069\u65B9\u6848', body: ai.bestFitText },
+    { icon: '\uD83D\uDCCA', title: '\u5404\u96F2\u512A\u52E2\u5206\u6790', body: ai.strengthsText },
+    { icon: '\uD83D\uDCC9', title: '\u964D\u4F4E\u6210\u672C\u7B56\u7565', body: ai.costText },
+    { icon: '\u26A0\uFE0F', title: '\u96B1\u85CF\u8CBB\u7528\u8B66\u793A', body: ai.hiddenText },
   ];
-  document.getElementById('ai-cards').innerHTML = cards.map(c =>
-    '<div class="ai-card">' +
+  document.getElementById('ai-cards').innerHTML = cards.map(function(c) {
+    return '<div class="ai-card">' +
       '<div class="ai-card-icon">' + c.icon + '</div>' +
       '<div class="ai-card-title">' + c.title + '</div>' +
       '<div class="ai-card-body">' + escHtml(c.body) + '</div>' +
-    '</div>'
-  ).join('');
+    '</div>';
+  }).join('');
   document.getElementById('ai-section').style.display = '';
 }
 
