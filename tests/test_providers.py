@@ -17,7 +17,7 @@ def basic_spec():
         ram_gb=16,
         storage_gb=100,
         storage_type=StorageType.SSD,
-        network_transfer_gb=50,
+        network_transfer_gb=500,
         region=Region.US_EAST_1,
         monthly_hours=730,
         os="linux",
@@ -62,11 +62,12 @@ class TestAWSCalculator:
 
     @pytest.mark.asyncio
     async def test_data_transfer_calculation(self):
-        # First 1 GB free
-        cost = calc_tiered_cost(0.5, _DATA_TRANSFER_TIERS)
+        # First 100 GB/month free
+        cost = calc_tiered_cost(50, _DATA_TRANSFER_TIERS)
         assert cost == 0.0
 
-        cost = calc_tiered_cost(100, _DATA_TRANSFER_TIERS)
+        # Beyond the free allowance, egress is billed
+        cost = calc_tiered_cost(500, _DATA_TRANSFER_TIERS)
         assert cost > 0
 
 

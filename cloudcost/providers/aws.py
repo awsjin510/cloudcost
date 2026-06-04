@@ -65,12 +65,15 @@ _EBS_PRICE_PER_GB_MONTH: dict[str, float] = {
     "sc1": 0.015,
 }
 
-# Data transfer out pricing tiers (USD/GB, first 1 GB free)
+# Data transfer out (to internet) pricing tiers (USD/GB).
+# AWS provides 100 GB/month of free egress aggregated across regions/services
+# (since Dec 2021), then $0.09/GB up to 10 TB, tapering for higher volumes.
+# Pricing last verified: 2026-06 — https://aws.amazon.com/ec2/pricing/on-demand/
 _DATA_TRANSFER_TIERS: list[tuple[float, float]] = [
-    (1, 0.00),  # first 1 GB free
-    (9999, 0.09),  # next ~10 TB
-    (40000, 0.085),  # next 40 TB
-    (100000, 0.07),  # next 100 TB
+    (100, 0.00),  # first 100 GB/month free
+    (10140, 0.09),  # remainder of first 10 TB
+    (40960, 0.085),  # next 40 TB
+    (102400, 0.07),  # next 100 TB
     (float("inf"), 0.05),  # 150 TB+
 ]
 
@@ -100,8 +103,11 @@ _FALLBACK_PRICES: dict[str, float] = {
     "r5.4xlarge": 1.008,
 }
 
-# Reserved 1-yr No Upfront discount ratio vs On-Demand (approximate)
-_RESERVED_1Y_DISCOUNT = 0.60  # pay ~60% of on-demand
+# Reserved 1-yr Standard No Upfront discount ratio vs On-Demand (approximate).
+# 1-year No Upfront saves ~29% (you pay ~0.70 of on-demand); deeper discounts
+# (~40%+) apply only to All Upfront or 3-year terms.
+# Pricing last verified: 2026-06 — https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/
+_RESERVED_1Y_DISCOUNT = 0.70  # pay ~70% of on-demand
 
 
 class AWSCalculator(BaseCalculator):
