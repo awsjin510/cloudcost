@@ -58,7 +58,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_D64s_v5": 3.072,
     "Standard_F2s_v2": 0.0846,
     "Standard_F4s_v2": 0.169,
-    "Standard_F8s_v2": 0.340,
+    "Standard_F8s_v2": 0.338,
     "Standard_F16s_v2": 0.680,
     "Standard_E2s_v5": 0.126,
     "Standard_E4s_v5": 0.252,
@@ -81,17 +81,22 @@ _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "taiwannorth": 1.20,
 }
 
-# Managed Disk pricing (USD per GB-month)
+# Managed Disk pricing (USD per GB-month).
+# UltraSSD is the per-GiB capacity rate (~0.1475); provisioned IOPS/throughput
+# are billed separately and not modeled here.
+# Pricing last verified: 2026-06 — https://azure.microsoft.com/pricing/details/managed-disks/
 _DISK_PRICES: dict[str, float] = {
     "Premium_LRS": 0.132,
     "Standard_LRS": 0.040,
-    "UltraSSD_LRS": 0.200,
+    "UltraSSD_LRS": 0.15,
 }
 
-# Bandwidth out pricing tiers (USD/GB)
+# Bandwidth out (to internet) pricing tiers (USD/GB).
+# Azure provides 100 GB/month free egress, then tapering per-GB rates.
+# Pricing last verified: 2026-06 — https://azure.microsoft.com/pricing/details/bandwidth/
 _BANDWIDTH_TIERS: list[tuple[float, float]] = [
-    (5, 0.00),  # first 5 GB free
-    (10240, 0.087),
+    (100, 0.00),  # first 100 GB/month free
+    (10140, 0.087),  # remainder of first ~10 TB
     (40960, 0.083),
     (102400, 0.07),
     (float("inf"), 0.05),
