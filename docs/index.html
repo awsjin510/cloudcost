@@ -715,21 +715,28 @@ const AWS_INSTANCES = [
   { name: 'm5.large', vcpu: 2, ram: 8 }, { name: 'm5.xlarge', vcpu: 4, ram: 16 },
   { name: 'm5.2xlarge', vcpu: 8, ram: 32 }, { name: 'm5.4xlarge', vcpu: 16, ram: 64 },
   { name: 'm5.8xlarge', vcpu: 32, ram: 128 }, { name: 'm5.12xlarge', vcpu: 48, ram: 192 },
-  { name: 'm5.16xlarge', vcpu: 64, ram: 256 },
+  { name: 'm5.16xlarge', vcpu: 64, ram: 256 }, { name: 'm5.24xlarge', vcpu: 96, ram: 384 },
   { name: 'c5.large', vcpu: 2, ram: 4 }, { name: 'c5.xlarge', vcpu: 4, ram: 8 },
   { name: 'c5.2xlarge', vcpu: 8, ram: 16 }, { name: 'c5.4xlarge', vcpu: 16, ram: 32 },
   { name: 'c5.9xlarge', vcpu: 36, ram: 72 },
   { name: 'r5.large', vcpu: 2, ram: 16 }, { name: 'r5.xlarge', vcpu: 4, ram: 32 },
   { name: 'r5.2xlarge', vcpu: 8, ram: 64 }, { name: 'r5.4xlarge', vcpu: 16, ram: 128 },
+  { name: 'r5.8xlarge', vcpu: 32, ram: 256 }, { name: 'r5.12xlarge', vcpu: 48, ram: 384 },
+  { name: 'r5.16xlarge', vcpu: 64, ram: 512 }, { name: 'r5.24xlarge', vcpu: 96, ram: 768 },
 ];
 const AWS_PRICES = {
   't3.micro':0.0104,'t3.small':0.0208,'t3.medium':0.0416,'t3.large':0.0832,
   't3.xlarge':0.1664,'t3.2xlarge':0.3328,
   'm5.large':0.096,'m5.xlarge':0.192,'m5.2xlarge':0.384,'m5.4xlarge':0.768,
-  'm5.8xlarge':1.536,'m5.12xlarge':2.304,'m5.16xlarge':3.072,
+  'm5.8xlarge':1.536,'m5.12xlarge':2.304,'m5.16xlarge':3.072,'m5.24xlarge':4.608,
   'c5.large':0.085,'c5.xlarge':0.170,'c5.2xlarge':0.340,'c5.4xlarge':0.680,'c5.9xlarge':1.530,
   'r5.large':0.126,'r5.xlarge':0.252,'r5.2xlarge':0.504,'r5.4xlarge':1.008,
+  'r5.8xlarge':2.016,'r5.12xlarge':3.024,'r5.16xlarge':4.032,'r5.24xlarge':6.048,
 };
+// Windows Server license uplift (USD per vCPU-hour); burstable families
+// (AWS t*, Azure B*) carry a reduced rate. Verified via AWS Price List API.
+const WINDOWS_LICENSE_PER_VCPU = 0.046;
+const WINDOWS_LICENSE_PER_VCPU_BURSTABLE = 0.0092;
 const AWS_STORAGE = { ssd: 0.08, hdd: 0.045, nvme: 0.125 };
 const AWS_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.11,'ap-northeast-1':1.27,'ap-northeast-2':1.20,'ap-southeast-1':1.22,'ap-east-1':1.34,'ap-east-2':1.18 };
 // 1-yr Standard No Upfront RI ≈ 0.63 of on-demand (verified 2026-07,
@@ -753,11 +760,13 @@ const GCP_INSTANCES = [
   { name: 'n2-standard-2', vcpu: 2, ram: 8 }, { name: 'n2-standard-4', vcpu: 4, ram: 16 },
   { name: 'n2-standard-8', vcpu: 8, ram: 32 }, { name: 'n2-standard-16', vcpu: 16, ram: 64 },
   { name: 'n2-standard-32', vcpu: 32, ram: 128 }, { name: 'n2-standard-48', vcpu: 48, ram: 192 },
-  { name: 'n2-standard-64', vcpu: 64, ram: 256 },
+  { name: 'n2-standard-64', vcpu: 64, ram: 256 }, { name: 'n2-standard-80', vcpu: 80, ram: 320 },
   { name: 'c2-standard-4', vcpu: 4, ram: 16 }, { name: 'c2-standard-8', vcpu: 8, ram: 32 },
   { name: 'c2-standard-16', vcpu: 16, ram: 64 },
   { name: 'n2-highmem-2', vcpu: 2, ram: 16 }, { name: 'n2-highmem-4', vcpu: 4, ram: 32 },
   { name: 'n2-highmem-8', vcpu: 8, ram: 64 }, { name: 'n2-highmem-16', vcpu: 16, ram: 128 },
+  { name: 'n2-highmem-32', vcpu: 32, ram: 256 }, { name: 'n2-highmem-48', vcpu: 48, ram: 384 },
+  { name: 'n2-highmem-64', vcpu: 64, ram: 512 }, { name: 'n2-highmem-80', vcpu: 80, ram: 640 },
 ];
 const GCP_PRICES = {
   'e2-micro':0.00838,'e2-small':0.01675,'e2-medium':0.03351,
@@ -765,8 +774,10 @@ const GCP_PRICES = {
   'e2-standard-16':0.53609,'e2-standard-32':1.07218,
   'n2-standard-2':0.0971,'n2-standard-4':0.1942,'n2-standard-8':0.3884,
   'n2-standard-16':0.7768,'n2-standard-32':1.5536,'n2-standard-48':2.3304,'n2-standard-64':3.1072,
+  'n2-standard-80':3.8840,
   'c2-standard-4':0.2099,'c2-standard-8':0.4198,'c2-standard-16':0.8396,
   'n2-highmem-2':0.1311,'n2-highmem-4':0.2622,'n2-highmem-8':0.5244,'n2-highmem-16':1.0488,
+  'n2-highmem-32':2.0976,'n2-highmem-48':3.1464,'n2-highmem-64':4.1952,'n2-highmem-80':5.2440,
 };
 // nvme = pd-extreme capacity rate ($0.125/GB-mo; provisioned IOPS billed separately)
 const GCP_STORAGE = { ssd: 0.170, hdd: 0.040, nvme: 0.125 };
@@ -788,11 +799,13 @@ const AZURE_INSTANCES = [
   { name: 'Standard_D2s_v5', vcpu: 2, ram: 8 }, { name: 'Standard_D4s_v5', vcpu: 4, ram: 16 },
   { name: 'Standard_D8s_v5', vcpu: 8, ram: 32 }, { name: 'Standard_D16s_v5', vcpu: 16, ram: 64 },
   { name: 'Standard_D32s_v5', vcpu: 32, ram: 128 }, { name: 'Standard_D48s_v5', vcpu: 48, ram: 192 },
-  { name: 'Standard_D64s_v5', vcpu: 64, ram: 256 },
+  { name: 'Standard_D64s_v5', vcpu: 64, ram: 256 }, { name: 'Standard_D96s_v5', vcpu: 96, ram: 384 },
   { name: 'Standard_F2s_v2', vcpu: 2, ram: 4 }, { name: 'Standard_F4s_v2', vcpu: 4, ram: 8 },
   { name: 'Standard_F8s_v2', vcpu: 8, ram: 16 }, { name: 'Standard_F16s_v2', vcpu: 16, ram: 32 },
   { name: 'Standard_E2s_v5', vcpu: 2, ram: 16 }, { name: 'Standard_E4s_v5', vcpu: 4, ram: 32 },
   { name: 'Standard_E8s_v5', vcpu: 8, ram: 64 }, { name: 'Standard_E16s_v5', vcpu: 16, ram: 128 },
+  { name: 'Standard_E32s_v5', vcpu: 32, ram: 256 }, { name: 'Standard_E48s_v5', vcpu: 48, ram: 384 },
+  { name: 'Standard_E64s_v5', vcpu: 64, ram: 512 }, { name: 'Standard_E96s_v5', vcpu: 96, ram: 672 },
 ];
 const AZURE_PRICES = {
   'Standard_B1s':0.0104,'Standard_B1ms':0.0207,'Standard_B2s':0.0416,'Standard_B2ms':0.0832,
@@ -800,6 +813,8 @@ const AZURE_PRICES = {
   'Standard_D16s_v5':0.768,'Standard_D32s_v5':1.536,'Standard_D48s_v5':2.304,'Standard_D64s_v5':3.072,
   'Standard_F2s_v2':0.0846,'Standard_F4s_v2':0.169,'Standard_F8s_v2':0.338,'Standard_F16s_v2':0.676,
   'Standard_E2s_v5':0.126,'Standard_E4s_v5':0.252,'Standard_E8s_v5':0.504,'Standard_E16s_v5':1.008,
+  'Standard_D96s_v5':4.608,
+  'Standard_E32s_v5':2.016,'Standard_E48s_v5':3.024,'Standard_E64s_v5':4.032,'Standard_E96s_v5':6.048,
 };
 // nvme = UltraSSD capacity rate ($0.15/GB-mo; provisioned IOPS/throughput billed separately)
 const AZURE_STORAGE = { ssd: 0.132, hdd: 0.040, nvme: 0.15 };
@@ -820,6 +835,8 @@ const ORACLE_INSTANCES = [
   { name: 'VM.Standard.E4.Flex-1', vcpu: 2, ram: 16 }, { name: 'VM.Standard.E4.Flex-2', vcpu: 4, ram: 32 },
   { name: 'VM.Standard.E4.Flex-4', vcpu: 8, ram: 64 }, { name: 'VM.Standard.E4.Flex-8', vcpu: 16, ram: 128 },
   { name: 'VM.Standard.E4.Flex-16', vcpu: 32, ram: 256 },
+  { name: 'VM.Standard.E4.Flex-32', vcpu: 64, ram: 512 }, { name: 'VM.Standard.E4.Flex-48', vcpu: 96, ram: 768 },
+  { name: 'VM.Standard.E4.Flex-64', vcpu: 128, ram: 1024 },
   { name: 'VM.Standard3.Flex-2', vcpu: 4, ram: 32 }, { name: 'VM.Standard3.Flex-4', vcpu: 8, ram: 64 },
   { name: 'VM.Standard3.Flex-8', vcpu: 16, ram: 128 }, { name: 'VM.Standard3.Flex-16', vcpu: 32, ram: 256 },
   { name: 'VM.Optimized3.Flex-2', vcpu: 4, ram: 28 }, { name: 'VM.Optimized3.Flex-4', vcpu: 8, ram: 56 },
@@ -830,6 +847,7 @@ const ORACLE_INSTANCES = [
 const ORACLE_PRICES = {
   'VM.Standard.E4.Flex-1':0.049,'VM.Standard.E4.Flex-2':0.098,
   'VM.Standard.E4.Flex-4':0.196,'VM.Standard.E4.Flex-8':0.392,'VM.Standard.E4.Flex-16':0.784,
+  'VM.Standard.E4.Flex-32':1.568,'VM.Standard.E4.Flex-48':2.352,'VM.Standard.E4.Flex-64':3.136,
   'VM.Standard3.Flex-2':0.128,'VM.Standard3.Flex-4':0.256,
   'VM.Standard3.Flex-8':0.512,'VM.Standard3.Flex-16':1.024,
   'VM.Optimized3.Flex-2':0.150,'VM.Optimized3.Flex-4':0.300,'VM.Optimized3.Flex-8':0.600,
@@ -840,6 +858,13 @@ const ORACLE_RESERVED_DISCOUNT = 0.66;
 // USD per OCPU per hour, by shape family
 const ORACLE_OCPU_RATES = { 'VM.Standard.E4.Flex': 0.025, 'VM.Standard3.Flex': 0.04, 'VM.Optimized3.Flex': 0.054 };
 const ORACLE_MEMORY_RATE = 0.0015;    // USD per GB per hour (all Flex shapes)
+// Estimated hourly OCPU cost per shape, used to steer matching toward the
+// cheapest family (memory is billed identically across Flex shapes).
+const ORACLE_SORT_PRICES = Object.fromEntries(ORACLE_INSTANCES.map(function (i) {
+  const family = i.name.split('-')[0];
+  const ocpus = parseInt(i.name.split('-').pop()) || 1;
+  return [i.name, (ORACLE_OCPU_RATES[family] || 0.025) * ocpus];
+}));
 const GCP_E2_CUSTOM_VCPU_RATE = 0.022859; // USD per vCPU per hour (us-east1 baseline)
 const GCP_E2_CUSTOM_RAM_RATE  = 0.003067; // USD per GB per hour (us-east1 baseline)
 function oracleNetworkCost(gb) { return gb <= 10240 ? 0 : (gb - 10240) * 0.0085; }
@@ -860,9 +885,15 @@ const PROVIDER_META = {
 // CALCULATION ENGINE
 // ════════════════════════════════════════════════════════════════
 
-function matchInstance(catalog, cpu, ram) {
-  const c = catalog.filter(i => i.vcpu >= cpu && i.ram >= ram).sort((a, b) => a.vcpu - b.vcpu || a.ram - b.ram);
-  return c.length > 0 ? c[0] : catalog[catalog.length - 1];
+function matchInstance(catalog, cpu, ram, prices) {
+  // Cheapest instance that satisfies the spec (ties broken by tightest fit);
+  // falls back to tightest fit when no price table is supplied.
+  const c = catalog.filter(i => i.vcpu >= cpu && i.ram >= ram);
+  if (c.length === 0) return catalog[catalog.length - 1];
+  const priceOf = i => (prices && prices[i.name] !== undefined) ? prices[i.name] : Infinity;
+  if (prices) c.sort((a, b) => priceOf(a) - priceOf(b) || a.vcpu - b.vcpu || a.ram - b.ram);
+  else c.sort((a, b) => a.vcpu - b.vcpu || a.ram - b.ram);
+  return c[0];
 }
 
 function calcProvider(provider, spec) {
@@ -887,8 +918,10 @@ function calcProvider(provider, spec) {
       reservedDiscount = ORACLE_RESERVED_DISCOUNT; networkFn = oracleNetworkCost;
       break;
   }
-  const inst = matchInstance(instances, spec.cpu_cores, spec.ram_gb);
+  const inst = matchInstance(instances, spec.cpu_cores, spec.ram_gb,
+    provider === 'oracle' ? ORACLE_SORT_PRICES : prices);
   let baseHourly;
+  let licenseHourly = 0;
   if (provider === 'oracle') {
     // Flex shapes: OCPU count comes from the matched instance name suffix
     // (e.g. "VM.Standard.E4.Flex-4" → 4 OCPUs) at the family's OCPU rate.
@@ -911,11 +944,19 @@ function calcProvider(provider, spec) {
   } else {
     baseHourly = (prices[inst.name] || 0.10) * regionMult;
   }
+  // Windows Server license (AWS/Azure): the price tables are Linux-based,
+  // and the license portion is not discounted by reservations.
+  if (spec.os === 'windows' && (provider === 'aws' || provider === 'azure')) {
+    const burstable = provider === 'aws' ? inst.name.startsWith('t') : inst.name.startsWith('Standard_B');
+    licenseHourly = inst.vcpu * (burstable ? WINDOWS_LICENSE_PER_VCPU_BURSTABLE : WINDOWS_LICENSE_PER_VCPU);
+    baseHourly += licenseHourly;
+  }
+  const reservedHourly = (baseHourly - licenseHourly) * reservedDiscount + licenseHourly;
   const computeCost = baseHourly * spec.monthly_hours;
   const storageCost = spec.storage_gb * (storagePrices[spec.storage_type] || storagePrices.ssd);
   const networkCost = networkFn(spec.network_transfer_gb);
   const totalOD = computeCost + storageCost + networkCost;
-  const totalRes = computeCost * reservedDiscount + storageCost + networkCost;
+  const totalRes = reservedHourly * spec.monthly_hours + storageCost + networkCost;
   const warnings = [];
   if (inst.vcpu > spec.cpu_cores * 2) warnings.push('超額配置：可用的最小機型大於需求');
   if (inst.ram > spec.ram_gb * 2) warnings.push('記憶體超額配置');
@@ -923,7 +964,7 @@ function calcProvider(provider, spec) {
     provider, region_name: REGION_NAMES[spec.region] || spec.region,
     matched_instance: inst.name,
     on_demand: { hourly_cost: baseHourly, monthly_cost: totalOD, details: { compute: computeCost, storage: storageCost, network: networkCost } },
-    reserved_1y: { hourly_cost: baseHourly * reservedDiscount, monthly_cost: totalRes },
+    reserved_1y: { hourly_cost: reservedHourly, monthly_cost: totalRes },
     total_monthly_on_demand: totalOD, total_monthly_reserved_1y: totalRes, warnings,
   };
 }

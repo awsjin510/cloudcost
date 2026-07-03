@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from .spec import CloudProvider, CloudSpec, DatabaseType, Region, StorageType
 
 # ---------------------------------------------------------------------------
@@ -77,6 +79,7 @@ AWS_INSTANCE_CATALOG: list[dict] = [
     {"type": "m5.8xlarge", "vcpu": 32, "ram": 128.0},
     {"type": "m5.12xlarge", "vcpu": 48, "ram": 192.0},
     {"type": "m5.16xlarge", "vcpu": 64, "ram": 256.0},
+    {"type": "m5.24xlarge", "vcpu": 96, "ram": 384.0},
     {"type": "c5.large", "vcpu": 2, "ram": 4.0},
     {"type": "c5.xlarge", "vcpu": 4, "ram": 8.0},
     {"type": "c5.2xlarge", "vcpu": 8, "ram": 16.0},
@@ -86,6 +89,10 @@ AWS_INSTANCE_CATALOG: list[dict] = [
     {"type": "r5.xlarge", "vcpu": 4, "ram": 32.0},
     {"type": "r5.2xlarge", "vcpu": 8, "ram": 64.0},
     {"type": "r5.4xlarge", "vcpu": 16, "ram": 128.0},
+    {"type": "r5.8xlarge", "vcpu": 32, "ram": 256.0},
+    {"type": "r5.12xlarge", "vcpu": 48, "ram": 384.0},
+    {"type": "r5.16xlarge", "vcpu": 64, "ram": 512.0},
+    {"type": "r5.24xlarge", "vcpu": 96, "ram": 768.0},
 ]
 
 GCP_INSTANCE_CATALOG: list[dict] = [
@@ -104,6 +111,7 @@ GCP_INSTANCE_CATALOG: list[dict] = [
     {"type": "n2-standard-32", "vcpu": 32, "ram": 128.0},
     {"type": "n2-standard-48", "vcpu": 48, "ram": 192.0},
     {"type": "n2-standard-64", "vcpu": 64, "ram": 256.0},
+    {"type": "n2-standard-80", "vcpu": 80, "ram": 320.0},
     {"type": "c2-standard-4", "vcpu": 4, "ram": 16.0},
     {"type": "c2-standard-8", "vcpu": 8, "ram": 32.0},
     {"type": "c2-standard-16", "vcpu": 16, "ram": 64.0},
@@ -111,6 +119,10 @@ GCP_INSTANCE_CATALOG: list[dict] = [
     {"type": "n2-highmem-4", "vcpu": 4, "ram": 32.0},
     {"type": "n2-highmem-8", "vcpu": 8, "ram": 64.0},
     {"type": "n2-highmem-16", "vcpu": 16, "ram": 128.0},
+    {"type": "n2-highmem-32", "vcpu": 32, "ram": 256.0},
+    {"type": "n2-highmem-48", "vcpu": 48, "ram": 384.0},
+    {"type": "n2-highmem-64", "vcpu": 64, "ram": 512.0},
+    {"type": "n2-highmem-80", "vcpu": 80, "ram": 640.0},
 ]
 
 AZURE_INSTANCE_CATALOG: list[dict] = [
@@ -125,6 +137,7 @@ AZURE_INSTANCE_CATALOG: list[dict] = [
     {"type": "Standard_D32s_v5", "vcpu": 32, "ram": 128.0},
     {"type": "Standard_D48s_v5", "vcpu": 48, "ram": 192.0},
     {"type": "Standard_D64s_v5", "vcpu": 64, "ram": 256.0},
+    {"type": "Standard_D96s_v5", "vcpu": 96, "ram": 384.0},
     {"type": "Standard_F2s_v2", "vcpu": 2, "ram": 4.0},
     {"type": "Standard_F4s_v2", "vcpu": 4, "ram": 8.0},
     {"type": "Standard_F8s_v2", "vcpu": 8, "ram": 16.0},
@@ -133,6 +146,10 @@ AZURE_INSTANCE_CATALOG: list[dict] = [
     {"type": "Standard_E4s_v5", "vcpu": 4, "ram": 32.0},
     {"type": "Standard_E8s_v5", "vcpu": 8, "ram": 64.0},
     {"type": "Standard_E16s_v5", "vcpu": 16, "ram": 128.0},
+    {"type": "Standard_E32s_v5", "vcpu": 32, "ram": 256.0},
+    {"type": "Standard_E48s_v5", "vcpu": 48, "ram": 384.0},
+    {"type": "Standard_E64s_v5", "vcpu": 64, "ram": 512.0},
+    {"type": "Standard_E96s_v5", "vcpu": 96, "ram": 672.0},
 ]
 
 # OCI: 1 OCPU = 2 vCPU (x86).  vcpu below = real vCPU count (2 × OCPU).
@@ -143,6 +160,9 @@ ORACLE_INSTANCE_CATALOG: list[dict] = [
     {"type": "VM.Standard.E4.Flex-4", "vcpu": 8, "ram": 64.0},
     {"type": "VM.Standard.E4.Flex-8", "vcpu": 16, "ram": 128.0},
     {"type": "VM.Standard.E4.Flex-16", "vcpu": 32, "ram": 256.0},
+    {"type": "VM.Standard.E4.Flex-32", "vcpu": 64, "ram": 512.0},
+    {"type": "VM.Standard.E4.Flex-48", "vcpu": 96, "ram": 768.0},
+    {"type": "VM.Standard.E4.Flex-64", "vcpu": 128, "ram": 1024.0},
     {"type": "VM.Standard3.Flex-2", "vcpu": 4, "ram": 32.0},
     {"type": "VM.Standard3.Flex-4", "vcpu": 8, "ram": 64.0},
     {"type": "VM.Standard3.Flex-8", "vcpu": 16, "ram": 128.0},
@@ -250,13 +270,22 @@ def get_provider_database_name(
     return DATABASE_MAP[db_type][provider]
 
 
-def match_instance(spec: CloudSpec, provider: CloudProvider) -> dict:
-    """Find the smallest instance that meets or exceeds the requested spec.
+def match_instance(
+    spec: CloudSpec,
+    provider: CloudProvider,
+    prices: Optional[dict[str, float]] = None,
+) -> dict:
+    """Find the cheapest instance that meets or exceeds the requested spec.
 
     Matching strategy:
       1. Filter instances where vcpu >= spec.cpu_cores AND ram >= spec.ram_gb
-      2. Sort by (vcpu, ram) ascending — pick the tightest fit
-      3. Return the best match, or raise ValueError if nothing fits
+      2. When a price table is given, pick the cheapest candidate (ties
+         broken by tightest fit). This matters for mixed-family catalogs
+         where the tightest fit is not the cheapest — e.g. OCI Optimized3
+         ($0.054/OCPU) has less default RAM than E4 ($0.025/OCPU) and would
+         otherwise win on fit while costing twice as much.
+      3. Without prices, sort by (vcpu, ram) ascending — the tightest fit.
+      4. Return the best match, or raise ValueError if nothing fits.
     """
     catalog = PROVIDER_CATALOGS[provider]
     candidates = [
@@ -269,5 +298,14 @@ def match_instance(spec: CloudSpec, provider: CloudProvider) -> dict:
             f"No {provider.value} instance found for "
             f"{spec.cpu_cores} vCPU / {spec.ram_gb} GB RAM"
         )
-    candidates.sort(key=lambda x: (x["vcpu"], x["ram"]))
+    if prices:
+        candidates.sort(
+            key=lambda x: (
+                prices.get(x["type"], float("inf")),
+                x["vcpu"],
+                x["ram"],
+            )
+        )
+    else:
+        candidates.sort(key=lambda x: (x["vcpu"], x["ram"]))
     return candidates[0]

@@ -18,7 +18,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from cloudcost.models.naming import get_provider_region, match_instance
+from cloudcost.models.naming import (
+    ORACLE_INSTANCE_CATALOG,
+    get_provider_region,
+    match_instance,
+)
 from cloudcost.models.spec import (
     CloudProvider,
     CloudSpec,
@@ -82,15 +86,41 @@ _EGRESS_TIERS: list[tuple[float, float]] = [
 ]
 
 
+def _parse_shape(instance_type: str) -> tuple[str, int]:
+    """Parse 'VM.Standard.E4.Flex-4' into ('VM.Standard.E4.Flex', 4)."""
+    if "-" in instance_type:
+        parts = instance_type.rsplit("-", 1)
+        try:
+            return parts[0], int(parts[1])
+        except (ValueError, IndexError):
+            return instance_type, 1
+    return instance_type, 1
+
+
+# Estimated hourly OCPU cost per catalog shape, used to steer instance
+# matching toward the cheapest family (memory is billed identically across
+# Flex shapes and on the requested RAM, so it does not affect the ranking).
+_CATALOG_OCPU_COSTS: dict[str, float] = {
+    inst["type"]: _FALLBACK_OCPU_RATES.get(_parse_shape(inst["type"])[0], 0.025)
+    * _parse_shape(inst["type"])[1]
+    for inst in ORACLE_INSTANCE_CATALOG
+}
+
+
 class OracleCalculator(BaseCalculator):
     """OCI cost estimator using the public Oracle pricing API."""
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         oci_region = get_provider_region(spec.region, CloudProvider.ORACLE)
-        instance = match_instance(spec, CloudProvider.ORACLE)
+        instance = match_instance(spec, CloudProvider.ORACLE, _CATALOG_OCPU_COSTS)
         instance_type = instance["type"]
 
         warnings: list[str] = []
+
+        if spec.os == "windows":
+            warnings.append(
+                "Windows licensing is not modeled for OCI — prices are Linux-based"
+            )
 
         if oci_region in _OCI_FALLBACK_REGIONS:
             warnings.append(
@@ -270,10 +300,4 @@ class OracleCalculator(BaseCalculator):
     @staticmethod
     def _parse_instance_type(instance_type: str) -> tuple[str, int]:
         """Parse 'VM.Standard.E4.Flex-4' into ('VM.Standard.E4.Flex', 4)."""
-        if "-" in instance_type:
-            parts = instance_type.rsplit("-", 1)
-            try:
-                return parts[0], int(parts[1])
-            except (ValueError, IndexError):
-                return instance_type, 1
-        return instance_type, 1
+        return _parse_shape(instance_type)

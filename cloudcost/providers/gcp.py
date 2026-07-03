@@ -62,6 +62,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "n2-standard-32": 1.55360,
     "n2-standard-48": 2.33040,
     "n2-standard-64": 3.10720,
+    "n2-standard-80": 3.88400,
     "c2-standard-4": 0.20990,
     "c2-standard-8": 0.41980,
     "c2-standard-16": 0.83960,
@@ -69,6 +70,10 @@ _FALLBACK_PRICES: dict[str, float] = {
     "n2-highmem-4": 0.26220,
     "n2-highmem-8": 0.52440,
     "n2-highmem-16": 1.04880,
+    "n2-highmem-32": 2.09760,
+    "n2-highmem-48": 3.14640,
+    "n2-highmem-64": 4.19520,
+    "n2-highmem-80": 5.24400,
 }
 
 # 1-year CUD discount ratio (approximate, used as fallback)
@@ -120,10 +125,15 @@ class GCPCalculator(BaseCalculator):
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         gcp_region = get_provider_region(spec.region, CloudProvider.GCP)
-        instance = match_instance(spec, CloudProvider.GCP)
+        instance = match_instance(spec, CloudProvider.GCP, _FALLBACK_PRICES)
         instance_type = instance["type"]
 
         warnings: list[str] = []
+
+        if spec.os == "windows":
+            warnings.append(
+                "Windows licensing is not modeled for GCP — prices are Linux-based"
+            )
 
         # --- Compute pricing (try API first, then fallback) ---
         api_price = await self._fetch_instance_price(

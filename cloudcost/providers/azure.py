@@ -56,6 +56,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_D32s_v5": 1.536,
     "Standard_D48s_v5": 2.304,
     "Standard_D64s_v5": 3.072,
+    "Standard_D96s_v5": 4.608,
     "Standard_F2s_v2": 0.0846,
     "Standard_F4s_v2": 0.169,
     "Standard_F8s_v2": 0.338,
@@ -64,10 +65,20 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_E4s_v5": 0.252,
     "Standard_E8s_v5": 0.504,
     "Standard_E16s_v5": 1.008,
+    "Standard_E32s_v5": 2.016,
+    "Standard_E48s_v5": 3.024,
+    "Standard_E64s_v5": 4.032,
+    "Standard_E96s_v5": 6.048,
 }
 
 # Fallback 1-year Reserved Instance discount ratio
 _FALLBACK_RI_1Y_DISCOUNT = 0.58
+
+# Windows Server license uplift, USD per vCPU-hour (approximate; mirrors
+# the AWS-verified License Included rates — D2s_v5 Windows/Linux spread
+# matches $0.046/vCPU. B-series burstables use a reduced estimate).
+_WINDOWS_LICENSE_PER_VCPU = 0.046
+_WINDOWS_LICENSE_PER_VCPU_BURSTABLE = 0.0092
 
 # Fallback region multipliers (used only when API is unreachable)
 _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
@@ -108,7 +119,7 @@ class AzureCalculator(BaseCalculator):
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         azure_region = get_provider_region(spec.region, CloudProvider.AZURE)
-        instance = match_instance(spec, CloudProvider.AZURE)
+        instance = match_instance(spec, CloudProvider.AZURE, _FALLBACK_PRICES)
         instance_type = instance["type"]
 
         warnings: list[str] = []
@@ -129,6 +140,19 @@ class AzureCalculator(BaseCalculator):
             multiplier = _FALLBACK_REGION_MULTIPLIER.get(azure_region, 1.10)
             hourly_od = base_hourly * multiplier
             hourly_ri = hourly_od * _FALLBACK_RI_1Y_DISCOUNT
+            if spec.os == "windows":
+                # Fallback table is Linux-based; add the license component.
+                # Azure reservations do not cover the OS license, so the
+                # uplift applies equally to both tiers.
+                per_vcpu = (
+                    _WINDOWS_LICENSE_PER_VCPU_BURSTABLE
+                    if instance_type.startswith("Standard_B")
+                    else _WINDOWS_LICENSE_PER_VCPU
+                )
+                license_hourly = instance["vcpu"] * per_vcpu
+                hourly_od += license_hourly
+                hourly_ri += license_hourly
+                warnings.append("Windows license estimated at fallback rates")
             warnings.append(
                 f"Used fallback pricing for {instance_type} — Azure API unreachable"
             )

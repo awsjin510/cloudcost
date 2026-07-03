@@ -92,6 +92,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "m5.8xlarge": 1.536,
     "m5.12xlarge": 2.304,
     "m5.16xlarge": 3.072,
+    "m5.24xlarge": 4.608,
     "c5.large": 0.085,
     "c5.xlarge": 0.170,
     "c5.2xlarge": 0.340,
@@ -101,7 +102,17 @@ _FALLBACK_PRICES: dict[str, float] = {
     "r5.xlarge": 0.252,
     "r5.2xlarge": 0.504,
     "r5.4xlarge": 1.008,
+    "r5.8xlarge": 2.016,
+    "r5.12xlarge": 3.024,
+    "r5.16xlarge": 4.032,
+    "r5.24xlarge": 6.048,
 }
+
+# Windows Server license uplift (License Included), USD per vCPU-hour.
+# Verified via Price List Bulk API (2026-07): standard families add
+# $0.046/vCPU-hr; t-family burstables carry a reduced rate of $0.0092.
+_WINDOWS_LICENSE_PER_VCPU = 0.046
+_WINDOWS_LICENSE_PER_VCPU_BURSTABLE = 0.0092
 
 # Fallback region price multipliers relative to us-east-1 (used only when the
 # API is unreachable; the fallback price table is us-east-1 based).
@@ -134,7 +145,7 @@ class AWSCalculator(BaseCalculator):
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         aws_region = get_provider_region(spec.region, CloudProvider.AWS)
-        instance = match_instance(spec, CloudProvider.AWS)
+        instance = match_instance(spec, CloudProvider.AWS, _FALLBACK_PRICES)
         instance_type = instance["type"]
 
         warnings: list[str] = []
@@ -143,15 +154,28 @@ class AWSCalculator(BaseCalculator):
         hourly_od = await self._fetch_on_demand_price(
             instance_type, aws_region, spec.os
         )
+        license_hourly = 0.0
         if hourly_od is None:
             base_hourly = _FALLBACK_PRICES.get(instance_type, 0.10)
             multiplier = _FALLBACK_REGION_MULTIPLIER.get(aws_region, 1.15)
             hourly_od = base_hourly * multiplier
+            if spec.os == "windows":
+                # Fallback table is Linux-based; add the license component
+                per_vcpu = (
+                    _WINDOWS_LICENSE_PER_VCPU_BURSTABLE
+                    if instance_type.startswith("t")
+                    else _WINDOWS_LICENSE_PER_VCPU
+                )
+                license_hourly = instance["vcpu"] * per_vcpu
+                hourly_od += license_hourly
+                warnings.append("Windows license estimated at fallback rates")
             warnings.append(
                 f"Used fallback pricing for {instance_type} — API unreachable"
             )
 
-        hourly_ri = hourly_od * _RESERVED_1Y_DISCOUNT
+        # The RI discount applies to the compute portion only; the Windows
+        # license component is billed at the same rate either way.
+        hourly_ri = (hourly_od - license_hourly) * _RESERVED_1Y_DISCOUNT + license_hourly
         monthly_hours = spec.monthly_hours
 
         compute_od = hourly_od * monthly_hours
