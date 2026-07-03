@@ -77,7 +77,7 @@ _DATA_TRANSFER_TIERS: list[tuple[float, float]] = [
     (float("inf"), 0.05),  # 150 TB+
 ]
 
-# Fallback on-demand hourly prices (USD) when API is unreachable
+# Fallback on-demand hourly prices (USD, us-east-1, Linux) when API is unreachable
 _FALLBACK_PRICES: dict[str, float] = {
     "t3.micro": 0.0104,
     "t3.small": 0.0208,
@@ -103,11 +103,26 @@ _FALLBACK_PRICES: dict[str, float] = {
     "r5.4xlarge": 1.008,
 }
 
+# Fallback region price multipliers relative to us-east-1 (used only when the
+# API is unreachable; the fallback price table is us-east-1 based).
+# Derived from Price List Bulk API data for m5/c5/r5/t3 (verified 2026-07).
+_FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
+    "us-east-1": 1.00,
+    "us-west-2": 1.00,
+    "eu-west-1": 1.11,
+    "ap-northeast-1": 1.27,
+    "ap-northeast-2": 1.20,
+    "ap-southeast-1": 1.22,
+    "ap-east-1": 1.34,
+    "ap-east-2": 1.18,
+}
+
 # Reserved 1-yr Standard No Upfront discount ratio vs On-Demand (approximate).
-# 1-year No Upfront saves ~29% (you pay ~0.70 of on-demand); deeper discounts
-# (~40%+) apply only to All Upfront or 3-year terms.
-# Pricing last verified: 2026-06 — https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/
-_RESERVED_1Y_DISCOUNT = 0.70  # pay ~70% of on-demand
+# Verified against the Price List Bulk API (2026-07): m5/c5/r5/t3 across
+# eu-west-1 / ap-northeast-1 / ap-southeast-1 all land at 0.625–0.633 of
+# on-demand (~37% savings), so 0.63 is used as the fleet-wide ratio.
+# https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/
+_RESERVED_1Y_DISCOUNT = 0.63  # pay ~63% of on-demand
 
 
 class AWSCalculator(BaseCalculator):
@@ -129,7 +144,9 @@ class AWSCalculator(BaseCalculator):
             instance_type, aws_region, spec.os
         )
         if hourly_od is None:
-            hourly_od = _FALLBACK_PRICES.get(instance_type, 0.10)
+            base_hourly = _FALLBACK_PRICES.get(instance_type, 0.10)
+            multiplier = _FALLBACK_REGION_MULTIPLIER.get(aws_region, 1.15)
+            hourly_od = base_hourly * multiplier
             warnings.append(
                 f"Used fallback pricing for {instance_type} — API unreachable"
             )

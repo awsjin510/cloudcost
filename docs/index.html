@@ -731,11 +731,15 @@ const AWS_PRICES = {
   'r5.large':0.126,'r5.xlarge':0.252,'r5.2xlarge':0.504,'r5.4xlarge':1.008,
 };
 const AWS_STORAGE = { ssd: 0.08, hdd: 0.045, nvme: 0.125 };
-const AWS_RESERVED_DISCOUNT = 0.60;
+const AWS_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.11,'ap-northeast-1':1.27,'ap-northeast-2':1.20,'ap-southeast-1':1.22,'ap-east-1':1.34,'ap-east-2':1.18 };
+// 1-yr Standard No Upfront RI ≈ 0.63 of on-demand (verified 2026-07,
+// m5/c5/r5/t3 all land at 0.625–0.633 via the Price List Bulk API)
+const AWS_RESERVED_DISCOUNT = 0.63;
+// First 100 GB/month free (aggregated free tier since Dec 2021)
 function awsNetworkCost(gb) {
-  if (gb <= 1) return 0;
-  let cost = 0, r = gb - 1;
-  for (const [l, rate] of [[10239,0.09],[40960,0.085],[102400,0.07],[Infinity,0.05]]) {
+  if (gb <= 100) return 0;
+  let cost = 0, r = gb - 100;
+  for (const [l, rate] of [[10140,0.09],[40960,0.085],[102400,0.07],[Infinity,0.05]]) {
     const c = Math.min(r, l); cost += c * rate; r -= c; if (r <= 0) break;
   }
   return cost;
@@ -764,13 +768,15 @@ const GCP_PRICES = {
   'c2-standard-4':0.2099,'c2-standard-8':0.4198,'c2-standard-16':0.8396,
   'n2-highmem-2':0.1311,'n2-highmem-4':0.2622,'n2-highmem-8':0.5244,'n2-highmem-16':1.0488,
 };
-const GCP_STORAGE = { ssd: 0.170, hdd: 0.040, nvme: 0.250 };
+// nvme = pd-extreme capacity rate ($0.125/GB-mo; provisioned IOPS billed separately)
+const GCP_STORAGE = { ssd: 0.170, hdd: 0.040, nvme: 0.125 };
 const GCP_RESERVED_DISCOUNT = 0.63;
-const GCP_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.10,'ap-northeast-1':1.22,'ap-northeast-2':1.22,'ap-southeast-1':1.13,'ap-east-1':1.16,'ap-east-2':1.11 };
+// Verified against cloud.google.com pricing tables for e2/n2 (2026-07)
+const GCP_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.10,'ap-northeast-1':1.28,'ap-northeast-2':1.28,'ap-southeast-1':1.23,'ap-east-1':1.40,'ap-east-2':1.16 };
 function gcpNetworkCost(gb) {
   if (gb <= 1) return 0;
   let cost = 0, r = gb - 1;
-  for (const [l, rate] of [[1023,0.12],[10240,0.11],[Infinity,0.08]]) {
+  for (const [l, rate] of [[1023,0.12],[9216,0.11],[Infinity,0.08]]) {
     const c = Math.min(r, l); cost += c * rate; r -= c; if (r <= 0) break;
   }
   return cost;
@@ -792,16 +798,18 @@ const AZURE_PRICES = {
   'Standard_B1s':0.0104,'Standard_B1ms':0.0207,'Standard_B2s':0.0416,'Standard_B2ms':0.0832,
   'Standard_D2s_v5':0.096,'Standard_D4s_v5':0.192,'Standard_D8s_v5':0.384,
   'Standard_D16s_v5':0.768,'Standard_D32s_v5':1.536,'Standard_D48s_v5':2.304,'Standard_D64s_v5':3.072,
-  'Standard_F2s_v2':0.0846,'Standard_F4s_v2':0.169,'Standard_F8s_v2':0.340,'Standard_F16s_v2':0.680,
+  'Standard_F2s_v2':0.0846,'Standard_F4s_v2':0.169,'Standard_F8s_v2':0.338,'Standard_F16s_v2':0.676,
   'Standard_E2s_v5':0.126,'Standard_E4s_v5':0.252,'Standard_E8s_v5':0.504,'Standard_E16s_v5':1.008,
 };
-const AZURE_STORAGE = { ssd: 0.132, hdd: 0.040, nvme: 0.200 };
+// nvme = UltraSSD capacity rate ($0.15/GB-mo; provisioned IOPS/throughput billed separately)
+const AZURE_STORAGE = { ssd: 0.132, hdd: 0.040, nvme: 0.15 };
 const AZURE_RESERVED_DISCOUNT = 0.58;
 const AZURE_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.08,'ap-northeast-1':1.25,'ap-northeast-2':1.22,'ap-southeast-1':1.12,'ap-east-1':1.15,'ap-east-2':1.20 };
+// First 100 GB/month free
 function azureNetworkCost(gb) {
-  if (gb <= 5) return 0;
-  let cost = 0, r = gb - 5;
-  for (const [l, rate] of [[10235,0.087],[40960,0.083],[102400,0.07],[Infinity,0.05]]) {
+  if (gb <= 100) return 0;
+  let cost = 0, r = gb - 100;
+  for (const [l, rate] of [[10140,0.087],[40960,0.083],[102400,0.07],[Infinity,0.05]]) {
     const c = Math.min(r, l); cost += c * rate; r -= c; if (r <= 0) break;
   }
   return cost;
@@ -827,8 +835,10 @@ const ORACLE_PRICES = {
   'VM.Optimized3.Flex-2':0.150,'VM.Optimized3.Flex-4':0.300,'VM.Optimized3.Flex-8':0.600,
 };
 const ORACLE_STORAGE = { ssd: 0.0255, hdd: 0.0255, nvme: 0.0340 };
-const ORACLE_RESERVED_DISCOUNT = 0.50;
-const ORACLE_E4_OCPU_RATE = 0.025;    // USD per OCPU per hour (E4.Flex)
+// Annual Flex (Universal Credits) ≈ 66% of Pay-As-You-Go list price
+const ORACLE_RESERVED_DISCOUNT = 0.66;
+// USD per OCPU per hour, by shape family
+const ORACLE_OCPU_RATES = { 'VM.Standard.E4.Flex': 0.025, 'VM.Standard3.Flex': 0.04, 'VM.Optimized3.Flex': 0.054 };
 const ORACLE_MEMORY_RATE = 0.0015;    // USD per GB per hour (all Flex shapes)
 const GCP_E2_CUSTOM_VCPU_RATE = 0.022859; // USD per vCPU per hour (us-east1 baseline)
 const GCP_E2_CUSTOM_RAM_RATE  = 0.003067; // USD per GB per hour (us-east1 baseline)
@@ -861,10 +871,8 @@ function calcProvider(provider, spec) {
     case 'aws':
       instances = AWS_INSTANCES; prices = AWS_PRICES; storagePrices = AWS_STORAGE;
       reservedDiscount = AWS_RESERVED_DISCOUNT; networkFn = awsNetworkCost;
-      if (['ap-northeast-1','ap-northeast-2','ap-east-1'].includes(spec.region)) regionMult = 1.30;
-      else if (spec.region === 'ap-east-2') regionMult = 1.10;
-      else if (spec.region === 'ap-southeast-1') regionMult = 1.15;
-      else if (spec.region === 'eu-west-1') regionMult = 1.10;
+      // Verified against the AWS Price List Bulk API for m5/c5/r5/t3 (2026-07)
+      regionMult = AWS_REGION_MULT[spec.region] || 1;
       break;
     case 'gcp':
       instances = GCP_INSTANCES; prices = GCP_PRICES; storagePrices = GCP_STORAGE;
@@ -882,15 +890,23 @@ function calcProvider(provider, spec) {
   const inst = matchInstance(instances, spec.cpu_cores, spec.ram_gb);
   let baseHourly;
   if (provider === 'oracle') {
-    // E4.Flex: OCPU count comes from the matched instance name suffix
-    // (e.g. "VM.Standard.E4.Flex-4" → 4 OCPUs), matching backend logic.
+    // Flex shapes: OCPU count comes from the matched instance name suffix
+    // (e.g. "VM.Standard.E4.Flex-4" → 4 OCPUs) at the family's OCPU rate.
     const ocpuCount = parseInt(inst.name.split('-').pop()) || 1;
-    baseHourly = ocpuCount * ORACLE_E4_OCPU_RATE + spec.ram_gb * ORACLE_MEMORY_RATE;
+    const family = inst.name.split('-')[0];
+    const ocpuRate = ORACLE_OCPU_RATES[family] || 0.025;
+    baseHourly = ocpuCount * ocpuRate + spec.ram_gb * ORACLE_MEMORY_RATE;
   } else if (provider === 'gcp') {
-    // GCP e2-custom allows any vCPU/RAM combo. Use it when cheaper than
-    // the matched standard instance (e.g. user needs 2 GB but e2-medium has 4 GB).
+    // GCP e2-custom is used when cheaper than the matched standard instance
+    // (e.g. user needs 2 GB but e2-medium has 4 GB). E2 custom shapes require
+    // an even vCPU count (2–32) and 0.5–8 GB RAM per vCPU (max 128 GB).
     const standardHourly = (prices[inst.name] || 0.10) * regionMult;
-    const customHourly = (spec.cpu_cores * GCP_E2_CUSTOM_VCPU_RATE + spec.ram_gb * GCP_E2_CUSTOM_RAM_RATE) * regionMult;
+    const customVcpu = Math.max(2, spec.cpu_cores + (spec.cpu_cores % 2));
+    const customRam = Math.max(spec.ram_gb, customVcpu * 0.5);
+    let customHourly = Infinity;
+    if (customVcpu <= 32 && customRam <= Math.min(128, customVcpu * 8)) {
+      customHourly = (customVcpu * GCP_E2_CUSTOM_VCPU_RATE + customRam * GCP_E2_CUSTOM_RAM_RATE) * regionMult;
+    }
     baseHourly = Math.min(standardHourly, customHourly);
   } else {
     baseHourly = (prices[inst.name] || 0.10) * regionMult;

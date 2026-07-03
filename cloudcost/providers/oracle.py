@@ -59,8 +59,10 @@ _FALLBACK_OCPU_RATES: dict[str, float] = {
 _MEMORY_RATE_PER_GB_HOUR = 0.0015  # USD per GB per hour
 
 # OCI doesn't have traditional reserved instances in the same way;
-# they offer Annual Flex pricing at roughly 50% discount.
-_FALLBACK_ANNUAL_FLEX_DISCOUNT = 0.50
+# Annual Flex (Universal Credits) pricing runs at roughly 66% of
+# Pay-As-You-Go list price (~34% discount). Larger negotiated commits can
+# go deeper, but 0.66 reflects the standard published ratio.
+_FALLBACK_ANNUAL_FLEX_DISCOUNT = 0.66
 
 # Regions used as a nearest alternative when Oracle has no direct presence.
 # A warning is shown to the user whenever one of these is selected.

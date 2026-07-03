@@ -79,45 +79,37 @@ _FALLBACK_CUD_1Y_DISCOUNT = 0.63
 _E2_CUSTOM_VCPU_RATE = 0.022859
 _E2_CUSTOM_RAM_RATE = 0.003067
 
-# Persistent Disk pricing (USD per GB-month)
+# Persistent Disk pricing (USD per GB-month).
+# pd-extreme is the per-GB capacity rate ($0.125); provisioned IOPS
+# ($0.065/IOPS-month) are billed separately and not modeled here.
+# Pricing last verified: 2026-07 — https://cloud.google.com/compute/disks-image-pricing
 _PD_PRICES: dict[str, float] = {
     "pd-ssd": 0.170,
     "pd-standard": 0.040,
-    "pd-extreme": 0.250,
+    "pd-extreme": 0.125,
 }
 
-# Network egress pricing (USD/GB, tiered)
+# Network egress pricing (USD/GB, tiered): free tier 1 GB, then
+# 0.12 up to 1 TB, 0.11 for 1–10 TB, 0.08 beyond 10 TB.
 _EGRESS_TIERS: list[tuple[float, float]] = [
     (1, 0.00),
-    (1024, 0.12),
-    (10240, 0.11),
+    (1023, 0.12),  # remainder of first 1 TB
+    (9216, 0.11),  # 1 TB – 10 TB
     (float("inf"), 0.08),
 ]
 
-# Fallback regional price multipliers relative to us-east1
+# Fallback regional price multipliers relative to us-east1.
+# Verified against cloud.google.com pricing tables for e2/n2 (2026-07).
 _FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
     "us-east1": 1.00,
     "us-west1": 1.00,
     "europe-west1": 1.10,
-    "asia-northeast1": 1.22,
-    "asia-northeast3": 1.22,
-    "asia-southeast1": 1.13,
-    "asia-east2": 1.16,
-    "asia-east1": 1.11,
+    "asia-northeast1": 1.28,
+    "asia-northeast3": 1.28,
+    "asia-southeast1": 1.23,
+    "asia-east2": 1.40,
+    "asia-east1": 1.16,
 }
-
-# GCP region to human-readable description mapping (for SKU matching)
-_GCP_REGION_TO_DESCRIPTION: dict[str, list[str]] = {
-    "us-east1": ["us-east1", "americas"],
-    "us-west1": ["us-west1", "americas"],
-    "europe-west1": ["europe-west1", "emea"],
-    "asia-northeast1": ["asia-northeast1", "asia pacific", "tokyo"],
-    "asia-northeast3": ["asia-northeast3", "asia pacific", "seoul"],
-    "asia-southeast1": ["asia-southeast1", "asia pacific", "singapore"],
-    "asia-east2": ["asia-east2", "asia pacific", "hong kong"],
-    "asia-east1": ["asia-east1", "asia pacific", "taiwan"],
-}
-
 
 class GCPCalculator(BaseCalculator):
     """GCP Compute Engine cost estimator using the Cloud Billing Catalog API."""
@@ -134,7 +126,9 @@ class GCPCalculator(BaseCalculator):
         warnings: list[str] = []
 
         # --- Compute pricing (try API first, then fallback) ---
-        api_price = await self._fetch_instance_price(instance_type, gcp_region)
+        api_price = await self._fetch_instance_price(
+            instance_type, gcp_region, instance["vcpu"], instance["ram"]
+        )
         region_mult = _FALLBACK_REGION_MULTIPLIER.get(gcp_region, 1.15)
 
         if api_price is not None:
@@ -162,19 +156,25 @@ class GCPCalculator(BaseCalculator):
         # Check if an e2-custom instance is cheaper than the matched standard
         # instance. This happens when the user's requested RAM is less than
         # the standard instance's RAM (e.g. 2 GB requested → e2-medium has 4 GB).
-        custom_hourly = (
-            spec.cpu_cores * _E2_CUSTOM_VCPU_RATE
-            + spec.ram_gb * _E2_CUSTOM_RAM_RATE
-        ) * region_mult
-        if custom_hourly < hourly_od:
-            hourly_od = custom_hourly
-            hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
-            instance_type = (
-                f"e2-custom-{spec.cpu_cores}-{int(spec.ram_gb * 1024)}"
-            )
-            warnings.append(
-                "Using e2-custom instance (more cost-effective for this spec)"
-            )
+        # E2 custom shapes require an even vCPU count (2–32) and 0.5–8 GB RAM
+        # per vCPU (max 128 GB), so bill against the nearest valid shape and
+        # skip the substitution entirely when the spec exceeds E2 limits.
+        custom_vcpu = max(2, spec.cpu_cores + (spec.cpu_cores % 2))
+        custom_ram = max(spec.ram_gb, custom_vcpu * 0.5)
+        if custom_vcpu <= 32 and custom_ram <= min(128.0, custom_vcpu * 8.0):
+            custom_hourly = (
+                custom_vcpu * _E2_CUSTOM_VCPU_RATE
+                + custom_ram * _E2_CUSTOM_RAM_RATE
+            ) * region_mult
+            if custom_hourly < hourly_od:
+                hourly_od = custom_hourly
+                hourly_cud = hourly_od * _FALLBACK_CUD_1Y_DISCOUNT
+                instance_type = (
+                    f"e2-custom-{custom_vcpu}-{int(custom_ram * 1024)}"
+                )
+                warnings.append(
+                    "Using e2-custom instance (more cost-effective for this spec)"
+                )
 
         monthly_hours = spec.monthly_hours
         compute_od = hourly_od * monthly_hours
@@ -239,24 +239,29 @@ class GCPCalculator(BaseCalculator):
     # ------------------------------------------------------------------
     # GCP Cloud Billing Catalog API helpers
     # ------------------------------------------------------------------
-
     async def _fetch_instance_price(
-        self, instance_type: str, region: str
+        self, instance_type: str, region: str, vcpu: float, ram_gb: float
     ) -> Optional[float]:
         """Query the GCP Cloud Billing Catalog API for on-demand hourly price.
 
-        Scans Compute Engine SKUs for the matching instance type and region.
-        Returns hourly price in USD, or None on failure.
+        Compute Engine bills VMs through two separate SKUs — one per
+        vCPU-hour and one per GB-hour of RAM (e.g. "N2 Instance Core
+        running in Americas" / "N2 Instance Ram running in Americas") —
+        so both unit rates are collected and combined with the matched
+        machine's vCPU count and RAM size. Returns hourly price in USD,
+        or None on failure / no matching SKUs.
         """
         if not self._api_key:
             return None
 
+        series = instance_type.split("-")[0].lower()
+        # C2 SKU descriptions read "Compute optimized Core/Ram", not "C2 ...".
+        series_kw = "compute optimized" if series == "c2" else f"{series} instance"
+
         try:
             client = await self._get_client()
-            region_keywords = _GCP_REGION_TO_DESCRIPTION.get(region, [region])
-
-            # Instance type to search terms (e.g., "n2-standard-4" -> "N2 Standard")
-            family, size = self._parse_instance_family(instance_type)
+            core_rate: Optional[float] = None
+            ram_rate: Optional[float] = None
 
             page_token = ""
             while True:
@@ -273,68 +278,34 @@ class GCPCalculator(BaseCalculator):
                 resp.raise_for_status()
                 data = resp.json()
 
-                skus = data.get("skus", [])
-                for sku in skus:
+                for sku in data.get("skus", []):
                     desc = sku.get("description", "").lower()
                     category = sku.get("category", {})
-                    resource_group = category.get("resourceGroup", "").lower()
-                    usage_type = category.get("usageType", "")
 
-                    # Match: on-demand, correct family, correct region
-                    if usage_type != "OnDemand":
+                    if category.get("usageType") != "OnDemand":
                         continue
-                    if family.lower() not in desc:
+                    if series_kw not in desc:
                         continue
-                    if "preemptible" in desc or "spot" in desc or "commitment" in desc:
-                        continue
-
-                    # Check region match via service regions
-                    service_regions = [
-                        r.lower() for r in sku.get("serviceRegions", [])
-                    ]
-                    region_match = any(
-                        region.lower() in sr for sr in service_regions
+                    excluded = (
+                        "preemptible", "spot", "commitment", "custom",
+                        "sole tenancy", "reserved",
                     )
-                    if not region_match:
-                        # Also check geo taxonomy
-                        geo = sku.get("geoTaxonomy", {})
-                        geo_regions = [
-                            r.lower() for r in geo.get("regions", [])
-                        ]
-                        region_match = any(
-                            region.lower() in gr for gr in geo_regions
-                        )
-                    if not region_match:
+                    if any(term in desc for term in excluded):
+                        continue
+                    if not self._region_matches(sku, region):
                         continue
 
-                    # Extract pricing
-                    pricing_info = sku.get("pricingInfo", [])
-                    if not pricing_info:
-                        continue
-                    pricing_expr = (
-                        pricing_info[0]
-                        .get("pricingExpression", {})
-                    )
-                    tiered_rates = pricing_expr.get("tieredRates", [])
-                    if not tiered_rates:
+                    price = self._extract_hourly_unit_price(sku)
+                    if price is None:
                         continue
 
-                    # Get the unit price (usually in nanos)
-                    unit_price = tiered_rates[-1].get("unitPrice", {})
-                    nanos = int(unit_price.get("nanos", 0))
-                    units = int(unit_price.get("units", 0))
-                    price = units + nanos / 1_000_000_000
+                    if "core" in desc and core_rate is None:
+                        core_rate = price
+                    elif "ram" in desc and ram_rate is None:
+                        ram_rate = price
 
-                    if price > 0:
-                        # The API returns price per unit. For VMs, we need
-                        # to multiply by the number of cores/units.
-                        usage_unit = pricing_expr.get("usageUnit", "")
-                        if "hour" in usage_unit.lower():
-                            # Check if this is per-core or per-instance
-                            vcpu_count = self._get_instance_vcpu(instance_type)
-                            if "core" in resource_group or "cpu" in resource_group:
-                                return price * vcpu_count
-                            return price
+                    if core_rate is not None and ram_rate is not None:
+                        return core_rate * vcpu + ram_rate * ram_gb
 
                 page_token = data.get("nextPageToken", "")
                 if not page_token:
@@ -352,26 +323,35 @@ class GCPCalculator(BaseCalculator):
             return None
 
     @staticmethod
-    def _parse_instance_family(instance_type: str) -> tuple[str, str]:
-        """Parse instance type like 'n2-standard-4' into ('N2 Standard', '4')."""
-        parts = instance_type.split("-")
-        if len(parts) >= 3:
-            family = f"{parts[0]} {parts[1]}"
-            size = parts[2]
-        elif len(parts) == 2:
-            family = parts[0]
-            size = parts[1]
-        else:
-            family = instance_type
-            size = ""
-        return family, size
+    def _region_matches(sku: dict, region: str) -> bool:
+        """Check whether a SKU applies to the given region."""
+        region = region.lower()
+        service_regions = [r.lower() for r in sku.get("serviceRegions", [])]
+        if any(region in sr for sr in service_regions):
+            return True
+        geo = sku.get("geoTaxonomy", {})
+        geo_regions = [r.lower() for r in geo.get("regions", [])]
+        return any(region in gr for gr in geo_regions)
 
     @staticmethod
-    def _get_instance_vcpu(instance_type: str) -> int:
-        """Extract vCPU count from instance type name."""
-        parts = instance_type.split("-")
-        try:
-            return int(parts[-1])
-        except (ValueError, IndexError):
-            return 1
+    def _extract_hourly_unit_price(sku: dict) -> Optional[float]:
+        """Extract the per-unit hourly USD price from a SKU, if hourly."""
+        pricing_info = sku.get("pricingInfo", [])
+        if not pricing_info:
+            return None
+        pricing_expr = pricing_info[0].get("pricingExpression", {})
 
+        # Catalog API reports compute usage in hours as usageUnit "h"
+        usage_unit = pricing_expr.get("usageUnit", "").lower()
+        unit_desc = pricing_expr.get("usageUnitDescription", "").lower()
+        if usage_unit not in ("h", "hr", "hour") and "hour" not in unit_desc:
+            return None
+
+        tiered_rates = pricing_expr.get("tieredRates", [])
+        if not tiered_rates:
+            return None
+        unit_price = tiered_rates[-1].get("unitPrice", {})
+        nanos = int(unit_price.get("nanos", 0))
+        units = int(unit_price.get("units", 0))
+        price = units + nanos / 1_000_000_000
+        return price if price > 0 else None

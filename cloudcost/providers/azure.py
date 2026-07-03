@@ -59,7 +59,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_F2s_v2": 0.0846,
     "Standard_F4s_v2": 0.169,
     "Standard_F8s_v2": 0.338,
-    "Standard_F16s_v2": 0.680,
+    "Standard_F16s_v2": 0.676,
     "Standard_E2s_v5": 0.126,
     "Standard_E4s_v5": 0.252,
     "Standard_E8s_v5": 0.504,
@@ -119,7 +119,8 @@ class AzureCalculator(BaseCalculator):
         if api_prices:
             hourly_od = api_prices["on_demand"]
             hourly_ri = api_prices.get("reserved_1y")
-            if hourly_ri is None:
+            if hourly_ri is None or hourly_ri >= hourly_od:
+                # Guard against missing/implausible reservation data
                 hourly_ri = hourly_od * _FALLBACK_RI_1Y_DISCOUNT
                 warnings.append("Reserved pricing unavailable from API — using estimated discount")
         else:
@@ -265,13 +266,25 @@ class AzureCalculator(BaseCalculator):
             return None
 
     @staticmethod
-    def _extract_hourly_price(data: dict, os_filter: str) -> Optional[float]:
+    def _os_matches(product_name: str, os_filter: str) -> bool:
+        """Match an API item's productName against the requested OS.
+
+        Linux products carry no OS suffix (e.g. "Virtual Machines Dsv5
+        Series"); Windows products append it ("... Series Windows"), so
+        Linux must be matched by the *absence* of "Windows".
+        """
+        if os_filter == "Windows":
+            return "Windows" in product_name
+        return "Windows" not in product_name
+
+    @classmethod
+    def _extract_hourly_price(cls, data: dict, os_filter: str) -> Optional[float]:
         """Extract hourly on-demand price from API response."""
         for item in data.get("Items", []):
             product_name = item.get("productName", "")
             meter_name = item.get("meterName", "")
             # Filter for the correct OS and exclude Spot/Low Priority
-            if os_filter in product_name and "Spot" not in meter_name and "Low Priority" not in meter_name:
+            if cls._os_matches(product_name, os_filter) and "Spot" not in meter_name and "Low Priority" not in meter_name:
                 unit_of_measure = item.get("unitOfMeasure", "")
                 if "Hour" in unit_of_measure:
                     price = item.get("retailPrice", 0)
@@ -279,25 +292,20 @@ class AzureCalculator(BaseCalculator):
                         return float(price)
         return None
 
-    @staticmethod
-    def _extract_reserved_hourly(data: dict, os_filter: str) -> Optional[float]:
-        """Extract hourly reserved price from API response.
+    @classmethod
+    def _extract_reserved_hourly(cls, data: dict, os_filter: str) -> Optional[float]:
+        """Extract effective hourly reserved price from API response.
 
-        Reserved prices are typically returned as monthly or yearly totals.
-        We convert to hourly for consistency.
+        For priceType=Reservation items the API returns retailPrice as the
+        TOTAL cost of the reservation term — even though unitOfMeasure says
+        "1 Hour" — so the 1-year term total is spread over 8760 hours.
+        (Reservations also carry no OS licensing, so no OS filter applies;
+        Windows license costs are billed separately and not modeled here.)
         """
         for item in data.get("Items", []):
-            product_name = item.get("productName", "")
-            if os_filter in product_name:
-                unit_of_measure = item.get("unitOfMeasure", "")
-                price = item.get("retailPrice", 0)
-                if price > 0:
-                    if "Hour" in unit_of_measure:
-                        return float(price)
-                    elif "1 Year" in unit_of_measure:
-                        # Convert annual price to hourly (8760 hours/year)
-                        return float(price) / 8760
-                    elif "1 Month" in unit_of_measure:
-                        return float(price) / 730
+            term = item.get("reservationTerm", "")
+            price = item.get("retailPrice", 0)
+            if price > 0 and term == "1 Year":
+                return float(price) / 8760
         return None
 
