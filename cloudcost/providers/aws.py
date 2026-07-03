@@ -77,7 +77,7 @@ _DATA_TRANSFER_TIERS: list[tuple[float, float]] = [
     (float("inf"), 0.05),  # 150 TB+
 ]
 
-# Fallback on-demand hourly prices (USD) when API is unreachable
+# Fallback on-demand hourly prices (USD, us-east-1, Linux) when API is unreachable
 _FALLBACK_PRICES: dict[str, float] = {
     "t3.micro": 0.0104,
     "t3.small": 0.0208,
@@ -92,6 +92,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "m5.8xlarge": 1.536,
     "m5.12xlarge": 2.304,
     "m5.16xlarge": 3.072,
+    "m5.24xlarge": 4.608,
     "c5.large": 0.085,
     "c5.xlarge": 0.170,
     "c5.2xlarge": 0.340,
@@ -101,13 +102,38 @@ _FALLBACK_PRICES: dict[str, float] = {
     "r5.xlarge": 0.252,
     "r5.2xlarge": 0.504,
     "r5.4xlarge": 1.008,
+    "r5.8xlarge": 2.016,
+    "r5.12xlarge": 3.024,
+    "r5.16xlarge": 4.032,
+    "r5.24xlarge": 6.048,
+}
+
+# Windows Server license uplift (License Included), USD per vCPU-hour.
+# Verified via Price List Bulk API (2026-07): standard families add
+# $0.046/vCPU-hr; t-family burstables carry a reduced rate of $0.0092.
+_WINDOWS_LICENSE_PER_VCPU = 0.046
+_WINDOWS_LICENSE_PER_VCPU_BURSTABLE = 0.0092
+
+# Fallback region price multipliers relative to us-east-1 (used only when the
+# API is unreachable; the fallback price table is us-east-1 based).
+# Derived from Price List Bulk API data for m5/c5/r5/t3 (verified 2026-07).
+_FALLBACK_REGION_MULTIPLIER: dict[str, float] = {
+    "us-east-1": 1.00,
+    "us-west-2": 1.00,
+    "eu-west-1": 1.11,
+    "ap-northeast-1": 1.27,
+    "ap-northeast-2": 1.20,
+    "ap-southeast-1": 1.22,
+    "ap-east-1": 1.34,
+    "ap-east-2": 1.18,
 }
 
 # Reserved 1-yr Standard No Upfront discount ratio vs On-Demand (approximate).
-# 1-year No Upfront saves ~29% (you pay ~0.70 of on-demand); deeper discounts
-# (~40%+) apply only to All Upfront or 3-year terms.
-# Pricing last verified: 2026-06 — https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/
-_RESERVED_1Y_DISCOUNT = 0.70  # pay ~70% of on-demand
+# Verified against the Price List Bulk API (2026-07): m5/c5/r5/t3 across
+# eu-west-1 / ap-northeast-1 / ap-southeast-1 all land at 0.625–0.633 of
+# on-demand (~37% savings), so 0.63 is used as the fleet-wide ratio.
+# https://aws.amazon.com/ec2/pricing/reserved-instances/pricing/
+_RESERVED_1Y_DISCOUNT = 0.63  # pay ~63% of on-demand
 
 
 class AWSCalculator(BaseCalculator):
@@ -119,7 +145,7 @@ class AWSCalculator(BaseCalculator):
 
     async def estimate(self, spec: CloudSpec) -> ProviderEstimate:
         aws_region = get_provider_region(spec.region, CloudProvider.AWS)
-        instance = match_instance(spec, CloudProvider.AWS)
+        instance = match_instance(spec, CloudProvider.AWS, _FALLBACK_PRICES)
         instance_type = instance["type"]
 
         warnings: list[str] = []
@@ -128,13 +154,28 @@ class AWSCalculator(BaseCalculator):
         hourly_od = await self._fetch_on_demand_price(
             instance_type, aws_region, spec.os
         )
+        license_hourly = 0.0
         if hourly_od is None:
-            hourly_od = _FALLBACK_PRICES.get(instance_type, 0.10)
+            base_hourly = _FALLBACK_PRICES.get(instance_type, 0.10)
+            multiplier = _FALLBACK_REGION_MULTIPLIER.get(aws_region, 1.15)
+            hourly_od = base_hourly * multiplier
+            if spec.os == "windows":
+                # Fallback table is Linux-based; add the license component
+                per_vcpu = (
+                    _WINDOWS_LICENSE_PER_VCPU_BURSTABLE
+                    if instance_type.startswith("t")
+                    else _WINDOWS_LICENSE_PER_VCPU
+                )
+                license_hourly = instance["vcpu"] * per_vcpu
+                hourly_od += license_hourly
+                warnings.append("Windows license estimated at fallback rates")
             warnings.append(
                 f"Used fallback pricing for {instance_type} — API unreachable"
             )
 
-        hourly_ri = hourly_od * _RESERVED_1Y_DISCOUNT
+        # The RI discount applies to the compute portion only; the Windows
+        # license component is billed at the same rate either way.
+        hourly_ri = (hourly_od - license_hourly) * _RESERVED_1Y_DISCOUNT + license_hourly
         monthly_hours = spec.monthly_hours
 
         compute_od = hourly_od * monthly_hours
