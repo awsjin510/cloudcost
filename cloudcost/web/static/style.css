@@ -15,6 +15,8 @@
   --success-bg: rgba(80,200,120,0.10);
   --warning: #e8a020;
   --warning-bg: rgba(232,160,32,0.10);
+  --danger: #e05a5a;
+  --danger-bg: rgba(224,90,90,0.10);
   --reserved: #b888e0;
   --reserved-bg: rgba(184,136,224,0.10);
   --radius: 12px;
@@ -727,3 +729,56 @@ footer {
   }
   .chart-label code { display: none; }
 }
+
+/* ---- LLM quota planner ---- */
+.llm-demand {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem; margin-bottom: 1.25rem;
+}
+.llm-demand-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+}
+.llm-demand-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.llm-demand-value { display: block; font-family: "SF Mono","Fira Code",monospace; font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.2rem; }
+.llm-demand-formula { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+.llm-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 1rem; }
+.llm-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; }
+.llm-card.verdict-over, .llm-card.verdict-blocked { border-color: rgba(224,90,90,0.45); }
+.llm-card.verdict-ample { border-color: rgba(80,200,120,0.35); }
+.llm-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.85rem; }
+.llm-card-name { font-weight: 800; font-size: 1.02rem; color: var(--text); }
+.llm-card-plan { display: block; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); margin-top: 0.15rem; }
+.llm-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.llm-badge.ample { background: var(--success-bg); color: var(--success); }
+.llm-badge.tight { background: var(--warning-bg); color: var(--warning); }
+.llm-badge.over, .llm-badge.blocked { background: var(--danger-bg); color: var(--danger); }
+.llm-badge.unknown { background: var(--border-light); color: var(--text-muted); }
+.llm-dim { margin-bottom: 0.7rem; }
+.llm-dim-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; }
+.llm-dim-name { font-weight: 700; color: var(--text-secondary); }
+.llm-dim-nums { font-family: "SF Mono","Fira Code",monospace; color: var(--text-muted); font-size: 0.76rem; }
+.llm-dim-load { font-weight: 800; font-family: "SF Mono","Fira Code",monospace; }
+.llm-bar { height: 6px; background: var(--border-light); border-radius: 999px; margin-top: 0.3rem; overflow: hidden; }
+.llm-bar span { display: block; height: 100%; border-radius: 999px; }
+.llm-bar span.ample { background: var(--success); }
+.llm-bar span.tight { background: var(--warning); }
+.llm-bar span.over { background: var(--danger); }
+.llm-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; padding-left: 0.9rem; position: relative; margin-top: 0.3rem; }
+.llm-note::before { content: "\2022"; position: absolute; left: 0.2rem; }
+.llm-card-notes { border-top: 1px solid var(--border-light); padding-top: 0.65rem; margin-top: 0.85rem; }
+.llm-callout {
+  background: var(--warning-bg); border: 1px solid rgba(232,160,32,0.35);
+  border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;
+}
+.llm-callout h3 { font-size: 0.92rem; margin-bottom: 0.5rem; color: var(--text); }
+.llm-callout p { font-size: 0.83rem; color: var(--text-secondary); line-height: 1.65; }
+.llm-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-top: 0.8rem; }
+.llm-split > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.85rem; }
+.llm-split strong { display: block; font-size: 0.82rem; color: var(--primary); margin-bottom: 0.2rem; }
+.llm-split span { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
+.llm-warn { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; padding-left: 1.1rem; position: relative; margin-bottom: 0.4rem; }
+.llm-warn::before { content: "\26A0"; position: absolute; left: 0; color: var(--warning); }
+.llm-src { font-size: 0.74rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.7; }
+.llm-src a { color: var(--text-secondary); }

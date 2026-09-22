@@ -125,3 +125,63 @@ class TestAPI:
         data = resp.json()
         providers = {e["provider"] for e in data["estimates"]}
         assert providers == {"aws", "gcp", "azure", "oracle"}
+
+
+class TestLLMQuotaAPI:
+    @pytest.mark.asyncio
+    async def test_quota_plan_table(self, client):
+        resp = await client.get("/api/llm-quota/plans")
+        assert resp.status_code == 200
+        plans = resp.json()
+        assert len(plans) >= 8
+        assert {p["platform"] for p in plans} == {"anthropic", "bedrock", "foundry", "vertex"}
+        assert all(p["source"].startswith("https://") for p in plans)
+
+    @pytest.mark.asyncio
+    async def test_quota_plan_table_filtered(self, client):
+        resp = await client.get("/api/llm-quota/plans", params={"platform": "vertex"})
+        assert resp.status_code == 200
+        assert all(p["platform"] == "vertex" for p in resp.json())
+
+    @pytest.mark.asyncio
+    async def test_evaluate_workload(self, client):
+        resp = await client.post(
+            "/api/llm-quota",
+            json={
+                "concurrent_users": 100,
+                "requests_per_user_per_minute": 1,
+                "input_tokens_per_request": 20000,
+                "output_tokens_per_request": 2000,
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["required_rpm"] == 100
+        assert body["required_itpm"] == 2_000_000
+        assert body["required_otpm"] == 200_000
+
+        by_plan = {r["plan_id"]: r for r in body["results"]}
+        assert by_plan["start"]["verdict"] == "over"
+        assert by_plan["enterprise"]["verdict"] == "ample"
+        assert by_plan["payg"]["verdict"] == "blocked"
+        assert by_plan["mantle"]["verdict"] == "unknown"
+
+    @pytest.mark.asyncio
+    async def test_response_carries_no_infinities(self, client):
+        """Browsers reject JSON's Infinity token, so a zero quota must not emit one."""
+        import json
+
+        resp = await client.post("/api/llm-quota", json={"concurrent_users": 100})
+        assert resp.status_code == 200
+        json.loads(resp.text, parse_constant=lambda c: pytest.fail(f"non-finite: {c}"))
+
+    @pytest.mark.asyncio
+    async def test_rejects_invalid_workload(self, client):
+        resp = await client.post("/api/llm-quota", json={"concurrent_users": 0})
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_index_page_serves_the_quota_tab(self, client):
+        resp = await client.get("/")
+        assert 'data-mode="llm"' in resp.text
+        assert "/api/llm-quota" in resp.text

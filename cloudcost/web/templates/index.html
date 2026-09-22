@@ -23,6 +23,7 @@
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="single">單台機器</button>
       <button class="mode-tab" data-mode="group">多台機器組合</button>
+      <button class="mode-tab" data-mode="llm">LLM 配額試算</button>
     </div>
 
     <!-- ==================== SINGLE MACHINE MODE ==================== -->
@@ -241,6 +242,88 @@
 
     </div><!-- end group-mode -->
 
+    <!-- ==================== LLM QUOTA MODE ==================== -->
+    <div id="llm-mode" style="display:none;">
+
+    <section class="presets-section">
+      <h2>常見情境</h2>
+      <div class="presets-row">
+        <button class="preset-btn llm-preset" data-users="100" data-rpu="1" data-in="4000" data-out="500" data-cache="60" data-max="1000">
+          <span class="preset-icon">&#128172;</span>
+          <span class="preset-label">客服對話</span>
+          <span class="preset-detail">短提示詞 / 高快取</span>
+        </button>
+        <button class="preset-btn llm-preset active" data-users="100" data-rpu="1" data-in="20000" data-out="2000" data-cache="0" data-max="">
+          <span class="preset-icon">&#128218;</span>
+          <span class="preset-label">RAG 問答</span>
+          <span class="preset-detail">20K 提示詞 / 無快取</span>
+        </button>
+        <button class="preset-btn llm-preset" data-users="20" data-rpu="3" data-in="60000" data-out="8000" data-cache="80" data-max="16000">
+          <span class="preset-icon">&#129302;</span>
+          <span class="preset-label">程式代理</span>
+          <span class="preset-detail">長對話 / 多輪工具呼叫</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2>尖峰情境設定 <span class="unit">Claude Fable 5 / 5.1</span></h2>
+      <form id="llm-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="llm_users">尖峰同時使用者 <span class="unit">人</span></label>
+            <input type="number" id="llm_users" min="1" max="1000000" value="100" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_rpu">每人每分鐘請求數 <span class="unit">Requests</span></label>
+            <input type="number" id="llm_rpu" min="0.1" max="600" step="0.1" value="1" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_in">單次 Input <span class="unit">Tokens</span></label>
+            <input type="number" id="llm_in" min="1" max="1000000" step="100" value="20000" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_out">單次 Output <span class="unit">Tokens</span></label>
+            <input type="number" id="llm_out" min="1" max="128000" step="100" value="2000" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_cache">快取命中率 <span class="unit">% of Input</span></label>
+            <input type="number" id="llm_cache" min="0" max="95" step="5" value="0" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_max">max_tokens <span class="unit">留空 = 模型上限</span></label>
+            <input type="number" id="llm_max" min="1" max="128000" step="100" placeholder="128000">
+          </div>
+        </div>
+        <button type="submit" class="btn-compare">試算配額負載</button>
+      </form>
+    </section>
+
+    <div id="llm-results" style="display:none;">
+      <section class="summary-section">
+        <h2>尖峰需求換算</h2>
+        <div id="llm-demand" class="llm-demand"></div>
+        <div id="llm-warnings"></div>
+      </section>
+      <section class="cards-section">
+        <h2>各平台預設配額負載率</h2>
+        <div id="llm-cards" class="llm-cards"></div>
+        <p class="llm-src" id="llm-sources"></p>
+      </section>
+      <section>
+        <div class="llm-callout">
+          <h3>&#9888; 最重要的認知陷阱</h3>
+          <p>看到某家配額最大，不代表「Fable 5 在那家跑最快」。配額只決定<strong>扛得住多少</strong>，不決定<strong>跑得多快</strong>。</p>
+          <div class="llm-split">
+            <div><strong>Capacity（配額）</strong><span>RPM / ITPM / OTPM。決定尖峰時會不會被 429 節流，可提報申請調升。</span></div>
+            <div><strong>Performance（效能）</strong><span>TTFT / TPS 等延遲指標。同一個模型在各平台的單次回應速度不由配額決定。</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    </div><!-- end llm-mode -->
+
     <!-- Results (hidden until submitted) -->
     <div id="results-container" style="display:none;">
 
@@ -272,7 +355,7 @@
   </main>
 
   <footer>
-    <p>CloudCost v0.7.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.8.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
 
 {% if result %}
@@ -300,6 +383,7 @@
       currentMode = tab.dataset.mode;
       document.getElementById('single-mode').style.display = currentMode === 'single' ? '' : 'none';
       document.getElementById('group-mode').style.display = currentMode === 'group' ? '' : 'none';
+      document.getElementById('llm-mode').style.display = currentMode === 'llm' ? '' : 'none';
       document.getElementById('results-container').style.display = 'none';
     });
   });
@@ -738,6 +822,165 @@
       renderResults(data);
     } catch(e) { /* ignore parse errors */ }
   }
+
+  // ======== LLM quota planner ========
+  // The quota table lives server-side in cloudcost/llm/quota.py; this view
+  // only posts the workload and renders what /api/llm-quota returns, so the
+  // numbers cannot drift between the API and the page.
+  const FABLE_MAX_OUTPUT = 128000;
+  const LLM_VERDICT_LABEL = {
+    ample:   '✅ 餘裕充沛',
+    tight:   '⚠ 接近上限',
+    over:    '⛔ 超出上限',
+    blocked: '⛔ 預設為 0',
+    unknown: '❓ 未公布',
+  };
+  const LLM_DIM_LABEL = { rpm: 'RPM', itpm: 'ITPM (未快取 Input)', otpm: 'OTPM (Output)' };
+
+  function llmEsc(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function llmFmt(n) {
+    if (n == null || !isFinite(n)) return '—';
+    // Strip trailing zeros only after a decimal point, so "20" stays "20".
+    const trim = str => str.indexOf('.') >= 0 ? str.replace(/\.?0+$/, '') : str;
+    if (n >= 1e6) return trim((n / 1e6).toFixed(2)) + 'M';
+    if (n >= 1e3) return trim((n / 1e3).toFixed(1)) + 'K';
+    return String(Math.round(n));
+  }
+
+  function llmDimRow(key, dim) {
+    const name = '<span class="llm-dim-name">' + LLM_DIM_LABEL[key] + '</span>';
+    if (dim.status === 'not_enforced')
+      return '<div class="llm-dim"><div class="llm-dim-top">' + name +
+        '<span class="llm-dim-load" style="color:var(--text-muted)">不設限</span></div>' +
+        (dim.note ? '<div class="llm-note">' + llmEsc(dim.note) + '</div>' : '') + '</div>';
+    if (dim.status === 'unpublished')
+      return '<div class="llm-dim"><div class="llm-dim-top">' + name +
+        '<span class="llm-dim-nums">需求 ' + llmFmt(dim.demand) + '</span>' +
+        '<span class="llm-dim-load" style="color:var(--text-muted)">未公布</span></div></div>';
+    // A zero default quota carries no ratio — the card's verdict says "blocked".
+    if (dim.load == null)
+      return '<div class="llm-dim"><div class="llm-dim-top">' + name +
+        '<span class="llm-dim-nums">需求 ' + llmFmt(dim.demand) + '</span>' +
+        '<span class="llm-dim-load" style="color:var(--danger)">額度 0</span></div>' +
+        '<div class="llm-bar"><span class="over" style="width:100%"></span></div></div>';
+
+    const cls = dim.load > 1 ? 'over' : (dim.load > 0.7 ? 'tight' : 'ample');
+    const colour = cls === 'over' ? 'var(--danger)' : (cls === 'tight' ? 'var(--warning)' : 'var(--success)');
+    return '<div class="llm-dim"><div class="llm-dim-top">' + name +
+      '<span class="llm-dim-nums">' + llmFmt(dim.demand) + ' / ' + llmFmt(dim.limit) + '</span>' +
+      '<span class="llm-dim-load" style="color:' + colour + '">' + Math.round(dim.load * 100) + '%</span></div>' +
+      '<div class="llm-bar"><span class="' + cls + '" style="width:' + Math.min(100, dim.load * 100) + '%"></span></div></div>';
+  }
+
+  function renderLLMReport(report) {
+    const w = report.workload;
+    const cacheNote = w.cache_hit_rate > 0
+      ? '扣除 ' + Math.round(w.cache_hit_rate * 100) + '% 快取後 ' +
+        llmFmt(w.input_tokens_per_request * (1 - w.cache_hit_rate)) + ' / 次'
+      : w.input_tokens_per_request.toLocaleString() + ' Tokens × ' + llmFmt(report.required_rpm) + ' Req';
+
+    document.getElementById('llm-demand').innerHTML =
+      '<div class="llm-demand-card"><span class="llm-demand-label">RPM / QPM</span>' +
+        '<span class="llm-demand-value">' + llmFmt(report.required_rpm) + '</span>' +
+        '<span class="llm-demand-formula">' + w.concurrent_users.toLocaleString() + ' 人 × ' +
+          w.requests_per_user_per_minute + ' Request</span></div>' +
+      '<div class="llm-demand-card"><span class="llm-demand-label">ITPM (未快取 Input)</span>' +
+        '<span class="llm-demand-value">' + llmFmt(report.required_itpm) + '</span>' +
+        '<span class="llm-demand-formula">' + llmEsc(cacheNote) + '</span></div>' +
+      '<div class="llm-demand-card"><span class="llm-demand-label">OTPM (Output)</span>' +
+        '<span class="llm-demand-value">' + llmFmt(report.required_otpm) + '</span>' +
+        '<span class="llm-demand-formula">' + w.output_tokens_per_request.toLocaleString() +
+          ' Tokens × ' + llmFmt(report.required_rpm) + ' Req</span></div>';
+
+    document.getElementById('llm-warnings').innerHTML =
+      (report.warnings || []).map(t => '<p class="llm-warn">' + llmEsc(t) + '</p>').join('');
+
+    document.getElementById('llm-cards').innerHTML = report.results.map(r =>
+      '<div class="llm-card verdict-' + r.verdict + '">' +
+        '<div class="llm-card-head"><div><span class="llm-card-name">' + llmEsc(r.platform_label) + '</span>' +
+          '<span class="llm-card-plan">' + llmEsc(r.plan_label) + '</span></div>' +
+          '<span class="llm-badge ' + r.verdict + '">' + LLM_VERDICT_LABEL[r.verdict] + '</span></div>' +
+        ['rpm', 'itpm', 'otpm'].map(k => llmDimRow(k, r[k])).join('') +
+        '<div class="llm-card-notes">' +
+          (r.notes || []).map(n => '<div class="llm-note">' + llmEsc(n) + '</div>').join('') +
+        '</div></div>').join('');
+
+    const seen = [];
+    report.results.forEach(r => {
+      if (!seen.some(x => x[0] === r.platform_label)) seen.push([r.platform_label, r.source]);
+    });
+    document.getElementById('llm-sources').innerHTML =
+      '配額資料驗證：' + llmEsc(report.results[0] ? report.results[0].verified : '') +
+      '。以上皆為平台<strong>預設</strong>配額，非模型本體物理上限，均可專案提報申請調升 (Quota Increase)。官方文件：' +
+      seen.map(x => '<a href="' + llmEsc(x[1]) + '" target="_blank" rel="noopener">' + llmEsc(x[0]) + '</a>').join(' · ');
+
+    document.getElementById('llm-results').style.display = '';
+  }
+
+  function readLLMForm() {
+    const num = (id, dflt) => {
+      const v = parseFloat(document.getElementById(id).value);
+      return isNaN(v) ? dflt : v;
+    };
+    const maxRaw = parseFloat(document.getElementById('llm_max').value);
+    return {
+      concurrent_users: Math.max(1, Math.round(num('llm_users', 100))),
+      requests_per_user_per_minute: Math.max(0.1, num('llm_rpu', 1)),
+      input_tokens_per_request: Math.max(1, Math.round(num('llm_in', 20000))),
+      output_tokens_per_request: Math.max(1, Math.round(num('llm_out', 2000))),
+      cache_hit_rate: Math.min(0.95, Math.max(0, num('llm_cache', 0) / 100)),
+      max_tokens: isNaN(maxRaw) ? null : Math.min(FABLE_MAX_OUTPUT, Math.max(1, Math.round(maxRaw))),
+    };
+  }
+
+  async function runLLM() {
+    const btn = document.querySelector('#llm-form .btn-compare');
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '試算中…';
+    try {
+      const resp = await fetch('/api/llm-quota', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(readLLMForm()),
+      });
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      renderLLMReport(await resp.json());
+    } catch (err) {
+      document.getElementById('llm-warnings').innerHTML =
+        '<p class="llm-warn">試算失敗：' + llmEsc(err.message) + '</p>';
+      document.getElementById('llm-results').style.display = '';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  document.getElementById('llm-form').addEventListener('submit', e => {
+    e.preventDefault();
+    runLLM();
+  });
+
+  document.querySelectorAll('.llm-preset').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      document.querySelectorAll('.llm-preset').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('llm_users').value = btn.dataset.users;
+      document.getElementById('llm_rpu').value   = btn.dataset.rpu;
+      document.getElementById('llm_in').value    = btn.dataset.in;
+      document.getElementById('llm_out').value   = btn.dataset.out;
+      document.getElementById('llm_cache').value = btn.dataset.cache;
+      document.getElementById('llm_max').value   = btn.dataset.max;
+      runLLM();
+    });
+  });
+
 })();
 </script>
 </body>

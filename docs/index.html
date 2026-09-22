@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本比較計算機</title>
-  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，找出最佳方案。免費、開源、無需登入。">
+  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，並試算 Claude Fable 5 在三大公有雲的 LLM 配額負載。免費、開源、無需登入。">
   <meta property="og:title" content="CloudCost — 多雲成本比較計算機">
-  <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用">
+  <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用，並試算 LLM 配額負載">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9729;</text></svg>">
@@ -26,6 +26,8 @@
   --success-bg: rgba(80,200,120,0.10);
   --warning: #e8a020;
   --warning-bg: rgba(232,160,32,0.10);
+  --danger: #e05a5a;
+  --danger-bg: rgba(224,90,90,0.10);
   --reserved: #b888e0;
   --reserved-bg: rgba(184,136,224,0.10);
   --radius: 12px;
@@ -50,6 +52,8 @@ html.dark {
   --success-bg: rgba(96,216,136,0.10);
   --warning: #f0b030;
   --warning-bg: rgba(240,176,48,0.10);
+  --danger: #f06a6a;
+  --danger-bg: rgba(240,106,106,0.12);
   --reserved: #c898f0;
   --reserved-bg: rgba(200,152,240,0.10);
   --shadow: 0 1px 3px rgba(0,0,0,0.5);
@@ -57,6 +61,58 @@ html.dark {
   --shadow-lg: 0 10px 25px rgba(0,0,0,0.6);
   --header-bg: linear-gradient(135deg, #080604 0%, #121008 50%, #080604 100%);
 }
+/* ---- LLM quota planner ---- */
+.llm-demand {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem; margin-bottom: 1.25rem;
+}
+.llm-demand-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+}
+.llm-demand-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.llm-demand-value { display: block; font-family: "SF Mono","Fira Code",monospace; font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.2rem; }
+.llm-demand-formula { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+.llm-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 1rem; }
+.llm-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; }
+.llm-card.verdict-over, .llm-card.verdict-blocked { border-color: rgba(224,90,90,0.45); }
+.llm-card.verdict-ample { border-color: rgba(80,200,120,0.35); }
+.llm-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.85rem; }
+.llm-card-name { font-weight: 800; font-size: 1.02rem; color: var(--text); }
+.llm-card-plan { display: block; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); margin-top: 0.15rem; }
+.llm-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.llm-badge.ample { background: var(--success-bg); color: var(--success); }
+.llm-badge.tight { background: var(--warning-bg); color: var(--warning); }
+.llm-badge.over, .llm-badge.blocked { background: var(--danger-bg); color: var(--danger); }
+.llm-badge.unknown { background: var(--border-light); color: var(--text-muted); }
+.llm-dim { margin-bottom: 0.7rem; }
+.llm-dim-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; }
+.llm-dim-name { font-weight: 700; color: var(--text-secondary); }
+.llm-dim-nums { font-family: "SF Mono","Fira Code",monospace; color: var(--text-muted); font-size: 0.76rem; }
+.llm-dim-load { font-weight: 800; font-family: "SF Mono","Fira Code",monospace; }
+.llm-bar { height: 6px; background: var(--border-light); border-radius: 999px; margin-top: 0.3rem; overflow: hidden; }
+.llm-bar span { display: block; height: 100%; border-radius: 999px; }
+.llm-bar span.ample { background: var(--success); }
+.llm-bar span.tight { background: var(--warning); }
+.llm-bar span.over { background: var(--danger); }
+.llm-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; padding-left: 0.9rem; position: relative; margin-top: 0.3rem; }
+.llm-note::before { content: "\2022"; position: absolute; left: 0.2rem; }
+.llm-card-notes { border-top: 1px solid var(--border-light); padding-top: 0.65rem; margin-top: 0.85rem; }
+.llm-callout {
+  background: var(--warning-bg); border: 1px solid rgba(232,160,32,0.35);
+  border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;
+}
+.llm-callout h3 { font-size: 0.92rem; margin-bottom: 0.5rem; color: var(--text); }
+.llm-callout p { font-size: 0.83rem; color: var(--text-secondary); line-height: 1.65; }
+.llm-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-top: 0.8rem; }
+.llm-split > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.85rem; }
+.llm-split strong { display: block; font-size: 0.82rem; color: var(--primary); margin-bottom: 0.2rem; }
+.llm-split span { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
+.llm-warn { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; padding-left: 1.1rem; position: relative; margin-bottom: 0.4rem; }
+.llm-warn::before { content: "\26A0"; position: absolute; left: 0; color: var(--warning); }
+.llm-src { font-size: 0.74rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.7; }
+.llm-src a { color: var(--text-secondary); }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", sans-serif;
@@ -409,7 +465,7 @@ footer a:hover { text-decoration: underline; }
         <h1>CloudCost</h1>
       </div>
       <p class="tagline">一鍵跨雲比價，找出最划算的雲端方案！</p>
-      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，幫您告別繁瑣試算表，精準控管每一分預算。</p>
+      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，並可試算 Claude Fable 5 在各平台的 LLM 配額負載，幫您告別繁瑣試算表，精準控管每一分預算。</p>
     </div>
   </header>
 
@@ -418,6 +474,7 @@ footer a:hover { text-decoration: underline; }
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="single">單台機器</button>
       <button class="mode-tab" data-mode="group">多台機器組合</button>
+      <button class="mode-tab" data-mode="llm">LLM 配額試算</button>
     </div>
 
     <!-- ==================== SINGLE MACHINE MODE ==================== -->
@@ -614,6 +671,96 @@ footer a:hover { text-decoration: underline; }
 
     </div><!-- end group-mode -->
 
+    <!-- ==================== LLM QUOTA MODE ==================== -->
+    <div id="llm-mode" style="display:none;">
+
+    <section>
+      <h2>常見情境</h2>
+      <div class="presets-row">
+        <button class="preset-btn llm-preset" data-users="100" data-rpu="1" data-in="4000" data-out="500" data-cache="60" data-max="1000">
+          <span class="preset-icon">&#128172;</span>
+          <span class="preset-label">客服對話</span>
+          <span class="preset-detail">短提示詞 / 高快取</span>
+        </button>
+        <button class="preset-btn llm-preset active" data-users="100" data-rpu="1" data-in="20000" data-out="2000" data-cache="0" data-max="">
+          <span class="preset-icon">&#128218;</span>
+          <span class="preset-label">RAG 問答</span>
+          <span class="preset-detail">20K 提示詞 / 無快取</span>
+        </button>
+        <button class="preset-btn llm-preset" data-users="20" data-rpu="3" data-in="60000" data-out="8000" data-cache="80" data-max="16000">
+          <span class="preset-icon">&#129302;</span>
+          <span class="preset-label">程式代理</span>
+          <span class="preset-detail">長對話 / 多輪工具呼叫</span>
+        </button>
+      </div>
+    </section>
+
+    <section>
+      <h2>尖峰情境設定 <span class="unit">Claude Fable 5 / 5.1</span></h2>
+      <form id="llm-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="llm_users">尖峰同時使用者 <span class="unit">人</span></label>
+            <input type="number" id="llm_users" min="1" max="1000000" value="100" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_rpu">每人每分鐘請求數 <span class="unit">Requests</span></label>
+            <input type="number" id="llm_rpu" min="0.1" max="600" step="0.1" value="1" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_in">單次 Input <span class="unit">Tokens</span></label>
+            <input type="number" id="llm_in" min="1" max="1000000" step="100" value="20000" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_out">單次 Output <span class="unit">Tokens</span></label>
+            <input type="number" id="llm_out" min="1" max="128000" step="100" value="2000" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_cache">快取命中率 <span class="unit">% of Input</span></label>
+            <input type="number" id="llm_cache" min="0" max="95" step="5" value="0" required>
+          </div>
+          <div class="form-group">
+            <label for="llm_max">max_tokens <span class="unit">留空 = 模型上限</span></label>
+            <input type="number" id="llm_max" min="1" max="128000" step="100" placeholder="128000">
+          </div>
+        </div>
+        <button type="submit" class="btn-compare">試算配額負載</button>
+      </form>
+    </section>
+
+    <div id="llm-results" style="display:none;">
+      <section>
+        <h2>尖峰需求換算</h2>
+        <div id="llm-demand" class="llm-demand"></div>
+        <div id="llm-warnings"></div>
+      </section>
+
+      <section>
+        <h2>各平台預設配額負載率</h2>
+        <div id="llm-cards" class="llm-cards"></div>
+        <p class="llm-src" id="llm-sources"></p>
+      </section>
+
+      <section>
+        <div class="llm-callout">
+          <h3>&#9888; 最重要的認知陷阱</h3>
+          <p>看到某家配額最大，不代表「Fable 5 在那家跑最快」。配額只決定<strong>扛得住多少</strong>，不決定<strong>跑得多快</strong>。</p>
+          <div class="llm-split">
+            <div><strong>Capacity（配額）</strong><span>RPM / ITPM / OTPM。決定尖峰時會不會被 429 節流，可提報申請調升。</span></div>
+            <div><strong>Performance（效能）</strong><span>TTFT / TPS 等延遲指標。同一個模型在各平台的單次回應速度不由配額決定。</span></div>
+          </div>
+        </div>
+        <div class="llm-callout" style="background:var(--primary-light);border-color:var(--border);">
+          <h3>&#128172; 客戶問「100 人夠不夠？」必問三件事</h3>
+          <p><strong>尖峰頻率</strong>：尖峰 1 分鐘預估送出多少 Requests？<br>
+             <strong>提示詞量</strong>：每次對話含 RAG 帶多少 Input Tokens，其中多少可以命中快取？<br>
+             <strong>生成長度</strong>：預計單次生成多少 Output Tokens，max_tokens 設多少？</p>
+        </div>
+      </section>
+    </div>
+
+    </div><!-- end llm-mode -->
+
     <div id="results-container" style="display:none;">
       <section>
         <h2>比較規格</h2>
@@ -642,7 +789,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.7.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.8.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -1098,6 +1245,7 @@ document.querySelectorAll('.mode-tab').forEach(tab => {
     currentMode = tab.dataset.mode;
     document.getElementById('single-mode').style.display = currentMode === 'single' ? '' : 'none';
     document.getElementById('group-mode').style.display = currentMode === 'group' ? '' : 'none';
+    document.getElementById('llm-mode').style.display = currentMode === 'llm' ? '' : 'none';
     document.getElementById('results-container').style.display = 'none';
   });
 });
@@ -1641,6 +1789,257 @@ if (urlSpec) {
 } else {
   document.getElementById('compare-form').dispatchEvent(new Event('submit'));
 }
+
+
+// ════════════════════════════════════════════════════════════════
+// LLM QUOTA PLANNER — Claude Fable 5 / 5.1
+// ════════════════════════════════════════════════════════════════
+// Every number below is a platform DEFAULT quota, not a physical model
+// limit — all of them can be raised by request. Verified 2026-09 against
+// each platform's own quota documentation (links rendered under the cards).
+//
+// Two rules make a naive spreadsheet wrong, and both are modelled here:
+//  1. Cache reads never count toward ITPM on any of the four platforms.
+//  2. bedrock-mantle reserves input + max_tokens of ITPM when it ADMITS a
+//     request and refunds the unused part afterwards, so a request is
+//     throttled on what it might generate. Omitting max_tokens reserves 128K.
+
+const FABLE_MAX_OUTPUT = 128000;
+const LLM_QUOTA_VERIFIED = '2026-09';
+
+const _EN = v => ({ s: 'enforced', v: v });
+const _NE = n => ({ s: 'not_enforced', n: n });
+const _UP = n => ({ s: 'unpublished', n: n });
+
+const SHARED_FABLE = 'Fable 5.1 與 Fable 5 共用同一個額度，拆流量不會變成兩倍';
+const SRC_ANTHROPIC = 'https://platform.claude.com/docs/en/api/rate-limits';
+const SRC_BEDROCK   = 'https://docs.aws.amazon.com/bedrock/latest/userguide/quotas-mantle.html';
+const SRC_FOUNDRY   = 'https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-quotas-limits';
+const SRC_VERTEX    = 'https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/quotas';
+const _UP_TPM = _UP('Bedrock 僅對部分模型公布每帳號 TPM 配額，Fable 的throughput 由服務內部容量決定');
+
+const LLM_PLANS = [
+  { platform:'Anthropic API', plan:'Start 層級', src:SRC_ANTHROPIC,
+    rpm:_EN(1000), itpm:_EN(500000), otpm:_EN(100000),
+    notes:[SHARED_FABLE, '限制掛在組織層級，可再往下分配給各 Workspace'] },
+  { platform:'Anthropic API', plan:'Build 層級', src:SRC_ANTHROPIC,
+    rpm:_EN(2000), itpm:_EN(1500000), otpm:_EN(300000), notes:[SHARED_FABLE] },
+  { platform:'Anthropic API', plan:'Scale 層級', src:SRC_ANTHROPIC,
+    rpm:_EN(4000), itpm:_EN(4000000), otpm:_EN(800000),
+    notes:[SHARED_FABLE, '需要更高上限請走 Custom 層級洽談'] },
+
+  { platform:'AWS Bedrock', plan:'bedrock-mantle 端點', src:SRC_BEDROCK, reserve:true,
+    rpm:_NE('Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流'),
+    itpm:_UP_TPM, otpm:_UP_TPM,
+    notes:['准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分',
+           '與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃',
+           '目前僅 Opus 4.7 有公布的 Mantle 預設值（20M 輸入 / 4M 輸出 TPM）'] },
+
+  { platform:'Azure Foundry', plan:'隨用隨付 (Global Standard)', src:SRC_FOUNDRY,
+    rpm:_EN(0), itpm:_EN(0), otpm:_EN(0),
+    notes:['隨用隨付與免費試用訂閱的 Fable 預設配額為 0，部署前必須先申請',
+           'Fable 於 Foundry 目前為 Preview，僅有 Anthropic 託管版本'] },
+  { platform:'Azure Foundry', plan:'Enterprise / MCA-E (Global Standard)', src:SRC_FOUNDRY,
+    rpm:_EN(4000), itpm:_EN(4000000), otpm:_EN(800000),
+    notes:['配額掛在訂閱層級，同型號的 Global Standard 部署跨區共用同一個額度池',
+           'Fable 於 Foundry 目前為 Preview，僅有 Anthropic 託管版本'] },
+
+  { platform:'GCP Vertex', plan:'全域端點 (global)', src:SRC_VERTEX,
+    rpm:_EN(2000), itpm:_EN(20000000), otpm:_EN(2000000),
+    notes:[SHARED_FABLE + '（共用 anthropic-claude-fable 沿襲配額）',
+           '輸入 TPM 計入未快取與快取寫入的 token'] },
+  { platform:'GCP Vertex', plan:'多區域端點 (us / eu)', src:SRC_VERTEX,
+    rpm:_EN(1000), itpm:_EN(10000000), otpm:_EN(1000000),
+    notes:['多區域端點配額為全域端點的一半，且兩者額度互不相通',
+           SHARED_FABLE + '（共用 anthropic-claude-fable 沿襲配額）'] },
+];
+
+function fmtTok(n) {
+  if (!isFinite(n)) return '∞';
+  // Strip trailing zeros only after a decimal point — a bare "20" must not become "2".
+  const trim = str => str.indexOf('.') >= 0 ? str.replace(/\.?0+$/, '') : str;
+  if (n >= 1e6) return trim((n / 1e6).toFixed(2)) + 'M';
+  if (n >= 1e3) return trim((n / 1e3).toFixed(1)) + 'K';
+  return String(Math.round(n));
+}
+
+function llmDemand(w) {
+  const rpm = w.users * w.rpu;
+  const uncachedIn = w.inTok * (1 - w.cache);
+  const effMax = w.maxTok || FABLE_MAX_OUTPUT;
+  return {
+    rpm: rpm,
+    itpm: rpm * uncachedIn,
+    otpm: rpm * w.outTok,
+    uncachedIn: uncachedIn,
+    effMax: effMax,
+    // What bedrock-mantle actually counts at admission time.
+    itpmReserved: rpm * (uncachedIn + effMax),
+  };
+}
+
+function evalDim(demand, limit) {
+  if (limit.s !== 'enforced') return { demand: demand, status: limit.s, note: limit.n || '' };
+  // A zero default quota has no meaningful ratio — leave it unset and let the
+  // card's "blocked" verdict carry the meaning (mirrors cloudcost/llm/quota.py).
+  const load = limit.v === 0 ? null : demand / limit.v;
+  return { demand: demand, limit: limit.v, status: 'enforced', load: load, note: '' };
+}
+
+function evalPlan(w, d, plan) {
+  const dims = {
+    rpm:  evalDim(d.rpm, plan.rpm),
+    itpm: evalDim(plan.reserve ? d.itpmReserved : d.itpm, plan.itpm),
+    otpm: evalDim(d.otpm, plan.otpm),
+  };
+  const loads = {};
+  ['rpm', 'itpm', 'otpm'].forEach(k => {
+    if (dims[k].load != null) loads[k] = dims[k].load;
+  });
+  const anyZero = ['rpm', 'itpm', 'otpm'].some(k => dims[k].status === 'enforced' && dims[k].limit === 0);
+  const keys = Object.keys(loads);
+
+  let verdict, binding = null, peak = null;
+  if (anyZero) {
+    verdict = 'blocked';
+  } else if (!keys.length) {
+    verdict = 'unknown';
+  } else {
+    binding = keys.reduce((a, b) => (loads[a] >= loads[b] ? a : b));
+    peak = loads[binding];
+    verdict = peak > 1 ? 'over' : (peak > 0.7 ? 'tight' : 'ample');
+  }
+
+  const notes = plan.notes.slice();
+  if (plan.reserve) {
+    notes.unshift(w.maxTok
+      ? 'ITPM 需求已含每次請求預扣的 max_tokens ' + w.maxTok.toLocaleString() + ' tokens'
+      : '未指定 max_tokens，Mantle 每次請求預扣模型上限 ' + FABLE_MAX_OUTPUT.toLocaleString() + ' tokens 的 ITPM');
+  }
+  return { platform: plan.platform, plan: plan.plan, src: plan.src,
+           dims: dims, verdict: verdict, binding: binding, peak: peak, notes: notes };
+}
+
+const VERDICT_LABEL = {
+  ample:   '&#9989; 餘裕充沛',
+  tight:   '&#9888; 接近上限',
+  over:    '&#9940; 超出上限',
+  blocked: '&#9940; 預設為 0',
+  unknown: '&#10067; 未公布',
+};
+const DIM_LABEL = { rpm: 'RPM', itpm: 'ITPM (未快取 Input)', otpm: 'OTPM (Output)' };
+
+function renderDimRow(key, dim) {
+  if (dim.status === 'not_enforced')
+    return '<div class="llm-dim"><div class="llm-dim-top"><span class="llm-dim-name">' + DIM_LABEL[key] +
+      '</span><span class="llm-dim-load" style="color:var(--text-muted)">不設限</span></div>' +
+      '<div class="llm-note">' + escHtml(dim.note) + '</div></div>';
+  if (dim.status === 'unpublished')
+    return '<div class="llm-dim"><div class="llm-dim-top"><span class="llm-dim-name">' + DIM_LABEL[key] +
+      '</span><span class="llm-dim-nums">需求 ' + fmtTok(dim.demand) + '</span>' +
+      '<span class="llm-dim-load" style="color:var(--text-muted)">未公布</span></div></div>';
+
+  if (dim.load == null)
+    return '<div class="llm-dim"><div class="llm-dim-top">' +
+      '<span class="llm-dim-name">' + DIM_LABEL[key] + '</span>' +
+      '<span class="llm-dim-nums">需求 ' + fmtTok(dim.demand) + '</span>' +
+      '<span class="llm-dim-load" style="color:var(--danger)">額度 0</span></div>' +
+      '<div class="llm-bar"><span class="over" style="width:100%"></span></div></div>';
+
+  const load = dim.load;
+  const cls = load > 1 ? 'over' : (load > 0.7 ? 'tight' : 'ample');
+  const colour = cls === 'over' ? 'var(--danger)' : (cls === 'tight' ? 'var(--warning)' : 'var(--success)');
+  return '<div class="llm-dim">' +
+    '<div class="llm-dim-top"><span class="llm-dim-name">' + DIM_LABEL[key] + '</span>' +
+    '<span class="llm-dim-nums">' + fmtTok(dim.demand) + ' / ' + fmtTok(dim.limit) + '</span>' +
+    '<span class="llm-dim-load" style="color:' + colour + '">' + Math.round(load * 100) + '%</span></div>' +
+    '<div class="llm-bar"><span class="' + cls + '" style="width:' +
+      Math.min(100, load * 100) + '%"></span></div></div>';
+}
+
+function renderLLM(w) {
+  const d = llmDemand(w);
+  const results = LLM_PLANS.map(p => evalPlan(w, d, p));
+
+  const cacheNote = w.cache > 0
+    ? '扣除 ' + Math.round(w.cache * 100) + '% 快取後 ' + fmtTok(d.uncachedIn) + ' / 次'
+    : w.inTok.toLocaleString() + ' Tokens × ' + fmtTok(d.rpm) + ' Req';
+  document.getElementById('llm-demand').innerHTML =
+    '<div class="llm-demand-card"><span class="llm-demand-label">RPM / QPM</span>' +
+      '<span class="llm-demand-value">' + fmtTok(d.rpm) + '</span>' +
+      '<span class="llm-demand-formula">' + w.users.toLocaleString() + ' 人 × ' + w.rpu + ' Request</span></div>' +
+    '<div class="llm-demand-card"><span class="llm-demand-label">ITPM (未快取 Input)</span>' +
+      '<span class="llm-demand-value">' + fmtTok(d.itpm) + '</span>' +
+      '<span class="llm-demand-formula">' + escHtml(cacheNote) + '</span></div>' +
+    '<div class="llm-demand-card"><span class="llm-demand-label">OTPM (Output)</span>' +
+      '<span class="llm-demand-value">' + fmtTok(d.otpm) + '</span>' +
+      '<span class="llm-demand-formula">' + w.outTok.toLocaleString() + ' Tokens × ' + fmtTok(d.rpm) + ' Req</span></div>';
+
+  const warns = [];
+  if (w.cache === 0) warns.push('快取命中率設為 0：若 System Prompt 或 RAG context 有做 prompt caching，實際 ITPM 需求會顯著低於此估算。');
+  if (!w.maxTok) warns.push('未指定 max_tokens：Bedrock Mantle 會按模型上限 ' + FABLE_MAX_OUTPUT.toLocaleString() + ' tokens 預扣 ITPM，設定實際值可大幅降低被節流的機會。');
+  if (results.some(r => r.verdict === 'unknown')) warns.push('部分平台未公布 Fable 預設配額，實際額度請以該帳號的配額主控台為準。');
+  document.getElementById('llm-warnings').innerHTML =
+    warns.map(t => '<p class="llm-warn">' + escHtml(t) + '</p>').join('');
+
+  document.getElementById('llm-cards').innerHTML = results.map(r =>
+    '<div class="llm-card verdict-' + r.verdict + '">' +
+      '<div class="llm-card-head"><div><span class="llm-card-name">' + escHtml(r.platform) + '</span>' +
+        '<span class="llm-card-plan">' + escHtml(r.plan) + '</span></div>' +
+        '<span class="llm-badge ' + r.verdict + '">' + VERDICT_LABEL[r.verdict] + '</span></div>' +
+      ['rpm', 'itpm', 'otpm'].map(k => renderDimRow(k, r.dims[k])).join('') +
+      '<div class="llm-card-notes">' +
+        r.notes.map(n => '<div class="llm-note">' + escHtml(n) + '</div>').join('') +
+      '</div>' +
+    '</div>').join('');
+
+  const srcs = [['Anthropic', SRC_ANTHROPIC], ['AWS Bedrock', SRC_BEDROCK],
+                ['Azure Foundry', SRC_FOUNDRY], ['GCP Vertex', SRC_VERTEX]];
+  document.getElementById('llm-sources').innerHTML =
+    '配額資料驗證：' + LLM_QUOTA_VERIFIED + '。以上皆為平台<strong>預設</strong>配額，非模型本體物理上限，均可專案提報申請調升 (Quota Increase)。官方文件：' +
+    srcs.map(x => '<a href="' + x[1] + '" target="_blank" rel="noopener">' + x[0] + '</a>').join(' · ');
+
+  document.getElementById('llm-results').style.display = '';
+}
+
+function readLLMForm() {
+  const num = (id, dflt) => {
+    const v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? dflt : v;
+  };
+  const maxRaw = parseFloat(document.getElementById('llm_max').value);
+  return {
+    users:  Math.max(1, Math.round(num('llm_users', 100))),
+    rpu:    Math.max(0.1, num('llm_rpu', 1)),
+    inTok:  Math.max(1, Math.round(num('llm_in', 20000))),
+    outTok: Math.max(1, Math.round(num('llm_out', 2000))),
+    cache:  Math.min(0.95, Math.max(0, num('llm_cache', 0) / 100)),
+    maxTok: isNaN(maxRaw) ? null : Math.min(FABLE_MAX_OUTPUT, Math.max(1, Math.round(maxRaw))),
+  };
+}
+
+document.getElementById('llm-form').addEventListener('submit', e => {
+  e.preventDefault();
+  renderLLM(readLLMForm());
+});
+
+document.querySelectorAll('.llm-preset').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('.llm-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('llm_users').value = btn.dataset.users;
+    document.getElementById('llm_rpu').value   = btn.dataset.rpu;
+    document.getElementById('llm_in').value    = btn.dataset.in;
+    document.getElementById('llm_out').value   = btn.dataset.out;
+    document.getElementById('llm_cache').value = btn.dataset.cache;
+    document.getElementById('llm_max').value   = btn.dataset.max;
+    renderLLM(readLLMForm());
+  });
+});
+
+renderLLM(readLLMForm());
+
 
 })();
 </script>
