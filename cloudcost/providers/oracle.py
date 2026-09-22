@@ -7,10 +7,26 @@ Pricing source: https://www.oracle.com/cloud/costestimator.html
 API endpoint:   https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/
 
 Architecture:
-  1. Fetch OCI product pricing from the public API.
-  2. Match compute products to the target instance type.
-  3. Extract On-Demand and Annual Flex pricing.
+  1. Look up the shape family's OCPU and memory SKUs by part number
+     (``?partNumber=`` query — the ``/products/<part>`` path form is
+     blocked by Oracle's edge and returns 403).
+  2. If the part-number lookup fails, scan the full product listing by
+     display name instead.
+  3. Extract the Pay-As-You-Go rate; the API only publishes PAYG, so the
+     Annual Flex tier is derived from the published discount ratio.
   4. Fall back to embedded pricing tables if API is unreachable.
+
+Response shape (verified 2026-09)::
+
+    {"lastUpdated": "...", "items": [{
+        "partNumber": "B93113",
+        "displayName": "Compute - Standard - E4 - OCPU",
+        "metricName": "OCPU Per Hour",
+        "currencyCodeLocalizations": [{
+            "currencyCode": "USD",
+            "prices": [{"model": "PAY_AS_YOU_GO", "value": 0.025}]
+        }]
+    }]}
 """
 
 from __future__ import annotations
@@ -42,12 +58,22 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 OCI_PRICING_API = "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/"
 
-# Mapping from our instance names to OCI part numbers / search terms
-_OCI_INSTANCE_TO_PART: dict[str, str] = {
-    "VM.Standard.E4.Flex": "B93581",    # E4 Flex OCPU
-    "VM.Standard3.Flex": "B92384",      # Standard3 Flex OCPU
-    "VM.Optimized3.Flex": "B92386",     # Optimized3 Flex OCPU
+# Shape family -> (OCPU part number, memory part number).
+# Verified against the public pricing listing 2026-09 (lastUpdated 2026-09-09).
+_OCI_FAMILY_PARTS: dict[str, tuple[str, str]] = {
+    "VM.Standard.E4.Flex": ("B93113", "B93114"),  # Compute - Standard - E4 - OCPU / Memory
+    "VM.Standard3.Flex": ("B94176", "B94177"),    # Compute - Standard - X9 - OCPU / Memory
+    "VM.Optimized3.Flex": ("B93311", "B93312"),   # Compute - Optimized - X9 - OCPU / Memory
 }
+
+# Display-name keywords used to locate the same SKUs in the full listing
+# when the part-number lookup returns nothing.
+_OCI_FAMILY_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "VM.Standard.E4.Flex": ("compute", "standard", "e4"),
+    "VM.Standard3.Flex": ("compute", "standard", "x9"),
+    "VM.Optimized3.Flex": ("compute", "optimized", "x9"),
+}
+_OCI_LISTING_EXCLUDE: tuple[str, ...] = ("cloud@customer", "vmware", "gpu", "dense i/o")
 
 # ---------------------------------------------------------------------------
 # Fallback OCPU rates (USD per OCPU per hour) when API is unreachable.
@@ -128,30 +154,29 @@ class OracleCalculator(BaseCalculator):
                 f"using {oci_region} pricing as nearest alternative"
             )
 
-        # OCI Flex shapes charge OCPU and memory separately.
-        # Use the user-requested RAM (spec.ram_gb) since E4.Flex is a flexible
-        # shape — you pay for exactly the RAM you allocate, not the catalog entry.
-        memory_hourly = spec.ram_gb * _MEMORY_RATE_PER_GB_HOUR
-
         base_family, ocpu_count = self._parse_instance_type(instance_type)
 
-        # --- OCPU pricing (try API first, then fallback) ---
+        # --- OCPU + memory rates (try API first, then fallback) ---
         api_prices = await self._fetch_compute_price(instance_type)
 
         if api_prices:
-            # API returns per-OCPU price × OCPU count (OCPU cost only)
-            ocpu_hourly_od = api_prices["on_demand"]
-            ocpu_hourly_annual = api_prices.get(
-                "annual_flex", ocpu_hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
-            )
+            ocpu_rate = api_prices["ocpu_rate"]
+            memory_rate = api_prices.get("memory_rate", _MEMORY_RATE_PER_GB_HOUR)
         else:
-            # Fallback to embedded OCPU rates
+            # Fallback to embedded rates
             ocpu_rate = _FALLBACK_OCPU_RATES.get(base_family, 0.025)
-            ocpu_hourly_od = ocpu_rate * ocpu_count
-            ocpu_hourly_annual = ocpu_hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
+            memory_rate = _MEMORY_RATE_PER_GB_HOUR
             warnings.append(
                 f"Used fallback pricing for {instance_type} — OCI API unreachable"
             )
+
+        # OCI Flex shapes charge OCPU and memory separately. Bill the
+        # user-requested RAM (spec.ram_gb): Flex shapes charge for exactly
+        # the RAM you allocate, not the catalog entry.
+        memory_hourly = spec.ram_gb * memory_rate
+        ocpu_hourly_od = ocpu_rate * ocpu_count
+        # The public API only publishes Pay-As-You-Go; Annual Flex is derived.
+        ocpu_hourly_annual = ocpu_hourly_od * _FALLBACK_ANNUAL_FLEX_DISCOUNT
 
         # Total hourly = OCPU + memory
         hourly_od = ocpu_hourly_od + memory_hourly
@@ -219,55 +244,41 @@ class OracleCalculator(BaseCalculator):
     async def _fetch_compute_price(
         self, instance_type: str
     ) -> Optional[dict[str, float]]:
-        """Query OCI's public pricing API for compute instance pricing.
+        """Query OCI's public pricing API for a Flex shape's unit rates.
 
-        Returns dict with 'on_demand' and optionally 'annual_flex' keys
-        (hourly rates), or None if API is unreachable.
+        Returns ``{"ocpu_rate": <USD per OCPU-hour>, "memory_rate": <USD
+        per GB-hour>}`` (memory_rate may be absent), or None when the API
+        is unreachable or the family is unknown.
         """
+        base_family, _ = self._parse_instance_type(instance_type)
+        parts = _OCI_FAMILY_PARTS.get(base_family)
+        if parts is None:
+            return None
+
         try:
             client = await self._get_client()
+            ocpu_part, memory_part = parts
 
-            # Parse instance type: "VM.Standard.E4.Flex-4" -> family "VM.Standard.E4.Flex", cores "4"
-            base_family, ocpu_count = self._parse_instance_type(instance_type)
+            ocpu_rate = await self._fetch_part_rate(client, ocpu_part)
+            memory_rate = await self._fetch_part_rate(client, memory_part)
 
-            # Try direct part number lookup first (most reliable)
-            known_part = _OCI_INSTANCE_TO_PART.get(base_family)
-            if known_part:
-                resp = await client.get(
-                    f"{OCI_PRICING_API}{known_part}",
-                    params={"currencyCode": "USD"},
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    items = data.get("items", [data] if "prices" in data else [])
-                    for item in items:
-                        result = self._extract_prices(item, ocpu_count)
-                        if result:
-                            return result
+            if ocpu_rate is None or memory_rate is None:
+                # Part numbers occasionally rotate; fall back to scanning
+                # the full listing by display name.
+                items = await self._fetch_listing(client)
+                keywords = _OCI_FAMILY_KEYWORDS.get(base_family, ())
+                if ocpu_rate is None:
+                    ocpu_rate = self._find_in_listing(items, keywords + ("ocpu",))
+                if memory_rate is None:
+                    memory_rate = self._find_in_listing(items, keywords + ("memory",))
 
-            # Fallback: search the full product listing
-            params: dict[str, Any] = {
-                "currencyCode": "USD",
-                "limit": 500,
-            }
+            if ocpu_rate is None:
+                return None
 
-            resp = await client.get(OCI_PRICING_API, params=params)
-            resp.raise_for_status()
-            data = resp.json()
-
-            items = data.get("items", [])
-            family_desc = base_family.lower().replace(".", " ")
-
-            for item in items:
-                description = item.get("description", "").lower()
-                service_name = item.get("serviceName", "").lower()
-
-                if family_desc in description and "compute" in service_name:
-                    result = self._extract_prices(item, ocpu_count)
-                    if result:
-                        return result
-
-            return None
+            result: dict[str, float] = {"ocpu_rate": ocpu_rate}
+            if memory_rate is not None:
+                result["memory_rate"] = memory_rate
+            return result
 
         except Exception:
             logger.warning(
@@ -277,25 +288,66 @@ class OracleCalculator(BaseCalculator):
             )
             return None
 
+    @classmethod
+    async def _fetch_part_rate(cls, client, part_number: str) -> Optional[float]:
+        """Look up one SKU by part number and return its PAYG rate."""
+        resp = await client.get(
+            OCI_PRICING_API,
+            params={"partNumber": part_number, "currencyCode": "USD"},
+        )
+        resp.raise_for_status()
+        # The API returns ``"items": null`` for unknown part numbers.
+        for item in resp.json().get("items") or []:
+            rate = cls._extract_payg_rate(item)
+            if rate is not None:
+                return rate
+        return None
+
     @staticmethod
-    def _extract_prices(item: dict, ocpu_count: int) -> Optional[dict[str, float]]:
-        """Extract on-demand and annual flex prices from an API item."""
-        prices = item.get("prices", [])
-        result: dict[str, float] = {}
+    async def _fetch_listing(client) -> list[dict[str, Any]]:
+        """Fetch the full product listing (a few hundred items, unpaginated)."""
+        resp = await client.get(OCI_PRICING_API, params={"currencyCode": "USD"})
+        resp.raise_for_status()
+        return resp.json().get("items") or []
 
-        for price_entry in prices:
-            model = price_entry.get("model", "").lower()
-            value = price_entry.get("value", 0)
-
-            if value <= 0:
+    @classmethod
+    def _find_in_listing(
+        cls, items: list[dict[str, Any]], keywords: tuple[str, ...]
+    ) -> Optional[float]:
+        """Return the PAYG rate of the first item whose displayName has every keyword."""
+        for item in items:
+            name = str(item.get("displayName", "")).lower()
+            if any(bad in name for bad in _OCI_LISTING_EXCLUDE):
                 continue
+            if all(kw in name for kw in keywords):
+                rate = cls._extract_payg_rate(item)
+                if rate is not None:
+                    return rate
+        return None
 
-            if "pay as you go" in model or "payg" in model:
-                result["on_demand"] = float(value) * ocpu_count
-            elif "annual flex" in model or "monthly flex" in model:
-                result["annual_flex"] = float(value) * ocpu_count
+    @staticmethod
+    def _extract_payg_rate(item: dict[str, Any]) -> Optional[float]:
+        """Extract the USD Pay-As-You-Go unit rate from an API item.
 
-        return result if "on_demand" in result else None
+        Prices live under ``currencyCodeLocalizations[].prices[]`` with
+        ``model == "PAY_AS_YOU_GO"``. Some SKUs list a zero-priced free-tier
+        row followed by the paid rate, so the highest non-zero value wins.
+        """
+        best: Optional[float] = None
+        for loc in item.get("currencyCodeLocalizations", []) or []:
+            if loc.get("currencyCode", "USD") != "USD":
+                continue
+            for price in loc.get("prices", []) or []:
+                model = str(price.get("model", "")).upper().replace(" ", "_")
+                if model not in ("PAY_AS_YOU_GO", "PAYG"):
+                    continue
+                try:
+                    value = float(price.get("value", 0))
+                except (TypeError, ValueError):
+                    continue
+                if value > 0 and (best is None or value > best):
+                    best = value
+        return best
 
     @staticmethod
     def _parse_instance_type(instance_type: str) -> tuple[str, int]:

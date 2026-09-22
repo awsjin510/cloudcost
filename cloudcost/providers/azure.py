@@ -60,7 +60,7 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_F2s_v2": 0.0846,
     "Standard_F4s_v2": 0.169,
     "Standard_F8s_v2": 0.338,
-    "Standard_F16s_v2": 0.676,
+    "Standard_F16s_v2": 0.677,
     "Standard_E2s_v5": 0.126,
     "Standard_E4s_v5": 0.252,
     "Standard_E8s_v5": 0.504,
@@ -71,8 +71,10 @@ _FALLBACK_PRICES: dict[str, float] = {
     "Standard_E96s_v5": 6.048,
 }
 
-# Fallback 1-year Reserved Instance discount ratio
-_FALLBACK_RI_1Y_DISCOUNT = 0.58
+# Fallback 1-year Reserved Instance discount ratio (used only when the API
+# is unreachable). Verified 2026-09 via the Retail Prices API: D2s_v5 eastus
+# 1-year reservation = $519/yr = $0.0593/hr = 0.617 of on-demand.
+_FALLBACK_RI_1Y_DISCOUNT = 0.62
 
 # Windows Server license uplift, USD per vCPU-hour (approximate; mirrors
 # the AWS-verified License Included rates — D2s_v5 Windows/Linux spread

@@ -123,3 +123,53 @@ class TestOracleCalculator:
 
         # OCI should generally be cheaper on compute
         assert oci_est.on_demand.details["compute"] < aws_est.on_demand.details["compute"]
+
+
+class TestOracleApiParsing:
+    """Unit tests for the OCI pricing API response parser (no network)."""
+
+    _E4_OCPU_ITEM = {
+        "partNumber": "B93113",
+        "displayName": "Compute - Standard - E4 - OCPU",
+        "metricName": "OCPU Per Hour",
+        "currencyCodeLocalizations": [
+            {"currencyCode": "USD", "prices": [{"model": "PAY_AS_YOU_GO", "value": 0.025}]}
+        ],
+    }
+    _A1_OCPU_ITEM = {
+        "partNumber": "B93297",
+        "displayName": "Compute - Standard - A1 - OCPU",
+        "currencyCodeLocalizations": [
+            {
+                "currencyCode": "USD",
+                "prices": [
+                    {"model": "PAY_AS_YOU_GO", "value": 0},
+                    {"model": "PAY_AS_YOU_GO", "value": 0.01},
+                ],
+            }
+        ],
+    }
+
+    def test_extract_payg_rate(self):
+        assert OracleCalculator._extract_payg_rate(self._E4_OCPU_ITEM) == 0.025
+
+    def test_extract_payg_rate_skips_free_tier_row(self):
+        assert OracleCalculator._extract_payg_rate(self._A1_OCPU_ITEM) == 0.01
+
+    def test_extract_payg_rate_missing(self):
+        assert OracleCalculator._extract_payg_rate({"partNumber": "X"}) is None
+        assert OracleCalculator._extract_payg_rate(
+            {"currencyCodeLocalizations": [{"currencyCode": "EUR", "prices": [{"model": "PAY_AS_YOU_GO", "value": 1}]}]}
+        ) is None
+
+    def test_find_in_listing_excludes_other_products(self):
+        items = [
+            {"displayName": "Oracle Cloud VMware Solution - BM.Standard.E4.32 - Hourly Commit",
+             "currencyCodeLocalizations": [{"currencyCode": "USD", "prices": [{"model": "PAY_AS_YOU_GO", "value": 9.25}]}]},
+            {"displayName": "Compute - Dense I/O - E4 - OCPU",
+             "currencyCodeLocalizations": [{"currencyCode": "USD", "prices": [{"model": "PAY_AS_YOU_GO", "value": 0.025}]}]},
+            self._E4_OCPU_ITEM,
+        ]
+        rate = OracleCalculator._find_in_listing(items, ("compute", "standard", "e4", "ocpu"))
+        assert rate == 0.025
+        assert OracleCalculator._find_in_listing(items, ("compute", "standard", "x9", "ocpu")) is None

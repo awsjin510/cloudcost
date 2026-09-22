@@ -642,8 +642,8 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.6.1 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
-    <p style="margin-top:0.3rem;">定價資料更新：2026-02 ｜ 官方計算機：
+    <p>CloudCost v0.7.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
       <a href="https://azure.microsoft.com/zh-tw/pricing/calculator/" target="_blank">Azure</a> ·
@@ -775,7 +775,7 @@ const GCP_PRICES = {
   'n2-standard-2':0.0971,'n2-standard-4':0.1942,'n2-standard-8':0.3884,
   'n2-standard-16':0.7768,'n2-standard-32':1.5536,'n2-standard-48':2.3304,'n2-standard-64':3.1072,
   'n2-standard-80':3.8840,
-  'c2-standard-4':0.2099,'c2-standard-8':0.4198,'c2-standard-16':0.8396,
+  'c2-standard-4':0.20881,'c2-standard-8':0.41762,'c2-standard-16':0.83523,
   'n2-highmem-2':0.1311,'n2-highmem-4':0.2622,'n2-highmem-8':0.5244,'n2-highmem-16':1.0488,
   'n2-highmem-32':2.0976,'n2-highmem-48':3.1464,'n2-highmem-64':4.1952,'n2-highmem-80':5.2440,
 };
@@ -811,14 +811,16 @@ const AZURE_PRICES = {
   'Standard_B1s':0.0104,'Standard_B1ms':0.0207,'Standard_B2s':0.0416,'Standard_B2ms':0.0832,
   'Standard_D2s_v5':0.096,'Standard_D4s_v5':0.192,'Standard_D8s_v5':0.384,
   'Standard_D16s_v5':0.768,'Standard_D32s_v5':1.536,'Standard_D48s_v5':2.304,'Standard_D64s_v5':3.072,
-  'Standard_F2s_v2':0.0846,'Standard_F4s_v2':0.169,'Standard_F8s_v2':0.338,'Standard_F16s_v2':0.676,
+  'Standard_F2s_v2':0.0846,'Standard_F4s_v2':0.169,'Standard_F8s_v2':0.338,'Standard_F16s_v2':0.677,
   'Standard_E2s_v5':0.126,'Standard_E4s_v5':0.252,'Standard_E8s_v5':0.504,'Standard_E16s_v5':1.008,
   'Standard_D96s_v5':4.608,
   'Standard_E32s_v5':2.016,'Standard_E48s_v5':3.024,'Standard_E64s_v5':4.032,'Standard_E96s_v5':6.048,
 };
 // nvme = UltraSSD capacity rate ($0.15/GB-mo; provisioned IOPS/throughput billed separately)
 const AZURE_STORAGE = { ssd: 0.132, hdd: 0.040, nvme: 0.15 };
-const AZURE_RESERVED_DISCOUNT = 0.58;
+// 1-yr Reserved VM Instance ≈ 0.62 of on-demand (verified 2026-09 via Retail
+// Prices API: D2s_v5 eastus 1-year reservation = 0.617 of PAYG)
+const AZURE_RESERVED_DISCOUNT = 0.62;
 const AZURE_REGION_MULT = { 'us-east-1':1,'us-west-2':1,'eu-west-1':1.08,'ap-northeast-1':1.25,'ap-northeast-2':1.22,'ap-southeast-1':1.12,'ap-east-1':1.15,'ap-east-2':1.20 };
 // First 100 GB/month free
 function azureNetworkCost(gb) {
