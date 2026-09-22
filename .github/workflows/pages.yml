@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/check-content-updates-9E4TV
+      - claude/cloud-pricing-models-mTQN4
     paths:
       - docs/**
   workflow_dispatch:

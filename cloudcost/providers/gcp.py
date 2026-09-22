@@ -44,6 +44,7 @@ COMPUTE_SERVICE_ID = "6F81-5844-456A"  # Compute Engine service ID
 
 # ---------------------------------------------------------------------------
 # Fallback on-demand pricing (USD/hour, us-east1 baseline, Linux)
+# Verified 2026-09 against cloud.google.com/products/compute/pricing (e2/n2/c2).
 # Used when API key is missing or API is unreachable
 # ---------------------------------------------------------------------------
 _FALLBACK_PRICES: dict[str, float] = {
@@ -63,9 +64,9 @@ _FALLBACK_PRICES: dict[str, float] = {
     "n2-standard-48": 2.33040,
     "n2-standard-64": 3.10720,
     "n2-standard-80": 3.88400,
-    "c2-standard-4": 0.20990,
-    "c2-standard-8": 0.41980,
-    "c2-standard-16": 0.83960,
+    "c2-standard-4": 0.20881,
+    "c2-standard-8": 0.41762,
+    "c2-standard-16": 0.83523,
     "n2-highmem-2": 0.13110,
     "n2-highmem-4": 0.26220,
     "n2-highmem-8": 0.52440,
