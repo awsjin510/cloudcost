@@ -1,0 +1,248 @@
+/* Shared styles for the LLM quota planner.
+   Loaded by docs/index.html and by the FastAPI template, so the two front
+   ends cannot drift apart visually. Relies on the host page's colour tokens
+   (--surface, --border, --success, --warning, --danger, ...). */
+
+/* ── form ── */
+.llm-hint {
+  display: block; font-size: 0.72rem; color: var(--text-muted);
+  margin-top: 0.3rem; line-height: 1.45;
+}
+.llm-apps-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap; margin: 1.5rem 0 0.75rem;
+}
+.llm-apps-head h3 { font-size: 1rem; font-weight: 700; color: var(--text); }
+.llm-app-list { display: flex; flex-direction: column; gap: 0.85rem; }
+.llm-app-row {
+  background: var(--border-light); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.9rem 1rem;
+}
+.llm-app-row-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.75rem; }
+.llm-app-name {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 0.45rem 0.7rem; font-size: 0.9rem; font-weight: 600;
+}
+.llm-row-del {
+  flex-shrink: 0; background: transparent; border: 1px solid var(--border);
+  color: var(--text-muted); border-radius: var(--radius-sm);
+  width: 2rem; height: 2rem; cursor: pointer; font-size: 0.85rem; line-height: 1;
+}
+.llm-row-del:hover { color: var(--danger); border-color: var(--danger); }
+.llm-advanced {
+  margin-top: 1.25rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.85rem 1rem; background: var(--border-light);
+}
+.llm-advanced summary { cursor: pointer; font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); }
+.llm-advanced code {
+  font-family: "SF Mono","Fira Code",monospace; font-size: 0.8rem;
+  background: var(--surface); padding: 0.1rem 0.35rem; border-radius: 4px;
+}
+.llm-account-list { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.75rem 0; }
+.llm-account-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.llm-account-row select { flex: 2 1 14rem; }
+.llm-account-row input { flex: 1 1 6rem; min-width: 0; }
+
+/* ── demand ── */
+.llm-demand {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.9rem; margin-bottom: 1.25rem;
+}
+.llm-demand-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-left: 3px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 0.9rem 1rem;
+}
+.llm-demand-label { font-size: 0.74rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.02em; }
+.llm-demand-value {
+  display: block; font-family: "SF Mono","Fira Code",monospace;
+  font-size: 1.5rem; font-weight: 800; color: var(--text); margin-top: 0.2rem;
+}
+.llm-demand-formula { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+.llm-dim-sub { font-weight: 500; opacity: 0.75; margin-left: 0.3rem; font-size: 0.92em; }
+
+/* ── cost ── */
+.llm-cost {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem;
+}
+.llm-cost-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; }
+.llm-cost-label { font-size: 0.74rem; font-weight: 700; color: var(--text-muted); }
+.llm-cost-value {
+  display: block; font-family: "SF Mono","Fira Code",monospace;
+  font-size: 1.45rem; font-weight: 800; color: var(--text); margin-top: 0.15rem;
+}
+.llm-cost-value.llm-muted { color: var(--text-muted); font-weight: 700; }
+.llm-cost-sub { display: block; font-size: 0.74rem; color: var(--text-muted); margin-top: 0.15rem; }
+.llm-saving {
+  display: inline-block; margin-left: 0.35rem; padding: 0.1rem 0.45rem;
+  border-radius: 999px; background: var(--success-bg); color: var(--success);
+  font-weight: 700; font-size: 0.7rem;
+}
+.llm-cost-bar {
+  display: flex; height: 8px; border-radius: 999px; overflow: hidden;
+  margin: 1rem 0 0.6rem; background: var(--border-light);
+}
+.llm-cost-bar .seg { display: block; height: 100%; }
+.seg-uncached_input { background: var(--primary); }
+.seg-cache_read { background: var(--success); }
+.seg-output { background: var(--reserved); }
+.llm-legend { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 0.75rem; }
+.llm-legend-item { font-size: 0.74rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
+.llm-legend-item i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* ── controls ── */
+.llm-head-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.75rem; flex-wrap: wrap;
+}
+.llm-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.llm-toggle {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;
+}
+.llm-toggle select {
+  padding: 0.3rem 0.5rem; font-size: 0.8rem; width: auto;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+}
+.llm-count {
+  font-family: "SF Mono","Fira Code",monospace; font-size: 0.72rem;
+  color: var(--text-muted); background: var(--border-light);
+  padding: 0.05rem 0.4rem; border-radius: 999px;
+}
+
+/* ── plan cards ── */
+.llm-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 1rem; }
+.llm-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem; }
+.llm-card.verdict-over, .llm-card.verdict-blocked { border-color: rgba(224,90,90,0.45); }
+.llm-card.verdict-ample { border-color: rgba(80,200,120,0.35); }
+.llm-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.7rem; }
+.llm-card-name { font-weight: 800; font-size: 1.02rem; color: var(--text); }
+.llm-card-plan { display: block; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); margin-top: 0.15rem; }
+.llm-badge { flex-shrink: 0; font-size: 0.72rem; font-weight: 700; padding: 0.25rem 0.6rem; border-radius: 999px; white-space: nowrap; }
+.llm-badge.ample { background: var(--success-bg); color: var(--success); }
+.llm-badge.tight { background: var(--warning-bg); color: var(--warning); }
+.llm-badge.over, .llm-badge.blocked { background: var(--danger-bg); color: var(--danger); }
+.llm-badge.unknown { background: var(--border-light); color: var(--text-muted); }
+.llm-capacity {
+  font-size: 0.82rem; color: var(--text-secondary); background: var(--border-light);
+  border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; margin-bottom: 0.85rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+}
+.llm-capacity strong { color: var(--primary); font-size: 1rem; font-family: "SF Mono","Fira Code",monospace; }
+.llm-bind {
+  font-size: 0.68rem; font-weight: 700; color: var(--text-muted);
+  background: var(--surface); padding: 0.1rem 0.45rem; border-radius: 999px;
+}
+.llm-dim { margin-bottom: 0.7rem; }
+.llm-dim-top { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; }
+.llm-dim-name { font-weight: 700; color: var(--text-secondary); }
+.llm-dim-nums { font-family: "SF Mono","Fira Code",monospace; color: var(--text-muted); font-size: 0.76rem; }
+.llm-dim-load { font-weight: 800; font-family: "SF Mono","Fira Code",monospace; }
+.llm-muted { color: var(--text-muted); }
+.llm-acct {
+  margin-left: 0.3rem; font-size: 0.64rem; font-weight: 700;
+  color: var(--primary); background: var(--primary-light);
+  padding: 0.05rem 0.3rem; border-radius: 4px;
+}
+.llm-bar { height: 6px; background: var(--border-light); border-radius: 999px; margin-top: 0.3rem; overflow: hidden; }
+.llm-bar span { display: block; height: 100%; border-radius: 999px; }
+.llm-bar span.ample { background: var(--success); }
+.llm-bar span.tight { background: var(--warning); }
+.llm-bar span.over { background: var(--danger); }
+
+/* ── next actions ── */
+.llm-actions {
+  border-top: 1px solid var(--border-light); margin-top: 0.85rem; padding-top: 0.7rem;
+}
+.llm-actions-title {
+  display: block; font-size: 0.7rem; font-weight: 700; color: var(--primary);
+  letter-spacing: 0.04em; margin-bottom: 0.4rem;
+}
+.llm-action {
+  display: flex; gap: 0.45rem; align-items: flex-start;
+  font-size: 0.78rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 0.35rem;
+}
+.llm-action-icon { flex-shrink: 0; }
+
+/* ── notes, warnings, footnotes ── */
+.llm-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.55; padding-left: 0.9rem; position: relative; margin-top: 0.3rem; }
+.llm-note::before { content: "\2022"; position: absolute; left: 0.2rem; }
+.llm-card-notes { border-top: 1px solid var(--border-light); padding-top: 0.6rem; margin-top: 0.8rem; }
+.llm-warn { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; padding-left: 1.1rem; position: relative; margin-bottom: 0.4rem; }
+.llm-warn::before { content: "\26A0"; position: absolute; left: 0; color: var(--warning); }
+.llm-src { font-size: 0.74rem; color: var(--text-muted); margin-top: 1rem; line-height: 1.7; }
+.llm-src a { color: var(--text-secondary); }
+.llm-assumptions {
+  margin-top: 0.85rem; padding: 0.8rem 1rem;
+  background: var(--border-light); border-radius: var(--radius-sm);
+}
+.llm-assume-title { display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 0.2rem; }
+
+/* ── callouts ── */
+.llm-callout {
+  background: var(--warning-bg); border: 1px solid rgba(232,160,32,0.35);
+  border-radius: var(--radius-sm); padding: 1rem 1.15rem; margin-bottom: 1.25rem;
+}
+.llm-callout h3 { font-size: 0.92rem; margin-bottom: 0.5rem; color: var(--text); }
+.llm-callout p { font-size: 0.83rem; color: var(--text-secondary); line-height: 1.65; }
+.llm-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; margin-top: 0.8rem; }
+.llm-split > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 0.85rem; }
+.llm-split strong { display: block; font-size: 0.82rem; color: var(--primary); margin-bottom: 0.2rem; }
+.llm-split span { font-size: 0.76rem; color: var(--text-muted); line-height: 1.5; }
+
+/* ── share ── */
+.llm-share { display: flex; flex-direction: column; gap: 0.6rem; }
+.llm-share .share-bar { display: flex; gap: 0.5rem; }
+.llm-share .share-bar input { flex: 1; min-width: 0; }
+
+/* ── headline summary ── */
+.llm-summary {
+  border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1.25rem;
+  border: 1px solid var(--border);
+}
+.llm-summary.ok { background: var(--success-bg); border-color: rgba(80,200,120,0.35); }
+.llm-summary.warn { background: var(--warning-bg); border-color: rgba(232,160,32,0.35); }
+.llm-summary-head { font-size: 0.95rem; color: var(--text); line-height: 1.65; }
+.llm-summary-head strong { color: var(--text); }
+.llm-summary-tiles {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem; margin-top: 0.9rem;
+}
+.llm-summary-tiles > div {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.7rem 0.85rem;
+}
+.llm-summary-label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+.llm-summary-value {
+  display: block; font-family: "SF Mono","Fira Code",monospace;
+  font-size: 1.3rem; font-weight: 800; color: var(--text); margin-top: 0.1rem;
+}
+.llm-summary-sub { display: block; font-size: 0.71rem; color: var(--text-muted); margin-top: 0.15rem; line-height: 1.45; }
+
+/* ── scenario picker ── */
+.llm-scenarios {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 0.7rem;
+}
+.llm-scenario {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 0.85rem 0.9rem; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s;
+}
+.llm-scenario:hover { border-color: var(--primary); }
+.llm-scenario.active { border-color: var(--primary); background: var(--primary-light); }
+.llm-scenario-icon { font-size: 1.25rem; }
+.llm-scenario-label { display: block; font-weight: 700; font-size: 0.9rem; color: var(--text); margin-top: 0.2rem; }
+.llm-scenario-blurb { display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 0.2rem; line-height: 1.45; }
+
+/* ── derived figures ── */
+.llm-derived {
+  margin-top: 1rem; padding: 0.8rem 1rem; background: var(--border-light);
+  border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-secondary); line-height: 1.7;
+}
+.llm-derived b { color: var(--text); font-family: "SF Mono","Fira Code",monospace; }
+.llm-custom-flag {
+  display: inline-block; margin-left: 0.4rem; font-size: 0.68rem; font-weight: 700;
+  color: var(--primary); background: var(--primary-light); padding: 0.1rem 0.4rem; border-radius: 999px;
+}

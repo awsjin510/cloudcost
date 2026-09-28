@@ -19,11 +19,14 @@ from pydantic import BaseModel
 from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
 from cloudcost.llm import (
+    LLMModel,
     LLMPlatform,
     LLMWorkload,
+    ModelInfo,
     QuotaPlan,
     QuotaReport,
     evaluate_workload,
+    list_models,
     list_plans,
 )
 from cloudcost.models.spec import (
@@ -157,17 +160,25 @@ async def api_compare(req: CompareRequest) -> ComparisonResult:
 # ---------------------------------------------------------------------------
 
 
+@app.get("/api/llm-quota/models", response_model=list[ModelInfo])
+async def api_llm_models() -> list[ModelInfo]:
+    """JSON API: the modelled Claude models and their list pricing."""
+    return list_models()
+
+
 @app.get("/api/llm-quota/plans", response_model=list[QuotaPlan])
-async def api_llm_quota_plans(platform: LLMPlatform | None = None) -> list[QuotaPlan]:
-    """JSON API: the published Claude Fable 5 / 5.1 default quota table."""
-    return list_plans(platform)
+async def api_llm_quota_plans(
+    model: LLMModel | None = None, platform: LLMPlatform | None = None
+) -> list[QuotaPlan]:
+    """JSON API: the published default quota table."""
+    return list_plans(model, platform)
 
 
 @app.post("/api/llm-quota", response_model=QuotaReport)
 async def api_llm_quota(
     workload: LLMWorkload, platform: LLMPlatform | None = None
 ) -> QuotaReport:
-    """JSON API: check a peak workload against each platform's default quota."""
+    """JSON API: size a peak workload against each platform's default quota."""
     return evaluate_workload(workload, platform)
 
 
