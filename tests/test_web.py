@@ -129,29 +129,48 @@ class TestAPI:
 
 class TestLLMQuotaAPI:
     @pytest.mark.asyncio
+    async def test_model_catalogue(self, client):
+        resp = await client.get("/api/llm-quota/models")
+        assert resp.status_code == 200
+        models = resp.json()
+        assert {m["model"] for m in models} == {"fable-5-1", "fable-5", "opus-5", "sonnet-5"}
+        assert all(m["pricing"]["input_per_mtok"] > 0 for m in models)
+
+    @pytest.mark.asyncio
     async def test_quota_plan_table(self, client):
         resp = await client.get("/api/llm-quota/plans")
         assert resp.status_code == 200
         plans = resp.json()
-        assert len(plans) >= 8
+        assert len(plans) == 32
         assert {p["platform"] for p in plans} == {"anthropic", "bedrock", "foundry", "vertex"}
         assert all(p["source"].startswith("https://") for p in plans)
 
     @pytest.mark.asyncio
-    async def test_quota_plan_table_filtered(self, client):
-        resp = await client.get("/api/llm-quota/plans", params={"platform": "vertex"})
+    async def test_quota_plan_table_filters_compose(self, client):
+        resp = await client.get(
+            "/api/llm-quota/plans", params={"model": "opus-5", "platform": "vertex"}
+        )
         assert resp.status_code == 200
-        assert all(p["platform"] == "vertex" for p in resp.json())
+        plans = resp.json()
+        assert len(plans) == 2
+        assert all(p["model"] == "opus-5" and p["platform"] == "vertex" for p in plans)
 
     @pytest.mark.asyncio
     async def test_evaluate_workload(self, client):
         resp = await client.post(
             "/api/llm-quota",
             json={
-                "concurrent_users": 100,
-                "requests_per_user_per_minute": 1,
-                "input_tokens_per_request": 20000,
-                "output_tokens_per_request": 2000,
+                "model": "fable-5-1",
+                "apps": [
+                    {
+                        "name": "RAG",
+                        "concurrent_users": 100,
+                        "requests_per_user_per_minute": 1,
+                        "input_tokens_per_request": 20000,
+                        "output_tokens_per_request": 2000,
+                        "cache_hit_rate": 0,
+                    }
+                ],
             },
         )
         assert resp.status_code == 200
@@ -159,29 +178,80 @@ class TestLLMQuotaAPI:
         assert body["required_rpm"] == 100
         assert body["required_itpm"] == 2_000_000
         assert body["required_otpm"] == 200_000
+        assert body["cost"]["per_1k_requests_usd"] == 300.0
 
         by_plan = {r["plan_id"]: r for r in body["results"]}
         assert by_plan["start"]["verdict"] == "over"
-        assert by_plan["enterprise"]["verdict"] == "ample"
+        assert by_plan["scale"]["verdict"] == "ample"
+        assert by_plan["scale"]["max_users"] == 200
         assert by_plan["payg"]["verdict"] == "blocked"
         assert by_plan["mantle"]["verdict"] == "unknown"
+        # Over-quota plans must come with concrete next steps.
+        assert {a["kind"] for a in by_plan["start"]["actions"]} >= {
+            "request_quota",
+            "switch_plan",
+        }
+
+    @pytest.mark.asyncio
+    async def test_several_apps_are_summed(self, client):
+        resp = await client.post(
+            "/api/llm-quota",
+            json={
+                "apps": [
+                    {"name": "A", "concurrent_users": 100},
+                    {"name": "B", "concurrent_users": 50},
+                ]
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_users"] == 150
+        assert body["required_rpm"] == 150
+
+    @pytest.mark.asyncio
+    async def test_account_quota_resolves_an_unknown_plan(self, client):
+        resp = await client.post(
+            "/api/llm-quota",
+            params={"platform": "bedrock"},
+            json={
+                "apps": [{"concurrent_users": 100}],
+                "max_tokens": 4000,
+                "account_quotas": [
+                    {"plan_id": "mantle", "itpm": 20000000, "otpm": 4000000}
+                ],
+            },
+        )
+        assert resp.status_code == 200
+        mantle = resp.json()["results"][0]
+        assert mantle["verdict"] == "ample"
+        assert mantle["itpm"]["from_account"] is True
 
     @pytest.mark.asyncio
     async def test_response_carries_no_infinities(self, client):
         """Browsers reject JSON's Infinity token, so a zero quota must not emit one."""
         import json
 
-        resp = await client.post("/api/llm-quota", json={"concurrent_users": 100})
+        resp = await client.post("/api/llm-quota", json={"apps": [{"concurrent_users": 100}]})
         assert resp.status_code == 200
         json.loads(resp.text, parse_constant=lambda c: pytest.fail(f"non-finite: {c}"))
 
     @pytest.mark.asyncio
     async def test_rejects_invalid_workload(self, client):
-        resp = await client.post("/api/llm-quota", json={"concurrent_users": 0})
+        resp = await client.post("/api/llm-quota", json={"apps": [{"concurrent_users": 0}]})
         assert resp.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_index_page_serves_the_quota_tab(self, client):
+    async def test_index_page_serves_the_shared_planner_assets(self, client):
         resp = await client.get("/")
         assert 'data-mode="llm"' in resp.text
+        for asset in ("/static/llm/style.css", "/static/llm/data.js",
+                      "/static/llm/render.js", "/static/llm/form.js"):
+            assert asset in resp.text
         assert "/api/llm-quota" in resp.text
+
+    @pytest.mark.asyncio
+    async def test_shared_assets_are_served(self, client):
+        for path in ("style.css", "data.js", "render.js", "form.js"):
+            resp = await client.get(f"/static/llm/{path}")
+            assert resp.status_code == 200, path
+            assert len(resp.text) > 500
