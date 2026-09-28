@@ -19,7 +19,14 @@ import subprocess
 
 import pytest
 
-from cloudcost.llm import AppWorkload, LLMModel, LLMWorkload, QuotaOverride, evaluate_workload
+from cloudcost.llm import (
+    AppWorkload,
+    LLMModel,
+    LLMWorkload,
+    QuotaOverride,
+    evaluate_workload,
+    size_from_scenario,
+)
 from cloudcost.llm.export import (
     ASSET_DIR,
     MIRRORED,
@@ -71,6 +78,16 @@ SCENARIOS: list[LLMWorkload] = [
     # Every other model.
     *[LLMWorkload(model=m, apps=[AppWorkload(concurrent_users=120, cache_hit_rate=0.5)])
       for m in LLMModel if m is not LLMModel.FABLE_5_1],
+    # Thinking tokens, truncation warning and batch eligibility.
+    LLMWorkload(
+        apps=[AppWorkload(concurrent_users=150, thinking_tokens_per_request=3_000, cache_hit_rate=0.4)],
+        max_tokens=4_000,
+        monthly_requests=800_000,
+        batch_eligible=True,
+    ),
+    # Every scenario as the form builds it, at a load that forces advice.
+    *[size_from_scenario(sid, users=2_000, peak_profile="spiky")
+      for sid in ("support", "rag", "summarize", "coding", "writing")],
 ]
 
 _DRIVER = """

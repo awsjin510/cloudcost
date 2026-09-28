@@ -34,6 +34,8 @@ from pydantic import BaseModel, Field
 
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
+    BATCH_DISCOUNT,
+    EFFORT_THINKING_FACTORS,
     MAX_OUTPUT_TOKENS,
     PEAK_FACTORS,
     WORKING_DAYS_PER_MONTH,
@@ -44,6 +46,7 @@ from cloudcost.llm.catalog import (
     QuotaPlan,
     get_model,
     get_scenario,
+    list_models,
     list_plans,
 )
 
@@ -69,6 +72,7 @@ class ActionKind(str, Enum):
     RAISE_CACHE = "raise_cache"
     SET_MAX_TOKENS = "set_max_tokens"
     ENTER_ACCOUNT_QUOTA = "enter_account_quota"
+    USE_BATCH = "use_batch"
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +90,13 @@ class AppWorkload(BaseModel):
         default=20_000, ge=1, le=1_000_000,
         description="System prompt + history + RAG context",
     )
-    output_tokens_per_request: int = Field(default=2_000, ge=1, le=MAX_OUTPUT_TOKENS)
+    output_tokens_per_request: int = Field(
+        default=2_000, ge=1, le=MAX_OUTPUT_TOKENS, description="Visible reply tokens"
+    )
+    thinking_tokens_per_request: int = Field(
+        default=0, ge=0, le=MAX_OUTPUT_TOKENS,
+        description="Thinking tokens; billed as output and counted toward OTPM",
+    )
     cache_hit_rate: float = Field(
         default=0.0, ge=0.0, le=0.95,
         description="Share of the prompt served from cache; cache reads are ITPM-free",
@@ -103,6 +113,11 @@ class AppWorkload(BaseModel):
     @property
     def cached_input_per_request(self) -> float:
         return self.input_tokens_per_request * self.cache_hit_rate
+
+    @property
+    def billed_output_per_request(self) -> int:
+        """Everything generated: the reply plus the thinking behind it."""
+        return self.output_tokens_per_request + self.thinking_tokens_per_request
 
 
 class QuotaOverride(BaseModel):
@@ -132,6 +147,9 @@ class LLMWorkload(BaseModel):
         description="Monthly request volume, used only for the monthly cost estimate",
     )
     account_quotas: list[QuotaOverride] = Field(default_factory=list, max_length=40)
+    batch_eligible: bool = Field(
+        default=False, description="Work can wait for an asynchronous (Batch API) result"
+    )
 
     # -- aggregate demand --------------------------------------------------
 
@@ -155,7 +173,12 @@ class LLMWorkload(BaseModel):
 
     @property
     def otpm(self) -> float:
-        return sum(a.rpm * a.output_tokens_per_request for a in self.apps)
+        """Generated tokens per minute, thinking included: OTPM counts all of it."""
+        return sum(a.rpm * a.billed_output_per_request for a in self.apps)
+
+    @property
+    def thinking_tpm(self) -> float:
+        return sum(a.rpm * a.thinking_tokens_per_request for a in self.apps)
 
     @property
     def effective_max_tokens(self) -> int:
@@ -200,6 +223,11 @@ class CostEstimate(BaseModel):
     per_1k_requests_without_cache_usd: float
     cache_saving_pct: float
     breakdown_per_1k: dict[str, float]
+    #: Share of the bill that is thinking tokens.
+    thinking_share_pct: float = 0.0
+    #: Same traffic through the Batch API (first-party, 50% off).
+    batch_per_1k_requests_usd: float = 0.0
+    batch_monthly_usd: Optional[float] = None
     caveats: list[str] = Field(default_factory=list)
 
 
@@ -231,6 +259,28 @@ class QuotaPlanResult(BaseModel):
     verified: str
 
 
+class ModelComparison(BaseModel):
+    """The same scenario priced and sized on one model."""
+
+    model: LLMModel
+    label: str
+    per_1k_requests_usd: float
+    monthly_usd: Optional[float] = None
+    fitting_plans: int
+    total_plans: int
+    best_max_users: Optional[int] = None
+    is_selected: bool = False
+
+
+class Sensitivity(BaseModel):
+    """How the answer holds up if the peak is sharper than assumed."""
+
+    label: str
+    multiplier: float
+    fitting_plans: int
+    total_plans: int
+
+
 class QuotaReport(BaseModel):
     workload: LLMWorkload
     model_label: str
@@ -241,6 +291,9 @@ class QuotaReport(BaseModel):
     cached_itpm: float
     cost: CostEstimate
     results: list[QuotaPlanResult]
+    fitting_plans: int = 0
+    model_comparison: list[ModelComparison] = Field(default_factory=list)
+    sensitivity: list[Sensitivity] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
 
@@ -398,20 +451,34 @@ def _build_actions(
         )
 
     # 3. The same plan on a model with a looser quota.
-    cheaper_models = [
+    # Never trade capability for quota silently: consider only models at or
+    # below the current tier, keep as much capability as possible, and break
+    # ties on price.
+    current = get_model(plan.model)
+    alt_models = [
         p
         for p in list_plans(platform=plan.platform)
-        if p.plan_id == plan.plan_id and p.model != plan.model and _fits(workload, p)
+        if p.plan_id == plan.plan_id
+        and p.model != plan.model
+        and get_model(p.model).tier <= current.tier
+        and _fits(workload, p)
     ]
-    if cheaper_models:
-        alt = cheaper_models[0]
-        alt_price = get_model(alt.model).pricing.input_per_mtok
-        cur_price = get_model(plan.model).pricing.input_per_mtok
-        cheaper = "，單價也更低" if alt_price < cur_price else ""
+    alt_models.sort(
+        key=lambda p: (
+            -get_model(p.model).tier,
+            get_model(p.model).pricing.input_per_mtok,
+            get_model(p.model).pricing.output_per_mtok,
+        )
+    )
+    if alt_models:
+        alt = alt_models[0]
+        info = get_model(alt.model)
+        cheaper = "，單價也更低" if info.pricing.input_per_mtok < current.pricing.input_per_mtok else ""
+        prefix = f"若 {alt.model_label} 的能力足夠，" if info.tier < current.tier else ""
         actions.append(
             Action(
                 kind=ActionKind.SWITCH_MODEL,
-                text=f"同一方案改用 {alt.model_label} 就塞得下{cheaper}",
+                text=f"{prefix}同一方案改用 {alt.model_label} 就塞得下{cheaper}",
             )
         )
 
@@ -432,6 +499,14 @@ def _build_actions(
                     f"不必申請調額（目前 {max(a.cache_hit_rate for a in workload.apps) * 100:.0f}%）",
                 )
             )
+
+    if workload.batch_eligible:
+        actions.append(
+            Action(
+                kind=ActionKind.USE_BATCH,
+                text="這類工作可以非即時處理：改走批次 API 不佔即時配額，且費用打五折",
+            )
+        )
 
     if plan.reserves_max_tokens and workload.max_tokens is None:
         actions.append(
@@ -487,14 +562,16 @@ def _evaluate_plan(workload: LLMWorkload, plan: QuotaPlan) -> QuotaPlanResult:
 # Cost
 # ---------------------------------------------------------------------------
 
+
 def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
     price = get_model(workload.model).pricing
     per_m = 1_000_000.0
 
     uncached_usd = workload.itpm * price.input_per_mtok / per_m
     cache_read_usd = workload.cached_itpm * price.cache_read_per_mtok / per_m
-    output_usd = workload.otpm * price.output_per_mtok / per_m
-    per_minute = uncached_usd + cache_read_usd + output_usd
+    thinking_usd = workload.thinking_tpm * price.output_per_mtok / per_m
+    reply_usd = (workload.otpm - workload.thinking_tpm) * price.output_per_mtok / per_m
+    per_minute = uncached_usd + cache_read_usd + reply_usd + thinking_usd
 
     rpm = workload.rpm
     per_request = per_minute / rpm if rpm else 0.0
@@ -508,13 +585,21 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
         (no_cache_per_1k - per_1k) / no_cache_per_1k * 100 if no_cache_per_1k > 0 else 0.0
     )
 
+    def per_1k_of(usd: float) -> float:
+        return round(usd / rpm * 1000, 4) if rpm else 0.0
+
+    batch_per_request = per_request * (1 - BATCH_DISCOUNT)
+
     caveats = [
         "以 Anthropic 官方第一方定價計算。Claude in Microsoft Foundry 同樣採標準 API 費率"
         "（以 CCU 計價開立帳單）；Amazon Bedrock 與 Google Vertex 為合作夥伴自訂定價，"
         "實際金額請以該平台價目表為準",
+        "思考 token 一律按 Output 計費，即使畫面不顯示也會收費。此處的思考量是規劃估計，"
+        "請以實際請求回傳的 usage.output_tokens 校正",
         "假設快取在穩定流量下由讀取持續續期，因此未計入快取寫入費用"
         f"（首次寫入為輸入價的 1.25 倍，約 ${price.cache_write_5m_per_mtok:g}/MTok）",
     ]
+
     return CostEstimate(
         per_request_usd=round(per_request, 6),
         per_1k_requests_usd=round(per_1k, 4),
@@ -527,10 +612,18 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
         per_1k_requests_without_cache_usd=round(no_cache_per_1k, 4),
         cache_saving_pct=round(saving_pct, 1),
         breakdown_per_1k={
-            "uncached_input": round(uncached_usd / rpm * 1000, 4) if rpm else 0.0,
-            "cache_read": round(cache_read_usd / rpm * 1000, 4) if rpm else 0.0,
-            "output": round(output_usd / rpm * 1000, 4) if rpm else 0.0,
+            "uncached_input": per_1k_of(uncached_usd),
+            "cache_read": per_1k_of(cache_read_usd),
+            "output": per_1k_of(reply_usd),
+            "thinking": per_1k_of(thinking_usd),
         },
+        thinking_share_pct=round(thinking_usd / per_minute * 100, 1) if per_minute else 0.0,
+        batch_per_1k_requests_usd=round(batch_per_request * 1000, 4),
+        batch_monthly_usd=(
+            round(batch_per_request * workload.monthly_requests, 2)
+            if workload.monthly_requests is not None
+            else None
+        ),
         caveats=caveats,
     )
 
@@ -539,6 +632,55 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
 # Entry point
 # ---------------------------------------------------------------------------
 
+_FITS = (Verdict.AMPLE, Verdict.TIGHT)
+
+
+def _scaled(workload: LLMWorkload, multiplier: float) -> LLMWorkload:
+    """The same scenario with every app's peak rate multiplied."""
+    apps = [
+        a.model_copy(update={"requests_per_user_per_minute": a.requests_per_user_per_minute * multiplier})
+        for a in workload.apps
+    ]
+    return workload.model_copy(update={"apps": apps})
+
+
+def _count_fitting(workload: LLMWorkload, platform: Optional[LLMPlatform]) -> tuple[int, int]:
+    plans = list_plans(model=workload.model, platform=platform)
+    fitting = sum(1 for p in plans if _fits(workload, p))
+    return fitting, len(plans)
+
+
+def compare_models(
+    workload: LLMWorkload, platform: Optional[LLMPlatform] = None
+) -> list[ModelComparison]:
+    """Price and size the same scenario on every model, cheapest first.
+
+    Thinking and output volumes are held constant across models: real
+    per-model differences exist but are not published, so the comparison
+    isolates what *is* known — price and quota.
+    """
+    rows: list[ModelComparison] = []
+    for info in list_models():
+        variant = workload.model_copy(update={"model": info.model})
+        cost = _estimate_cost(variant)
+        results = [_evaluate_plan(variant, p) for p in list_plans(info.model, platform)]
+        fitting = [r for r in results if r.verdict in _FITS]
+        caps = [r.max_users for r in fitting if r.max_users is not None]
+        rows.append(
+            ModelComparison(
+                model=info.model,
+                label=info.label,
+                per_1k_requests_usd=cost.per_1k_requests_usd,
+                monthly_usd=cost.monthly_usd,
+                fitting_plans=len(fitting),
+                total_plans=len(results),
+                best_max_users=max(caps) if caps else None,
+                is_selected=info.model == workload.model,
+            )
+        )
+    rows.sort(key=lambda r: (r.per_1k_requests_usd, r.label))
+    return rows
+
 
 def evaluate_workload(
     workload: LLMWorkload, platform: Optional[LLMPlatform] = None
@@ -546,6 +688,7 @@ def evaluate_workload(
     """Evaluate a scenario against every published default quota for its model."""
     plans = list_plans(model=workload.model, platform=platform)
     results = [_evaluate_plan(workload, p) for p in plans]
+    fitting = sum(1 for r in results if r.verdict in _FITS)
 
     warnings: list[str] = []
     if all(a.cache_hit_rate == 0 for a in workload.apps):
@@ -558,15 +701,27 @@ def evaluate_workload(
             f"未指定 max_tokens：Bedrock Mantle 會按模型上限 {_fmt(MAX_OUTPUT_TOKENS)} "
             "tokens 預扣 ITPM，設定實際值可大幅降低被節流的機會"
         )
+    if workload.max_tokens is not None:
+        needed = max(a.billed_output_per_request for a in workload.apps)
+        if workload.max_tokens < needed:
+            warnings.append(
+                f"max_tokens {_fmt(workload.max_tokens)} 小於單次回覆加思考的 {_fmt(needed)} tokens："
+                "思考也計入 max_tokens，回應會被截斷，請調高"
+            )
     if any(r.verdict is Verdict.UNKNOWN for r in results):
         warnings.append(
             "部分平台未公布預設配額。可在該平台的配額主控台查出本帳號實際額度後填入上方欄位"
         )
 
+    stressed = _scaled(workload, 2.0)
+    stress_fit, stress_total = _count_fitting(stressed, platform)
+
     assumptions = [
         "所有數字皆為尖峰 1 分鐘的平均值。平台採持續補充的 token bucket，"
         "同樣的量在幾秒內灌完仍可能被節流，實務上請預留突發餘裕",
         "配額為組織／訂閱層級共用。多個應用跑在同一個帳號上會共用同一個額度，此處已加總",
+        "思考 token 計入 Output 費用與 OTPM。思考量隨 effort 與題目難度變動，此處為規劃估計",
+        "情境的 token 量、每人每天次數與尖峰係數為規劃估計，不是任何實際部署的量測值",
         f"配額資料驗證：{results[0].verified if results else ''}。"
         "以上皆為平台預設值，非模型本體物理上限，均可提報申請調升",
     ]
@@ -581,9 +736,20 @@ def evaluate_workload(
         cached_itpm=round(workload.cached_itpm, 2),
         cost=_estimate_cost(workload),
         results=results,
+        fitting_plans=fitting,
+        model_comparison=compare_models(workload, platform),
+        sensitivity=[
+            Sensitivity(
+                label="尖峰再集中一倍",
+                multiplier=2.0,
+                fitting_plans=stress_fit,
+                total_plans=stress_total,
+            )
+        ],
         warnings=warnings,
         assumptions=assumptions,
     )
+
 
 # ---------------------------------------------------------------------------
 # Scenario-based sizing
@@ -596,6 +762,7 @@ def size_from_scenario(
     messages_per_user_per_day: Optional[float] = None,
     peak_profile: str = "normal",
     model: Optional[LLMModel] = None,
+    effort: Optional[str] = None,
 ) -> LLMWorkload:
     """Build a workload from the three things a customer can actually answer.
 
@@ -615,6 +782,8 @@ def size_from_scenario(
         else scenario.messages_per_user_per_day
     )
     factor = PEAK_FACTORS.get(peak_profile, PEAK_FACTORS["normal"])
+    level = effort if effort in EFFORT_THINKING_FACTORS else scenario.default_effort
+    thinking = round(scenario.thinking_tokens_per_request * EFFORT_THINKING_FACTORS[level])
 
     # Spread the day over its active hours, then concentrate it by the factor.
     peak_rpm_per_user = per_day / (ACTIVE_HOURS_PER_DAY * 60) * factor
@@ -628,9 +797,11 @@ def size_from_scenario(
                 requests_per_user_per_minute=max(0.0001, peak_rpm_per_user),
                 input_tokens_per_request=scenario.input_tokens_per_request,
                 output_tokens_per_request=scenario.output_tokens_per_request,
+                thinking_tokens_per_request=thinking,
                 cache_hit_rate=scenario.cache_hit_rate,
             )
         ],
         max_tokens=scenario.max_tokens,
         monthly_requests=round(users * per_day * WORKING_DAYS_PER_MONTH),
+        batch_eligible=scenario.batch_friendly,
     )

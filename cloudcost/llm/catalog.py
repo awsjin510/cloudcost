@@ -26,7 +26,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-VERIFIED = "2026-09"
+VERIFIED = "2026-09-28"
 
 #: Maximum output tokens for every model modelled here.
 MAX_OUTPUT_TOKENS = 128_000
@@ -49,6 +49,7 @@ class LLMModel(str, Enum):
 
     FABLE_5_1 = "fable-5-1"
     FABLE_5 = "fable-5"
+    OPUS_5_5 = "opus-5-5"
     OPUS_5 = "opus-5"
     SONNET_5 = "sonnet-5"
 
@@ -78,7 +79,8 @@ class ModelPricing(BaseModel):
 
     input_per_mtok: float
     output_per_mtok: float
-    #: Cache hits are 0.1x base input on most models; Fable 5.1 is 0.025x.
+    #: Cache hits are 0.1x base input on most models; Fable 5.1 is 0.025x and
+    #: Opus 5.5 is 0.05x.
     cache_read_per_mtok: float
     #: Writing a prefix to the 5-minute cache costs 1.25x base input.
     cache_write_5m_per_mtok: float
@@ -87,14 +89,23 @@ class ModelPricing(BaseModel):
 class ModelInfo(BaseModel):
     model: LLMModel
     label: str
+    #: Capability tier (higher = more capable). Used so a quota workaround
+    #: never silently trades capability for price.
+    tier: int
     pricing: ModelPricing
     notes: list[str] = Field(default_factory=list)
+
+    @property
+    def api_id(self) -> str:
+        """Model ID on the Claude API, e.g. ``claude-opus-5-5``."""
+        return f"claude-{self.model.value}"
 
 
 _MODELS: list[ModelInfo] = [
     ModelInfo(
         model=LLMModel.FABLE_5_1,
         label="Claude Fable 5.1",
+        tier=3,
         pricing=ModelPricing(
             input_per_mtok=10.0,
             output_per_mtok=50.0,
@@ -109,6 +120,7 @@ _MODELS: list[ModelInfo] = [
     ModelInfo(
         model=LLMModel.FABLE_5,
         label="Claude Fable 5",
+        tier=3,
         pricing=ModelPricing(
             input_per_mtok=10.0,
             output_per_mtok=50.0,
@@ -118,19 +130,33 @@ _MODELS: list[ModelInfo] = [
         notes=["快取讀取為輸入價的 0.1 倍，比 Fable 5.1 貴 4 倍"],
     ),
     ModelInfo(
+        model=LLMModel.OPUS_5_5,
+        label="Claude Opus 5.5",
+        tier=2,
+        pricing=ModelPricing(
+            input_per_mtok=4.0,
+            output_per_mtok=20.0,
+            cache_read_per_mtok=0.20,
+            cache_write_5m_per_mtok=5.0,
+        ),
+        notes=["配額與 Opus 5 相同、單價便宜兩成，快取讀取為輸入價的 0.05 倍"],
+    ),
+    ModelInfo(
         model=LLMModel.OPUS_5,
         label="Claude Opus 5",
+        tier=2,
         pricing=ModelPricing(
             input_per_mtok=5.0,
             output_per_mtok=25.0,
             cache_read_per_mtok=0.50,
             cache_write_5m_per_mtok=6.25,
         ),
-        notes=["單價為 Fable 的一半，配額普遍較寬鬆，多數情境是更划算的起點"],
+        notes=["單價為 Fable 的一半；同配額下 Opus 5.5 更便宜，新專案建議直接評估 Opus 5.5"],
     ),
     ModelInfo(
         model=LLMModel.SONNET_5,
         label="Claude Sonnet 5",
+        tier=1,
         pricing=ModelPricing(
             input_per_mtok=2.0,
             output_per_mtok=10.0,
@@ -234,42 +260,49 @@ _QUOTAS: dict[str, dict[LLMModel, tuple[float, float, float]]] = {
     "start": {
         LLMModel.FABLE_5_1: (1_000, 500_000, 100_000),
         LLMModel.FABLE_5: (1_000, 500_000, 100_000),
+        LLMModel.OPUS_5_5: (1_000, 2_000_000, 400_000),
         LLMModel.OPUS_5: (1_000, 2_000_000, 400_000),
         LLMModel.SONNET_5: (1_000, 2_000_000, 400_000),
     },
     "build": {
         LLMModel.FABLE_5_1: (2_000, 1_500_000, 300_000),
         LLMModel.FABLE_5: (2_000, 1_500_000, 300_000),
+        LLMModel.OPUS_5_5: (5_000, 5_000_000, 1_000_000),
         LLMModel.OPUS_5: (5_000, 5_000_000, 1_000_000),
         LLMModel.SONNET_5: (5_000, 5_000_000, 1_000_000),
     },
     "scale": {
         LLMModel.FABLE_5_1: (4_000, 4_000_000, 800_000),
         LLMModel.FABLE_5: (4_000, 4_000_000, 800_000),
+        LLMModel.OPUS_5_5: (10_000, 10_000_000, 2_000_000),
         LLMModel.OPUS_5: (10_000, 10_000_000, 2_000_000),
         LLMModel.SONNET_5: (10_000, 10_000_000, 2_000_000),
     },
     "payg": {
         LLMModel.FABLE_5_1: (0, 0, 0),
         LLMModel.FABLE_5: (0, 0, 0),
+        LLMModel.OPUS_5_5: (40, 40_000, 8_000),
         LLMModel.OPUS_5: (40, 40_000, 8_000),
         LLMModel.SONNET_5: (40, 40_000, 8_000),
     },
     "enterprise": {
         LLMModel.FABLE_5_1: (4_000, 4_000_000, 800_000),
         LLMModel.FABLE_5: (4_000, 4_000_000, 800_000),
+        LLMModel.OPUS_5_5: (10_000, 10_000_000, 2_000_000),
         LLMModel.OPUS_5: (10_000, 10_000_000, 2_000_000),
         LLMModel.SONNET_5: (10_000, 10_000_000, 2_000_000),
     },
     "global": {
         LLMModel.FABLE_5_1: (2_000, 20_000_000, 2_000_000),
         LLMModel.FABLE_5: (2_000, 20_000_000, 2_000_000),
+        LLMModel.OPUS_5_5: (2_000, 20_000_000, 2_000_000),
         LLMModel.OPUS_5: (2_000, 20_000_000, 2_000_000),
         LLMModel.SONNET_5: (2_500, 25_000_000, 2_500_000),
     },
     "multi_region": {
         LLMModel.FABLE_5_1: (1_000, 10_000_000, 1_000_000),
         LLMModel.FABLE_5: (1_000, 10_000_000, 1_000_000),
+        LLMModel.OPUS_5_5: (1_000, 10_000_000, 1_000_000),
         LLMModel.OPUS_5: (1_000, 10_000_000, 1_000_000),
         LLMModel.SONNET_5: (1_250, 12_500_000, 1_250_000),
     },
@@ -293,12 +326,18 @@ for _m in (LLMModel.FABLE_5_1, LLMModel.FABLE_5):
         "Fable 於 Foundry 目前為 Preview，僅有 Anthropic 託管版本"
     ]
 for _plan in ("global", "multi_region"):
+    _EXTRA_NOTES[(_plan, LLMModel.OPUS_5_5)] = [
+        "2026-05-26 之後推出的模型使用共用沿襲配額，同系列各版本共用同一個額度桶"
+    ]
     _EXTRA_NOTES[(_plan, LLMModel.OPUS_5)] = [
         "2026-05-26 之後推出的模型使用共用沿襲配額，同系列各版本共用同一個額度桶"
     ]
     _EXTRA_NOTES[(_plan, LLMModel.SONNET_5)] = [
         "2026-05-26 之後推出的模型使用共用沿襲配額，同系列各版本共用同一個額度桶"
     ]
+_EXTRA_NOTES[("payg", LLMModel.OPUS_5_5)] = [
+    "隨用隨付的預設額度偏低，正式上線前通常仍需申請調升"
+]
 _EXTRA_NOTES[("payg", LLMModel.OPUS_5)] = [
     "隨用隨付的預設額度偏低，正式上線前通常仍需申請調升"
 ]
@@ -376,11 +415,21 @@ class UsageScenario(BaseModel):
     output_tokens_per_request: int
     #: Share of the prompt that is a fixed, cacheable prefix.
     cache_hit_rate: float
+    #: Must cover visible output AND thinking: thinking counts toward max_tokens.
     max_tokens: int
     #: The model this shape usually starts on.
     suggested_model: LLMModel
     #: Messages per user per day, as a starting point.
     messages_per_user_per_day: float
+    #: Thinking tokens per request at effort "high". Every modelled model thinks
+    #: by default and bills thinking as output, so leaving this out would
+    #: understate the most expensive token type. PLANNING ESTIMATE: calibrate
+    #: against `usage.output_tokens` from a few real requests.
+    thinking_tokens_per_request: int = 0
+    #: Effort level this shape usually runs at.
+    default_effort: str = "high"
+    #: Work that can wait for an asynchronous result (Batch API, 50% off).
+    batch_friendly: bool = False
 
 
 _SCENARIOS: list[UsageScenario] = [
@@ -392,9 +441,11 @@ _SCENARIOS: list[UsageScenario] = [
         input_tokens_per_request=4_000,
         output_tokens_per_request=500,
         cache_hit_rate=0.60,
-        max_tokens=1_000,
+        max_tokens=3_000,
         suggested_model=LLMModel.SONNET_5,
         messages_per_user_per_day=12,
+        thinking_tokens_per_request=800,
+        default_effort="medium",
     ),
     UsageScenario(
         scenario_id="rag",
@@ -404,9 +455,11 @@ _SCENARIOS: list[UsageScenario] = [
         input_tokens_per_request=20_000,
         output_tokens_per_request=2_000,
         cache_hit_rate=0.50,
-        max_tokens=4_000,
+        max_tokens=8_000,
         suggested_model=LLMModel.SONNET_5,
         messages_per_user_per_day=8,
+        thinking_tokens_per_request=2_500,
+        default_effort="high",
     ),
     UsageScenario(
         scenario_id="summarize",
@@ -416,9 +469,12 @@ _SCENARIOS: list[UsageScenario] = [
         input_tokens_per_request=30_000,
         output_tokens_per_request=1_500,
         cache_hit_rate=0.15,
-        max_tokens=3_000,
+        max_tokens=6_000,
         suggested_model=LLMModel.SONNET_5,
         messages_per_user_per_day=4,
+        thinking_tokens_per_request=1_500,
+        default_effort="medium",
+        batch_friendly=True,
     ),
     UsageScenario(
         scenario_id="coding",
@@ -428,9 +484,11 @@ _SCENARIOS: list[UsageScenario] = [
         input_tokens_per_request=60_000,
         output_tokens_per_request=8_000,
         cache_hit_rate=0.80,
-        max_tokens=16_000,
+        max_tokens=32_000,
         suggested_model=LLMModel.FABLE_5_1,
         messages_per_user_per_day=60,
+        thinking_tokens_per_request=6_000,
+        default_effort="xhigh",
     ),
     UsageScenario(
         scenario_id="writing",
@@ -440,9 +498,11 @@ _SCENARIOS: list[UsageScenario] = [
         input_tokens_per_request=2_000,
         output_tokens_per_request=4_000,
         cache_hit_rate=0.25,
-        max_tokens=8_000,
+        max_tokens=12_000,
         suggested_model=LLMModel.OPUS_5,
         messages_per_user_per_day=6,
+        thinking_tokens_per_request=2_000,
+        default_effort="high",
     ),
 ]
 
@@ -465,6 +525,19 @@ PEAK_FACTORS: dict[str, float] = {
     "normal": 3.0,    # 一般上班時間使用
     "spiky": 6.0,     # 活動檔期、早會後、上課時間
 }
+
+# How much of a scenario's "high" thinking estimate each effort level spends.
+# Relative planning factors, not published figures: effort changes how much
+# the model thinks, and the only reliable number is a measured one.
+EFFORT_THINKING_FACTORS: dict[str, float] = {
+    "low": 0.25,
+    "medium": 0.5,
+    "high": 1.0,
+    "xhigh": 1.5,
+}
+
+#: Batch API list-price discount on input and output (first-party).
+BATCH_DISCOUNT = 0.50
 
 #: Hours per day over which the daily volume is assumed to be spread.
 ACTIVE_HOURS_PER_DAY = 8

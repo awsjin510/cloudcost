@@ -133,7 +133,7 @@ class TestLLMQuotaAPI:
         resp = await client.get("/api/llm-quota/models")
         assert resp.status_code == 200
         models = resp.json()
-        assert {m["model"] for m in models} == {"fable-5-1", "fable-5", "opus-5", "sonnet-5"}
+        assert {m["model"] for m in models} == {"fable-5-1", "fable-5", "opus-5-5", "opus-5", "sonnet-5"}
         assert all(m["pricing"]["input_per_mtok"] > 0 for m in models)
 
     @pytest.mark.asyncio
@@ -141,7 +141,7 @@ class TestLLMQuotaAPI:
         resp = await client.get("/api/llm-quota/plans")
         assert resp.status_code == 200
         plans = resp.json()
-        assert len(plans) == 32
+        assert len(plans) == 40
         assert {p["platform"] for p in plans} == {"anthropic", "bedrock", "foundry", "vertex"}
         assert all(p["source"].startswith("https://") for p in plans)
 
@@ -255,3 +255,100 @@ class TestLLMQuotaAPI:
             resp = await client.get(f"/static/llm/{path}")
             assert resp.status_code == 200, path
             assert len(resp.text) > 500
+
+
+class _FakeCount:
+    def __init__(self, n):
+        self.input_tokens = n
+
+
+class _FakeMessages:
+    """Counts one token per character, plus 7 for message framing."""
+
+    def __init__(self, calls):
+        self.calls = calls
+
+    async def count_tokens(self, model, messages, system=None):
+        self.calls.append({"model": model, "system": system, "messages": messages})
+        text = (system or "") + "".join(m["content"] for m in messages)
+        return _FakeCount(len(text) + 7)
+
+
+class _FakeClient:
+    def __init__(self, calls):
+        self.messages = _FakeMessages(calls)
+
+
+@pytest.fixture
+def fake_counter(monkeypatch):
+    import cloudcost.web.app as webapp
+
+    calls = []
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+    monkeypatch.setattr(webapp, "_token_client", lambda: _FakeClient(calls))
+    return calls
+
+
+class TestTokenCounting:
+    @pytest.mark.asyncio
+    async def test_splits_fixed_prefix_from_the_total(self, client, fake_counter):
+        resp = await client.post(
+            "/api/llm-quota/count-tokens",
+            json={"model": "opus-5-5", "system": "S" * 300, "sample": "Q" * 100},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total_tokens"] == 300 + 100 + 7
+        assert body["prefix_tokens"] == 300
+        # The planner's model id maps onto the real Claude API id.
+        assert {c["model"] for c in fake_counter} == {"claude-opus-5-5"}
+
+    @pytest.mark.asyncio
+    async def test_system_prompt_only(self, client, fake_counter):
+        resp = await client.post("/api/llm-quota/count-tokens", json={"system": "S" * 50})
+        assert resp.status_code == 200
+        assert resp.json()["prefix_tokens"] == 50
+
+    @pytest.mark.asyncio
+    async def test_sample_only_has_no_cacheable_prefix(self, client, fake_counter):
+        resp = await client.post("/api/llm-quota/count-tokens", json={"sample": "hello"})
+        assert resp.status_code == 200
+        assert resp.json()["prefix_tokens"] == 0
+        assert len(fake_counter) == 1
+
+    @pytest.mark.asyncio
+    async def test_rejects_empty_input(self, client, fake_counter):
+        resp = await client.post("/api/llm-quota/count-tokens", json={"system": "  ", "sample": ""})
+        assert resp.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_unavailable_without_credentials(self, client, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        resp = await client.post("/api/llm-quota/count-tokens", json={"sample": "hi"})
+        assert resp.status_code == 503
+
+    @pytest.mark.asyncio
+    async def test_page_offers_counting_only_when_configured(self, client, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+        assert "window.llmCountTokens" not in (await client.get("/")).text
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-not-real")
+        page = (await client.get("/")).text
+        assert "window.llmCountTokens" in page
+        assert "test-key-not-real" not in page  # the key must never reach the browser
+
+    @pytest.mark.asyncio
+    async def test_report_carries_the_new_sections(self, client):
+        resp = await client.post(
+            "/api/llm-quota",
+            json={"model": "opus-5-5", "apps": [{"concurrent_users": 100, "thinking_tokens_per_request": 1000}],
+                  "monthly_requests": 100000, "batch_eligible": True},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["model_label"] == "Claude Opus 5.5"
+        assert len(body["model_comparison"]) == 5
+        assert body["sensitivity"][0]["multiplier"] == 2.0
+        assert body["cost"]["batch_monthly_usd"] == pytest.approx(body["cost"]["monthly_usd"] / 2)
+        assert body["cost"]["breakdown_per_1k"]["thinking"] > 0

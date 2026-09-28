@@ -1,0 +1,49 @@
+name: LLM data drift check
+
+# No vendor publishes default Claude quotas or list prices through an API, so
+# the planner's catalogue is transcribed from their documentation pages. This
+# job re-reads those pages every week and opens an issue when anything differs,
+# including models the vendors list that the catalogue does not know about.
+
+on:
+  schedule:
+    - cron: "0 1 * * 1"   # Mondays 01:00 UTC / 09:00 Asia/Taipei
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Compare catalogue with vendor docs
+        id: drift
+        run: |
+          set +e
+          python -m cloudcost.llm.drift --markdown > drift.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat drift.md
+
+      - name: Open or update the tracking issue
+        if: steps.drift.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="LLM 配額／定價資料與官方文件不一致"
+          existing=$(gh issue list --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file drift.md
+          else
+            gh issue create --title "$title" --body-file drift.md
+          fi

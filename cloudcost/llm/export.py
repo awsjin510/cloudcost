@@ -24,6 +24,8 @@ from pathlib import Path
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
     MAX_OUTPUT_TOKENS,
+    BATCH_DISCOUNT,
+    EFFORT_THINKING_FACTORS,
     PEAK_FACTORS,
     VERIFIED,
     WORKING_DAYS_PER_MONTH,
@@ -76,6 +78,8 @@ def render_data_js() -> str:
         "PEAK_FACTORS": PEAK_FACTORS,
         "ACTIVE_HOURS_PER_DAY": ACTIVE_HOURS_PER_DAY,
         "WORKING_DAYS_PER_MONTH": WORKING_DAYS_PER_MONTH,
+        "EFFORT_THINKING_FACTORS": EFFORT_THINKING_FACTORS,
+        "BATCH_DISCOUNT": BATCH_DISCOUNT,
     }
 
     scenarios = [
@@ -90,6 +94,9 @@ def render_data_js() -> str:
             "max_tokens": s.max_tokens,
             "suggested_model": s.suggested_model.value,
             "messages_per_user_per_day": s.messages_per_user_per_day,
+            "thinking_tokens_per_request": s.thinking_tokens_per_request,
+            "default_effort": s.default_effort,
+            "batch_friendly": s.batch_friendly,
         }
         for s in list_scenarios()
     ]
@@ -98,6 +105,7 @@ def render_data_js() -> str:
         {
             "model": m.model.value,
             "label": m.label,
+            "tier": m.tier,
             "pricing": {
                 "input_per_mtok": m.pricing.input_per_mtok,
                 "output_per_mtok": m.pricing.output_per_mtok,

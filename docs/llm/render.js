@@ -1,34 +1,39 @@
 // Shared renderer for an /api/llm-quota report.
 //
 // Both front ends hand it the same object: the static page computes it
-// locally with engine.js, the FastAPI page fetches it from the API. Keeping
-// one renderer means the two pages cannot drift apart visually either.
+// locally with engine.js, the FastAPI page fetches it from the API. One
+// renderer means the two pages cannot drift apart visually either.
 //
 // Expects these element ids to exist:
-//   #llm-summary #llm-demand  #llm-cost  #llm-warnings  #llm-controls
-//   #llm-cards   #llm-sources  #llm-assumptions
+//   #llm-summary #llm-warnings #llm-cost #llm-models #llm-demand
+//   #llm-controls #llm-cards #llm-sources #llm-assumptions
 
 (function (root) {
   'use strict';
 
   const VERDICT_LABEL = {
-    ample:   '✅ 餘裕充沛',
-    tight:   '⚠ 接近上限',
-    over:    '⛔ 超出上限',
-    blocked: '⛔ 預設為 0',
-    unknown: '❓ 未公布',
+    ample: '✅ 餘裕充沛', tight: '⚠ 接近上限', over: '⛔ 超出上限',
+    blocked: '⛔ 預設為 0', unknown: '❓ 未公布',
   };
   const VERDICT_RANK = { over: 0, blocked: 1, unknown: 2, tight: 3, ample: 4 };
   const DIM_LABEL = { rpm: 'RPM', itpm: 'ITPM<span class="llm-dim-sub">未快取 Input</span>',
-                      otpm: 'OTPM<span class="llm-dim-sub">Output</span>' };
+                      otpm: 'OTPM<span class="llm-dim-sub">Output + 思考</span>' };
   const ACTION_ICON = {
     request_quota: '\u{1F4C4}', switch_plan: '↕', switch_model: '\u{1F504}',
     raise_cache: '⚡', set_max_tokens: '\u{1F3AF}', enter_account_quota: '\u{1F511}',
+    use_batch: '\u{1F4E6}',
   };
+  // Anthropic list price applies here; Bedrock and Vertex set their own.
+  const LIST_PRICED = { anthropic: true, foundry: true };
+  const SEGMENTS = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'],
+                    ['output', 'Output'], ['thinking', '思考']];
 
   let lastReport = null;
   let onlyFitting = false;
   let sortBy = 'platform';
+
+  const el = id => document.getElementById(id);
+  const fits = v => v === 'ample' || v === 'tight';
 
   function esc(str) {
     return String(str == null ? '' : str)
@@ -38,7 +43,6 @@
 
   function fmtTok(n) {
     if (n == null || !isFinite(n)) return '—';
-    // Strip trailing zeros only after a decimal point, so "20" stays "20".
     const trim = s => (s.indexOf('.') >= 0 ? s.replace(/\.?0+$/, '') : s);
     if (n >= 1e6) return trim((n / 1e6).toFixed(2)) + 'M';
     if (n >= 1e3) return trim((n / 1e3).toFixed(1)) + 'K';
@@ -52,70 +56,178 @@
     return '$' + n.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
   }
 
-  function el(id) { return document.getElementById(id); }
-
-  // -- sections -----------------------------------------------------------
-
-  function renderDemand(r) {
-    const w = r.workload;
-    const cacheLine = r.cached_itpm > 0
-      ? '另有 ' + fmtTok(r.cached_itpm) + ' 走快取讀取，不佔 ITPM'
-      : (w.apps.length > 1 ? w.apps.length + ' 個應用加總' : '未使用 prompt caching');
-    el('llm-demand').innerHTML =
-      card('RPM / QPM', fmtTok(r.required_rpm),
-           r.total_users.toLocaleString() + ' 人共送出的每分鐘請求數') +
-      card('ITPM<span class="llm-dim-sub">未快取 Input</span>', fmtTok(r.required_itpm), cacheLine) +
-      card('OTPM<span class="llm-dim-sub">Output</span>', fmtTok(r.required_otpm),
-           '尖峰 1 分鐘生成的 token 數');
-
-    function card(label, value, formula) {
-      return '<div class="llm-demand-card"><span class="llm-demand-label">' + label + '</span>' +
-        '<span class="llm-demand-value">' + value + '</span>' +
-        '<span class="llm-demand-formula">' + esc(formula) + '</span></div>';
-    }
+  // USD -> TWD. The static page already has a site-wide rate in its header;
+  // the FastAPI page gets one inside the planner form.
+  function fxRate() {
+    const input = el('usd-rate') || el('llm_fx');
+    const v = input ? parseFloat(input.value) : NaN;
+    return v > 0 ? v : 32;
   }
+  function twd(usd) {
+    return usd == null ? '' : 'NT$' + Math.round(usd * fxRate()).toLocaleString('en-US');
+  }
+  // `twd-hint` + data-usd lets the static page's own rate listener update it live.
+  function twdSpan(usd) {
+    return usd == null ? '' :
+      '<span class="twd-hint llm-twd" data-usd="' + usd + '"> ≈ ' + twd(usd) + '</span>';
+  }
+
+  // -- summary ------------------------------------------------------------
+
+  function platformCapacity(r) {
+    const best = {};
+    r.results.filter(x => fits(x.verdict) && x.max_users != null).forEach(x => {
+      if (!best[x.platform] || x.max_users > best[x.platform].max_users) best[x.platform] = x;
+    });
+    return Object.keys(best).map(k => best[k]);
+  }
+
+  function renderSummary(r) {
+    const host = el('llm-summary');
+    if (!host) return;
+    const fitting = r.results.filter(x => fits(x.verdict));
+    const users = r.total_users.toLocaleString();
+    const c = r.cost;
+    const monthlyLine = c.monthly_usd != null
+      ? fmtUsd(c.monthly_usd) + twdSpan(c.monthly_usd) : fmtUsd(c.per_1k_requests_usd) + ' / 千次';
+    const costSub = (c.monthly_usd != null
+      ? '以 ' + Number(r.workload.monthly_requests).toLocaleString() + ' 次/月、' : '') +
+      'Anthropic 官方與 Foundry 牌價；Bedrock、Vertex 另依合作夥伴定價';
+
+    const stress = (r.sensitivity || [])[0];
+    let stressLine = '';
+    if (stress) {
+      stressLine = stress.fitting_plans === 0
+        ? '壓力測試：若尖峰再集中一倍，<strong>沒有任何方案</strong>的預設配額撐得住，建議先申請調額預留餘裕。'
+        : stress.fitting_plans < fitting.length
+          ? '壓力測試：若尖峰再集中一倍，可用方案從 ' + fitting.length + ' 個降到 ' + stress.fitting_plans + ' 個。'
+          : '壓力測試：即使尖峰再集中一倍，' + stress.fitting_plans + ' 個方案仍撐得住，結論穩定。';
+    }
+    const batchLine = r.workload.batch_eligible && c.batch_monthly_usd != null
+      ? '<p class="llm-summary-note">\u{1F4E6} 這類工作可以非即時處理：改走批次 API 月費約 ' +
+        fmtUsd(c.batch_monthly_usd) + twdSpan(c.batch_monthly_usd) + '，且不佔即時配額。</p>' : '';
+
+    let head, tone, tiles;
+    if (fitting.length) {
+      const caps = platformCapacity(r).sort((a, b) => a.max_users - b.max_users);
+      const listed = caps.filter(x => LIST_PRICED[x.platform]).map(x => x.platform_label);
+      const partner = caps.filter(x => !LIST_PRICED[x.platform]).map(x => x.platform_label);
+      tone = 'ok';
+      head = '<strong>' + users + ' 位使用者撐得住，不必先申請調額。</strong>' +
+        (listed.length ? listed.join('、') + ' 可直接套用下方月費' : '') +
+        (listed.length && partner.length ? '；' : '') +
+        (partner.length ? partner.join('、') + ' 同樣撐得住，但費用需依其合作夥伴定價另計' : '') + '。';
+      tiles = [
+        ['每月費用', monthlyLine, costSub],
+        ['保守可成長到', caps.length ? caps[0].max_users.toLocaleString() + ' 人' : '—',
+         caps.map(x => x.platform_label + ' ' + x.plan_label.replace(/\s*\(.*\)$/, '') + ' ' +
+           x.max_users.toLocaleString() + ' 人').join(' · ')],
+        ['可用方案', fitting.length + ' / ' + r.results.length, '其餘方案需先申請調額或未公布配額'],
+      ];
+    } else {
+      const closest = r.results.filter(x => x.peak_load != null).sort((a, b) => a.peak_load - b.peak_load)[0];
+      const fix = closest && closest.actions.length ? closest.actions[0].text : '';
+      tone = 'warn';
+      head = '<strong>預設配額不夠用。</strong>' +
+        (closest ? '最接近的是 ' + esc(closest.platform_label) + ' ' + esc(closest.plan_label) +
+          '，' + esc(fix) : '每個方案都需要先申請調額。') + ' 下方每張卡片都列出了具體的下一步。';
+      tiles = [
+        ['每月費用', monthlyLine, costSub],
+        ['尖峰需求', fmtTok(r.required_itpm) + ' ITPM', '未快取輸入，配額最常卡住的一項'],
+        ['可用方案', '0 / ' + r.results.length, '調額後即可使用，配額並非模型上限'],
+      ];
+    }
+
+    host.innerHTML = '<div class="llm-summary ' + tone + '">' +
+      '<p class="llm-summary-head">' + head + '</p>' +
+      '<div class="llm-summary-tiles">' + tiles.map(t =>
+        '<div><span class="llm-summary-label">' + esc(t[0]) + '</span>' +
+        '<span class="llm-summary-value">' + t[1] + '</span>' +
+        '<span class="llm-summary-sub">' + esc(t[2]) + '</span></div>').join('') + '</div>' +
+      (stressLine ? '<p class="llm-summary-note">' + stressLine + '</p>' : '') + batchLine +
+      '</div>';
+  }
+
+  // -- cost ---------------------------------------------------------------
 
   function renderCost(r) {
     const c = r.cost;
-    const saving = c.cache_saving_pct > 0
-      ? '<span class="llm-saving">快取已省 ' + c.cache_saving_pct + '%</span>' : '';
+    const saving = c.cache_saving_pct > 0 ? '<span class="llm-saving">快取已省 ' + c.cache_saving_pct + '%</span>' : '';
+    const item = (label, value, sub, muted) =>
+      '<div class="llm-cost-item"><span class="llm-cost-label">' + label + '</span>' +
+      '<span class="llm-cost-value' + (muted ? ' llm-muted' : '') + '">' + value + '</span>' +
+      '<span class="llm-cost-sub">' + sub + '</span></div>';
     const monthly = c.monthly_usd != null
-      ? '<div class="llm-cost-item"><span class="llm-cost-label">預估月費</span>' +
-        '<span class="llm-cost-value">' + fmtUsd(c.monthly_usd) + '</span>' +
-        '<span class="llm-cost-sub">' + Number(r.workload.monthly_requests).toLocaleString() + ' 次請求</span></div>'
-      : '<div class="llm-cost-item"><span class="llm-cost-label">預估月費</span>' +
-        '<span class="llm-cost-value llm-muted">—</span>' +
-        '<span class="llm-cost-sub">填入「每月總請求數」即可估算</span></div>';
-
+      ? item('預估月費', fmtUsd(c.monthly_usd), twd(c.monthly_usd) + '・' +
+             Number(r.workload.monthly_requests).toLocaleString() + ' 次請求')
+      : item('預估月費', '—', '填入每月總請求數即可估算', true);
     const b = c.breakdown_per_1k;
-    const total = (b.uncached_input + b.cache_read + b.output) || 1;
-    const bar = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'], ['output', 'Output']]
-      .map(([k, label]) =>
-        '<span class="seg seg-' + k + '" style="width:' + (b[k] / total * 100).toFixed(1) + '%" ' +
-        'title="' + label + ' ' + fmtUsd(b[k]) + '"></span>').join('');
-    const legend = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'], ['output', 'Output']]
-      .map(([k, label]) => '<span class="llm-legend-item"><i class="seg-' + k + '"></i>' +
-        esc(label) + ' ' + fmtUsd(b[k]) + '</span>').join('');
+    const total = SEGMENTS.reduce((t, s) => t + (b[s[0]] || 0), 0) || 1;
 
     el('llm-cost').innerHTML =
       '<div class="llm-cost-row">' +
-        '<div class="llm-cost-item"><span class="llm-cost-label">每 1,000 次請求</span>' +
-          '<span class="llm-cost-value">' + fmtUsd(c.per_1k_requests_usd) + '</span>' +
-          '<span class="llm-cost-sub">單次 ' + fmtUsd(c.per_request_usd) + ' ' + saving + '</span></div>' +
+        item('每 1,000 次請求', fmtUsd(c.per_1k_requests_usd), twd(c.per_1k_requests_usd) + '・單次 ' + fmtUsd(c.per_request_usd) + ' ' + saving) +
         monthly +
-        '<div class="llm-cost-item"><span class="llm-cost-label">若完全不用快取</span>' +
-          '<span class="llm-cost-value llm-muted">' + fmtUsd(c.per_1k_requests_without_cache_usd) + '</span>' +
-          '<span class="llm-cost-sub">每 1,000 次請求</span></div>' +
+        item(r.workload.batch_eligible ? '改走批次 API' : '批次 API 參考', fmtUsd(c.batch_monthly_usd != null ? c.batch_monthly_usd : c.batch_per_1k_requests_usd),
+             (c.batch_monthly_usd != null ? '每月' : '每 1,000 次') + '・五折，適合不需即時回應的工作', !r.workload.batch_eligible) +
       '</div>' +
-      '<div class="llm-cost-bar">' + bar + '</div>' +
-      '<div class="llm-legend">' + legend + '</div>' +
+      '<div class="llm-cost-bar">' + SEGMENTS.map(s =>
+        '<span class="seg seg-' + s[0] + '" style="width:' + ((b[s[0]] || 0) / total * 100).toFixed(1) +
+        '%" title="' + s[1] + ' ' + fmtUsd(b[s[0]]) + '"></span>').join('') + '</div>' +
+      '<div class="llm-legend">' + SEGMENTS.map(s =>
+        '<span class="llm-legend-item"><i class="seg-' + s[0] + '"></i>' + esc(s[1]) + ' ' +
+        fmtUsd(b[s[0]]) + '</span>').join('') + '</div>' +
+      (c.thinking_share_pct > 0 ? '<p class="llm-note">思考 token 佔費用 ' + c.thinking_share_pct +
+        '%。思考量隨 effort 設定與題目難度變動，是費用估算中最需要實測校正的一項。</p>' : '') +
       c.caveats.map(t => '<p class="llm-note">' + esc(t) + '</p>').join('');
+  }
+
+  // -- model comparison ---------------------------------------------------
+
+  function renderModels(r) {
+    const host = el('llm-models');
+    if (!host || !r.model_comparison) return;
+    const rows = r.model_comparison;
+    host.innerHTML =
+      '<div class="llm-table-wrap"><table class="llm-table"><thead><tr>' +
+        '<th>模型</th><th>每月費用</th><th>每千次</th><th>可用方案</th><th>最多支撐</th><th></th>' +
+      '</tr></thead><tbody>' + rows.map(m =>
+        '<tr class="' + (m.is_selected ? 'selected' : '') + '">' +
+          '<td>' + esc(m.label) + (m.is_selected ? ' <span class="llm-custom-flag">目前</span>' : '') + '</td>' +
+          '<td>' + (m.monthly_usd != null ? fmtUsd(m.monthly_usd) + '<span class="llm-cell-sub">' + twd(m.monthly_usd) + '</span>' : '—') + '</td>' +
+          '<td>' + fmtUsd(m.per_1k_requests_usd) + '</td>' +
+          '<td>' + m.fitting_plans + ' / ' + m.total_plans + '</td>' +
+          '<td>' + (m.best_max_users != null ? m.best_max_users.toLocaleString() + ' 人' : '—') + '</td>' +
+          '<td>' + (m.is_selected ? '' : '<button type="button" class="llm-row-pick" data-pick-model="' + m.model + '">改用</button>') + '</td>' +
+        '</tr>').join('') + '</tbody></table></div>' +
+      '<p class="llm-note">各模型以相同的回覆與思考量比較，只反映已公布的價格與配額差異；實際思考量因模型而異。' +
+      '能力由上到下大致為 Fable、Opus、Sonnet，省錢前請先確認能力是否足夠。</p>';
+    host.querySelectorAll('[data-pick-model]').forEach(b => b.addEventListener('click', () => {
+      if (typeof root.llmSelectModel === 'function') root.llmSelectModel(b.dataset.pickModel);
+    }));
+  }
+
+  // -- demand, cards, footer ----------------------------------------------
+
+  function renderDemand(r) {
+    const w = r.workload;
+    const thinking = w.apps.reduce((t, a) => t + (a.thinking_tokens_per_request || 0), 0);
+    const card = (label, value, formula) =>
+      '<div class="llm-demand-card"><span class="llm-demand-label">' + label + '</span>' +
+      '<span class="llm-demand-value">' + value + '</span>' +
+      '<span class="llm-demand-formula">' + esc(formula) + '</span></div>';
+    el('llm-demand').innerHTML =
+      card('RPM / QPM', fmtTok(r.required_rpm), r.total_users.toLocaleString() + ' 人共送出的每分鐘請求數') +
+      card(DIM_LABEL.itpm, fmtTok(r.required_itpm), r.cached_itpm > 0
+        ? '另有 ' + fmtTok(r.cached_itpm) + ' 走快取讀取，不佔 ITPM'
+        : (w.apps.length > 1 ? w.apps.length + ' 個應用加總' : '未使用 prompt caching')) +
+      card(DIM_LABEL.otpm, fmtTok(r.required_otpm), thinking > 0
+        ? '含思考 token，思考同樣佔用 OTPM' : '尖峰 1 分鐘生成的 token 數');
   }
 
   function dimRow(key, dim) {
     const name = '<span class="llm-dim-name">' + DIM_LABEL[key] + '</span>';
     const acct = dim.from_account ? '<span class="llm-acct" title="來自你填入的帳號配額">帳號值</span>' : '';
-
     if (dim.status === 'not_enforced')
       return '<div class="llm-dim"><div class="llm-dim-top">' + name +
         '<span class="llm-dim-load llm-muted">不設限</span></div>' +
@@ -129,163 +241,117 @@
         '<span class="llm-dim-nums">需求 ' + fmtTok(dim.demand) + '</span>' +
         '<span class="llm-dim-load" style="color:var(--danger)">額度 0</span></div>' +
         '<div class="llm-bar"><span class="over" style="width:100%"></span></div></div>';
-
     const cls = dim.load > 1 ? 'over' : (dim.load > 0.7 ? 'tight' : 'ample');
     const colour = cls === 'over' ? 'var(--danger)' : (cls === 'tight' ? 'var(--warning)' : 'var(--success)');
     return '<div class="llm-dim"><div class="llm-dim-top">' + name +
       '<span class="llm-dim-nums">' + fmtTok(dim.demand) + ' / ' + fmtTok(dim.limit) + acct + '</span>' +
       '<span class="llm-dim-load" style="color:' + colour + '">' + Math.round(dim.load * 100) + '%</span></div>' +
-      '<div class="llm-bar"><span class="' + cls + '" style="width:' +
-        Math.min(100, dim.load * 100) + '%"></span></div></div>';
+      '<div class="llm-bar"><span class="' + cls + '" style="width:' + Math.min(100, dim.load * 100) + '%"></span></div></div>';
   }
 
-  function planCard(r, report) {
+  function planCard(r) {
     const capacity = r.max_users != null
-      ? '<div class="llm-capacity">以目前組合等比放大，此方案約可支撐 <strong>' +
-        r.max_users.toLocaleString() + '</strong> 人' +
-        (r.binding_dimension ? '<span class="llm-bind">瓶頸 ' + r.binding_dimension.toUpperCase() + '</span>' : '') +
-        '</div>'
+      ? '<div class="llm-capacity">以目前組合等比放大，此方案約可支撐 <strong>' + r.max_users.toLocaleString() +
+        '</strong> 人' + (r.binding_dimension ? '<span class="llm-bind">瓶頸 ' + r.binding_dimension.toUpperCase() + '</span>' : '') + '</div>'
       : '';
     const actions = r.actions.length
-      ? '<div class="llm-actions"><span class="llm-actions-title">下一步</span>' +
-        r.actions.map(a => '<div class="llm-action"><span class="llm-action-icon">' +
-          (ACTION_ICON[a.kind] || '•') + '</span>' + esc(a.text) + '</div>').join('') + '</div>'
+      ? '<div class="llm-actions"><span class="llm-actions-title">下一步</span>' + r.actions.map(a =>
+          '<div class="llm-action"><span class="llm-action-icon">' + (ACTION_ICON[a.kind] || '•') +
+          '</span>' + esc(a.text) + '</div>').join('') + '</div>'
       : '';
+    const price = LIST_PRICED[r.platform] ? '' :
+      '<div class="llm-note">此平台費用依合作夥伴定價，與上方月費不同</div>';
     return '<div class="llm-card verdict-' + r.verdict + '">' +
       '<div class="llm-card-head"><div><span class="llm-card-name">' + esc(r.platform_label) + '</span>' +
         '<span class="llm-card-plan">' + esc(r.plan_label) + '</span></div>' +
         '<span class="llm-badge ' + r.verdict + '">' + VERDICT_LABEL[r.verdict] + '</span></div>' +
-      capacity +
-      ['rpm', 'itpm', 'otpm'].map(k => dimRow(k, r[k])).join('') +
-      actions +
-      '<div class="llm-card-notes">' +
-        r.notes.map(n => '<div class="llm-note">' + esc(n) + '</div>').join('') +
+      capacity + ['rpm', 'itpm', 'otpm'].map(k => dimRow(k, r[k])).join('') + actions +
+      '<div class="llm-card-notes">' + price + r.notes.map(n => '<div class="llm-note">' + esc(n) + '</div>').join('') +
       '</div></div>';
   }
 
   function renderCards(report) {
     let rows = report.results.slice();
-    if (onlyFitting) rows = rows.filter(r => r.verdict === 'ample' || r.verdict === 'tight');
+    if (onlyFitting) rows = rows.filter(r => fits(r.verdict));
     if (sortBy === 'headroom') {
-      rows.sort((a, b) => {
-        const d = VERDICT_RANK[b.verdict] - VERDICT_RANK[a.verdict];
-        if (d) return d;
-        return (b.headroom_multiple || 0) - (a.headroom_multiple || 0);
-      });
+      rows.sort((a, b) => (VERDICT_RANK[b.verdict] - VERDICT_RANK[a.verdict]) ||
+                          ((b.headroom_multiple || 0) - (a.headroom_multiple || 0)));
     }
-    el('llm-cards').innerHTML = rows.length
-      ? rows.map(r => planCard(r, report)).join('')
-      : '<p class="llm-note">目前沒有任何方案的預設配額容得下這個工作負載。' +
-        '取消「只看容得下的方案」即可看到各方案的調升建議。</p>';
+    el('llm-cards').innerHTML = rows.length ? rows.map(planCard).join('') :
+      '<p class="llm-note">目前沒有任何方案的預設配額容得下這個工作負載。取消「只看容得下的方案」即可看到各方案的調升建議。</p>';
   }
 
   function renderControls(report) {
-    const fitting = report.results.filter(r => r.verdict === 'ample' || r.verdict === 'tight').length;
+    const n = report.results.filter(r => fits(r.verdict)).length;
     el('llm-controls').innerHTML =
-      '<label class="llm-toggle"><input type="checkbox" id="llm-only-fitting"' +
-        (onlyFitting ? ' checked' : '') + '> 只看容得下的方案 <span class="llm-count">' +
-        fitting + ' / ' + report.results.length + '</span></label>' +
+      '<label class="llm-toggle"><input type="checkbox" id="llm-only-fitting"' + (onlyFitting ? ' checked' : '') +
+        '> 只看容得下的方案 <span class="llm-count">' + n + ' / ' + report.results.length + '</span></label>' +
       '<label class="llm-toggle">排序 <select id="llm-sort">' +
         '<option value="platform"' + (sortBy === 'platform' ? ' selected' : '') + '>依平台</option>' +
         '<option value="headroom"' + (sortBy === 'headroom' ? ' selected' : '') + '>依餘裕</option>' +
       '</select></label>';
-
     el('llm-only-fitting').addEventListener('change', e => {
-      onlyFitting = e.target.checked;
-      renderCards(lastReport);
-      renderControls(lastReport);
+      onlyFitting = e.target.checked; renderCards(lastReport); renderControls(lastReport);
     });
-    el('llm-sort').addEventListener('change', e => {
-      sortBy = e.target.value;
-      renderCards(lastReport);
-    });
+    el('llm-sort').addEventListener('change', e => { sortBy = e.target.value; renderCards(lastReport); });
   }
 
   function renderFooter(report) {
     const seen = [];
-    report.results.forEach(r => {
-      if (!seen.some(x => x[0] === r.platform_label)) seen.push([r.platform_label, r.source]);
-    });
-    el('llm-sources').innerHTML = '官方文件：' +
-      seen.map(x => '<a href="' + esc(x[1]) + '" target="_blank" rel="noopener">' +
-        esc(x[0]) + '</a>').join(' · ');
-    el('llm-assumptions').innerHTML =
-      '<span class="llm-assume-title">模型假設</span>' +
+    report.results.forEach(r => { if (!seen.some(x => x[0] === r.platform_label)) seen.push([r.platform_label, r.source]); });
+    el('llm-sources').innerHTML = '官方文件：' + seen.map(x =>
+      '<a href="' + esc(x[1]) + '" target="_blank" rel="noopener">' + esc(x[0]) + '</a>').join(' · ');
+    el('llm-assumptions').innerHTML = '<span class="llm-assume-title">模型假設</span>' +
       report.assumptions.map(t => '<div class="llm-note">' + esc(t) + '</div>').join('');
   }
 
+  // -- plain-text summary for proposals ------------------------------------
 
-  // The answer a salesperson actually needs, before any of the engineering
-  // detail below it: can it be served, what does it cost, how far can it grow.
-  function renderSummary(r) {
-    const host = el('llm-summary');
-    if (!host) return;
-
-    const fitting = r.results.filter(x => x.verdict === 'ample' || x.verdict === 'tight');
-    const users = r.total_users.toLocaleString();
-    const cost = r.cost.monthly_usd != null
-      ? fmtUsd(r.cost.monthly_usd)
-      : fmtUsd(r.cost.per_1k_requests_usd) + ' / 千次';
-    const costSub = r.cost.monthly_usd != null
-      ? '以 ' + Number(r.workload.monthly_requests).toLocaleString() + ' 次/月估算'
-      : '填入每月請求數即可換算月費';
-
-    let headline, tone;
-    if (fitting.length) {
-      const caps = fitting.map(x => x.max_users).filter(v => v != null).sort((a, b) => a - b);
-      const grow = caps.length
-        ? (caps[0] === caps[caps.length - 1]
-            ? caps[0].toLocaleString() + ' 人'
-            : caps[0].toLocaleString() + '–' + caps[caps.length - 1].toLocaleString() + ' 人')
-        : '—';
-      const names = [];
-      fitting.forEach(x => { if (names.indexOf(x.platform_label) < 0) names.push(x.platform_label); });
-      tone = 'ok';
-      headline = '<strong>' + users + ' 位使用者撐得住。</strong>' +
-        names.join('、') + ' 的預設配額就足夠，不必先申請調額。';
-      host.innerHTML = block(tone, headline, [
-        ['每月費用', cost, costSub],
-        ['可成長到', grow, '依選用方案而定，等比放大目前的使用組合'],
-        ['可用方案', fitting.length + ' / ' + r.results.length, '其餘方案需先申請調額或未公布配額'],
-      ]);
-      return;
+  function summaryText(r) {
+    if (!r) return '';
+    const c = r.cost;
+    const fitting = r.results.filter(x => fits(x.verdict));
+    const caps = platformCapacity(r).sort((a, b) => a.max_users - b.max_users);
+    const lines = [
+      'Claude 用量與配額試算（' + r.model_label + '）',
+      '',
+      '規模：' + r.total_users.toLocaleString() + ' 位使用者，尖峰每分鐘 ' + Math.round(r.required_rpm).toLocaleString() + ' 次請求',
+      '結論：' + (fitting.length
+        ? '預設配額即可支撐，' + fitting.length + ' / ' + r.results.length + ' 個方案可用，不必先申請調額'
+        : '預設配額不足，需先申請調額'),
+    ];
+    if (c.monthly_usd != null) {
+      lines.push('預估月費：' + fmtUsd(c.monthly_usd) + '（約 ' + twd(c.monthly_usd) + '，' +
+        Number(r.workload.monthly_requests).toLocaleString() + ' 次請求，Anthropic 官方牌價）');
     }
-
-    // Nothing fits on defaults — say what it would take, not just "no".
-    const closest = r.results
-      .filter(x => x.peak_load != null)
-      .sort((a, b) => a.peak_load - b.peak_load)[0];
-    const fix = closest && closest.actions.length ? closest.actions[0].text : '';
-    tone = 'warn';
-    headline = '<strong>預設配額不夠用。</strong>' +
-      (closest ? '最接近的是 ' + esc(closest.platform_label) + ' ' + esc(closest.plan_label) +
-        '，' + esc(fix) : '每個方案都需要先申請調額。') +
-      ' 下方每張卡片都列出了具體的下一步。';
-    host.innerHTML = block(tone, headline, [
-      ['每月費用', cost, costSub],
-      ['尖峰需求', fmtTok(r.required_itpm) + ' ITPM', '未快取輸入，配額最常卡住的一項'],
-      ['可用方案', '0 / ' + r.results.length, '調額後即可使用，配額並非模型上限'],
-    ]);
-
-    function block(kind, text, tiles) {
-      return '<div class="llm-summary ' + kind + '">' +
-        '<p class="llm-summary-head">' + text + '</p>' +
-        '<div class="llm-summary-tiles">' +
-          tiles.map(([label, value, sub]) =>
-            '<div><span class="llm-summary-label">' + esc(label) + '</span>' +
-            '<span class="llm-summary-value">' + value + '</span>' +
-            '<span class="llm-summary-sub">' + esc(sub) + '</span></div>').join('') +
-        '</div></div>';
+    lines.push('每 1,000 次請求：' + fmtUsd(c.per_1k_requests_usd) +
+      (c.cache_saving_pct > 0 ? '，已含快取節省 ' + c.cache_saving_pct + '%' : ''));
+    if (r.workload.batch_eligible && c.batch_monthly_usd != null) {
+      lines.push('若改走批次 API：月費約 ' + fmtUsd(c.batch_monthly_usd) + '（約 ' + twd(c.batch_monthly_usd) + '）');
     }
+    if (caps.length) {
+      lines.push('可成長到：' + caps.map(x => x.platform_label + ' ' + x.max_users.toLocaleString() + ' 人').join('、'));
+    }
+    const stress = (r.sensitivity || [])[0];
+    if (stress) lines.push('壓力測試（尖峰再集中一倍）：' + stress.fitting_plans + ' / ' + stress.total_plans + ' 個方案仍可用');
+    const cheaper = (r.model_comparison || []).filter(m => !m.is_selected && m.fitting_plans > 0 && m.monthly_usd != null)
+      .filter(m => c.monthly_usd != null && m.monthly_usd < c.monthly_usd);
+    if (cheaper.length) {
+      lines.push('其他選擇：' + cheaper.map(m => m.label + ' ' + fmtUsd(m.monthly_usd) + '/月').join('、') + '（能力需另行評估）');
+    }
+    lines.push('');
+    lines.push('註：Bedrock 與 Vertex 為合作夥伴定價；token 量與尖峰集中度為規劃估計，正式報價前請以實際提示詞與用量校正。' +
+      '配額資料驗證 ' + (r.results[0] ? r.results[0].verified : '') + '。');
+    return lines.join('\n');
   }
 
   function renderLLMReport(report) {
     lastReport = report;
     renderSummary(report);
-    renderDemand(report);
+    el('llm-warnings').innerHTML = (report.warnings || []).map(t => '<p class="llm-warn">' + esc(t) + '</p>').join('');
     renderCost(report);
-    el('llm-warnings').innerHTML =
-      (report.warnings || []).map(t => '<p class="llm-warn">' + esc(t) + '</p>').join('');
+    renderModels(report);
+    renderDemand(report);
     renderControls(report);
     renderCards(report);
     renderFooter(report);
@@ -293,7 +359,12 @@
     if (results) results.style.display = '';
   }
 
-  const api = { renderLLMReport, llmEsc: esc, llmFmtTok: fmtTok, llmFmtUsd: fmtUsd };
+  const api = {
+    renderLLMReport,
+    llmRerender: () => { if (lastReport) renderLLMReport(lastReport); },
+    llmSummaryText: r => summaryText(r || lastReport),
+    llmEsc: esc, llmFmtTok: fmtTok, llmFmtUsd: fmtUsd,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   Object.assign(root, api);
 })(typeof globalThis !== 'undefined' ? globalThis : this);
