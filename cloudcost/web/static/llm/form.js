@@ -21,6 +21,8 @@
       ? window.llmEvaluate(w)
       : Promise.resolve(evaluateWorkload(w, null));
 
+  const EFFORT_LABELS = { low: '低', medium: '中', high: '高', xhigh: '極高' };
+
   const PEAK_LABELS = {
     flat:   ['平穩', '背景批次、排程作業，流量整天散開'],
     normal: ['一般', '上班時間使用，有明顯的忙碌時段'],
@@ -57,6 +59,11 @@
     return (perDay / (LLM_CONST.ACTIVE_HOURS_PER_DAY * 60)) * factor;
   }
 
+  function thinkingFor(s) {
+    const factor = LLM_CONST.EFFORT_THINKING_FACTORS[$('llm_effort').value] || 1;
+    return Math.round(s.thinking_tokens_per_request * factor);
+  }
+
   function rebuildFromScenario() {
     const s = scenario(scenarioId);
     const users = Math.max(1, Math.round(parseFloat($('llm_users').value) || 1));
@@ -67,6 +74,7 @@
       requests_per_user_per_minute: Math.max(0.0001, peakRpmPerUser(perDay, $('llm_peak').value)),
       input_tokens_per_request: s.input_tokens_per_request,
       output_tokens_per_request: s.output_tokens_per_request,
+      thinking_tokens_per_request: thinkingFor(s),
       cache_hit_rate: s.cache_hit_rate,
     }];
     $('llm_max').value = s.max_tokens;
@@ -79,6 +87,8 @@
     const s = scenario(id);
     $('llm_model').value = s.suggested_model;
     $('llm_per_day').value = s.messages_per_user_per_day;
+    $('llm_effort').value = s.default_effort;
+    $('llm_batch').checked = !!s.batch_friendly;
     rebuildFromScenario();
     renderScenarios();
     renderApps();
@@ -126,7 +136,10 @@
         ' ＝ 尖峰 <b>' + Math.round(total).toLocaleString() + '</b> Requests/min。' +
         '　單次 <b>' + apps[0].input_tokens_per_request.toLocaleString() + '</b> Input / <b>' +
         apps[0].output_tokens_per_request.toLocaleString() + '</b> Output tokens，' +
-        '固定前綴 <b>' + Math.round(apps[0].cache_hit_rate * 100) + '%</b> 可快取（情境預設值，可在進階設定調整）。';
+        '固定前綴 <b>' + Math.round(apps[0].cache_hit_rate * 100) + '%</b> 可快取，' +
+        '另有約 <b>' + (apps[0].thinking_tokens_per_request || 0).toLocaleString() + '</b> 思考 tokens' +
+        '（思考強度「' + (EFFORT_LABELS[$('llm_effort').value] || '') + '」，按 Output 計費）。' +
+        '以上為情境預設的規劃估計，可在進階設定調整。';
   }
 
   function num(i, field, label, unit, value, min, max, step, hint) {
@@ -154,7 +167,9 @@
             Math.round(a.requests_per_user_per_minute * 10000) / 10000, 0.0001, 600, 0.0001) +
         num(i, 'input_tokens_per_request', '單次 Input', 'Tokens', a.input_tokens_per_request, 1, 1000000, 100,
             '<span class="llm-hint" data-token-hint="' + i + '">' + tokenHint(a.input_tokens_per_request) + '</span>') +
-        num(i, 'output_tokens_per_request', '單次 Output', 'Tokens', a.output_tokens_per_request, 1, 128000, 100) +
+        num(i, 'output_tokens_per_request', '單次回覆', 'Output Tokens', a.output_tokens_per_request, 1, 128000, 100) +
+        num(i, 'thinking_tokens_per_request', '單次思考', 'Tokens', a.thinking_tokens_per_request || 0, 0, 128000, 100,
+            '<span class="llm-hint">思考一律按 Output 計費並佔用 OTPM，即使畫面不顯示</span>') +
         num(i, 'cache_hit_rate_pct', '固定前綴佔比', '% of Input', Math.round(a.cache_hit_rate * 100), 0, 95, 5,
             '<span class="llm-hint">System Prompt + 固定 RAG 前綴的比例，這段可以快取，不佔 ITPM</span>') +
       '</div></div>';
@@ -250,19 +265,23 @@
         requests_per_user_per_minute: Math.max(0.0001, a.requests_per_user_per_minute),
         input_tokens_per_request: Math.max(1, Math.round(a.input_tokens_per_request)),
         output_tokens_per_request: Math.max(1, Math.round(a.output_tokens_per_request)),
+        thinking_tokens_per_request: Math.max(0, Math.round(a.thinking_tokens_per_request || 0)),
         cache_hit_rate: a.cache_hit_rate,
       })),
       max_tokens: isNaN(maxTok) ? null : Math.min(LLM_CONST.MAX_OUTPUT_TOKENS, Math.max(1, Math.round(maxTok))),
       monthly_requests: isNaN(monthly) ? null : Math.max(0, Math.round(monthly)),
       account_quotas: accounts.filter(o => o.rpm != null || o.itpm != null || o.otpm != null),
+      batch_eligible: $('llm_batch').checked,
       scenario_id: customised ? null : scenarioId,
+      effort: $('llm_effort').value,
     };
   }
 
   function run() {
     const w = readForm();
     const payload = Object.assign({}, w);
-    delete payload.scenario_id;   // a UI concern, not part of the API contract
+    delete payload.scenario_id;   // UI concerns, not part of the API contract
+    delete payload.effort;
     const btn = document.querySelector('#llm-form .btn-compare');
     const label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '試算中…'; }
@@ -282,6 +301,8 @@
     $('llm_monthly').value = w.monthly_requests != null ? w.monthly_requests : '';
     apps = (w.apps && w.apps.length ? w.apps : apps).map(a => Object.assign({}, a));
     accounts = (w.account_quotas || []).map(o => Object.assign({}, o));
+    if (w.effort && LLM_CONST.EFFORT_THINKING_FACTORS[w.effort]) $('llm_effort').value = w.effort;
+    $('llm_batch').checked = !!w.batch_eligible;
     if (w.scenario_id && scenario(w.scenario_id)) {
       scenarioId = w.scenario_id;
       customised = false;
@@ -354,6 +375,86 @@
     $('llm-share-url').select();
     if (navigator.clipboard) navigator.clipboard.writeText($('llm-share-url').value).catch(() => {});
   });
+
+  $('llm_effort').innerHTML = Object.keys(EFFORT_LABELS).map(k =>
+    '<option value="' + k + '">' + EFFORT_LABELS[k] + '（' + k + '）</option>').join('');
+  $('llm_effort').addEventListener('change', () => {
+    if (!customised) { rebuildFromScenario(); renderApps(); }
+    syncHints();
+    run();
+  });
+  $('llm_batch').addEventListener('change', run);
+
+  // Currency: reuse the site-wide rate when the page has one.
+  const siteRate = $('usd-rate');
+  if (siteRate) {
+    const box = $('llm-fx-group');
+    if (box) box.style.display = 'none';
+    siteRate.addEventListener('input', () => llmRerender());
+  } else if ($('llm_fx')) {
+    $('llm_fx').addEventListener('input', () => llmRerender());
+  }
+
+  // Model comparison table -> switch the working model.
+  window.llmSelectModel = function (id) {
+    $('llm_model').value = id;
+    syncHints();
+    renderAccounts();
+    run();
+    const top = $('llm-summary');
+    if (top && top.scrollIntoView) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // Copy a plain-text summary a salesperson can paste into a proposal.
+  if ($('llm-btn-copy')) {
+    $('llm-btn-copy').addEventListener('click', () => {
+      const text = llmSummaryText();
+      const done = () => {
+        const b = $('llm-btn-copy');
+        const was = b.textContent;
+        b.textContent = '已複製 ✓';
+        setTimeout(() => { b.textContent = was; }, 1600);
+      };
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(done).catch(() => window.prompt('複製以下內容', text));
+      else window.prompt('複製以下內容', text);
+    });
+  }
+
+  // Exact token counts need an API key, so only a page with a backend offers
+  // them. It injects window.llmCountTokens; the static page explains instead.
+  const counter = $('llm-counter');
+  if (counter) {
+    if (typeof window.llmCountTokens === 'function') {
+      $('llm-counter-live').style.display = '';
+      $('llm-counter-static').style.display = 'none';
+      $('llm-count-btn').addEventListener('click', () => {
+        const system = $('llm-count-system').value;
+        const sample = $('llm-count-sample').value;
+        const out = $('llm-counter-result');
+        if (!system.trim() && !sample.trim()) { out.textContent = '請至少貼上一段提示詞。'; return; }
+        out.textContent = '計算中…';
+        Promise.resolve(window.llmCountTokens({ model: currentModel(), system: system, sample: sample }))
+          .then(res => {
+            collectApps();
+            markCustomised();
+            const a = apps[0];
+            a.input_tokens_per_request = Math.max(1, res.total_tokens);
+            a.cache_hit_rate = res.total_tokens > 0
+              ? Math.min(0.95, Math.max(0, res.prefix_tokens / res.total_tokens)) : 0;
+            renderApps();
+            syncHints();
+            out.innerHTML = '實測：固定前綴 <b>' + res.prefix_tokens.toLocaleString() + '</b> tokens、單次共 <b>' +
+              res.total_tokens.toLocaleString() + '</b> tokens，已套用到第一個應用（固定前綴佔比 ' +
+              Math.round(a.cache_hit_rate * 100) + '%）。';
+            run();
+          })
+          .catch(err => { out.textContent = '無法計算：' + (err && err.message ? err.message : err); });
+      });
+    } else {
+      $('llm-counter-live').style.display = 'none';
+      $('llm-counter-static').style.display = '';
+    }
+  }
 
   // -- boot ----------------------------------------------------------------
 

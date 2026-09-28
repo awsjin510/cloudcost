@@ -10,11 +10,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, Form, Request
+import anthropic
+from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cloudcost.builders import build_cloud_spec
 from cloudcost.comparator import CloudCostComparator
@@ -26,6 +27,7 @@ from cloudcost.llm import (
     QuotaPlan,
     QuotaReport,
     evaluate_workload,
+    get_model,
     list_models,
     list_plans,
 )
@@ -174,6 +176,74 @@ async def api_llm_quota_plans(
     return list_plans(model, platform)
 
 
+class TokenCountRequest(BaseModel):
+    model: LLMModel = LLMModel.FABLE_5_1
+    #: The fixed, cacheable part: system prompt, rules, always-attached docs.
+    system: str = Field(default="", max_length=4_000_000)
+    #: One representative user turn, including per-request RAG context.
+    sample: str = Field(default="", max_length=4_000_000)
+
+
+class TokenCountResult(BaseModel):
+    model: LLMModel
+    prefix_tokens: int
+    total_tokens: int
+
+
+def token_counting_enabled() -> bool:
+    """Whether this server holds credentials for the token counting API.
+
+    The feature needs an API key, which is exactly why the public static
+    site cannot offer it: a key shipped to the browser is a leaked key.
+    """
+    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+
+
+def _token_client() -> anthropic.AsyncAnthropic:
+    # Separate factory so tests can substitute a fake without network access.
+    return anthropic.AsyncAnthropic()
+
+
+@app.post("/api/llm-quota/count-tokens", response_model=TokenCountResult)
+async def api_llm_count_tokens(req: TokenCountRequest) -> TokenCountResult:
+    """JSON API: exact prompt size via Anthropic's free token counting endpoint.
+
+    Returns the total per-request input and how much of it is the fixed
+    prefix, which is what the planner needs for both ITPM and cache rate.
+    """
+    if not token_counting_enabled():
+        raise HTTPException(status_code=503, detail="此伺服器未設定 ANTHROPIC_API_KEY，無法精算 token")
+    if not req.system.strip() and not req.sample.strip():
+        raise HTTPException(status_code=422, detail="請至少提供一段提示詞")
+
+    model_id = get_model(req.model).api_id
+    # count_tokens needs at least one user turn; a single character stands in
+    # when only a system prompt was pasted.
+    turn = [{"role": "user", "content": req.sample if req.sample.strip() else "."}]
+    client = _token_client()
+    try:
+        if req.system.strip():
+            total = await client.messages.count_tokens(model=model_id, system=req.system, messages=turn)
+            without = await client.messages.count_tokens(model=model_id, messages=turn)
+            total_tokens = total.input_tokens
+            prefix_tokens = max(0, total_tokens - without.input_tokens)
+        else:
+            total = await client.messages.count_tokens(model=model_id, messages=turn)
+            total_tokens, prefix_tokens = total.input_tokens, 0
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError):
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY 無效或權限不足")
+    except anthropic.RateLimitError:
+        raise HTTPException(status_code=429, detail="token counting 已達每分鐘上限，請稍後再試")
+    except anthropic.BadRequestError as exc:
+        raise HTTPException(status_code=400, detail=f"提示詞無法計算：{exc.message}")
+    except anthropic.APIConnectionError:
+        raise HTTPException(status_code=502, detail="無法連線到 Anthropic API")
+    except anthropic.APIStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"Anthropic API 錯誤（{exc.status_code}）")
+
+    return TokenCountResult(model=req.model, prefix_tokens=prefix_tokens, total_tokens=total_tokens)
+
+
 @app.post("/api/llm-quota", response_model=QuotaReport)
 async def api_llm_quota(
     workload: LLMWorkload, platform: LLMPlatform | None = None
@@ -197,6 +267,7 @@ async def index(request: Request):
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "token_counting": token_counting_enabled(),
             "machine_roles": [r.value for r in MachineRole],
             "result": None,
         },
@@ -242,6 +313,7 @@ async def compare_form(
             "regions": [(r.value, _region_label(r)) for r in Region],
             "storage_types": [t.value for t in StorageType],
             "db_types": [d.value for d in DatabaseType],
+            "token_counting": token_counting_enabled(),
             "machine_roles": [r.value for r in MachineRole],
             "result": result,
             # Preserve form values

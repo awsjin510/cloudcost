@@ -1,0 +1,1643 @@
+<!-- trimmed: quotas by model and region -->
+ page in the Google Cloud console might be
+    inaccurate. For accurate token usage and billing information, use one of the
+    following methods:
+    <ul>
+        <li>The <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/count-tokens">token
+        counting API</a>.</li> <li>The <code translate="no" dir="ltr">token_count</code> metrics for
+        Agent Platform in the <a
+        href="https://console.cloud.google.com/monitoring/metrics-explorer">Metrics Explorer</a>.</li>
+    </ul>
+</aside>
+
+<p>The following list defines the input tokens that can count towards your input
+TPM quota. The input tokens that each model counts can vary. To see which input
+tokens a model counts, see <a href="#quotas">Quotas by model and region</a>.</p>
+
+<ul>
+<li><strong>Input tokens</strong> includes all input tokens, including cache read and cache
+write tokens.</li>
+<li><strong>Uncached input tokens</strong> includes only the input tokens that weren&#39;t read
+from a cache (cache read tokens).</li>
+<li><strong>Cache write tokens</strong> includes tokens that were used to create or update a
+cache.</li>
+</ul>
+
+<h3 id="quotas" data-text="Quotas by model and region" tabindex="-1">Quotas by model and region</h3>
+
+<p>The following table shows the default quotas and supported context length for
+each model in each region.</p>
+<aside class="special"><strong>Important:</strong><span> Machine learning (ML) processing for all available Anthropic models
+occurs within the US when requests are made to regionally-available APIs in the
+US, or within the EU when requests are made to regionally-available APIs in
+Europe.</span></aside>
+<table class="fixed">
+  <tbody>
+    <tr>
+    <th>Model</th>
+    <th>Region</th>
+    <th>Quotas</th>
+    <th>Context length</th>
+    </tr>
+
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Fable 5.1 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           
+           
+           
+           
+          </ul>
+      </td>
+      <td>
+           
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           
+           
+           
+           
+          </ul>
+      </td>
+      <td>
+           
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           
+           
+           
+           
+          </ul>
+      </td>
+      <td>
+           
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Sonnet 5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,250</li>
+           
+           <li>Input TPM: 12,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,250,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,250</li>
+           
+           <li>Input TPM: 12,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,250,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,500</li>
+           
+           <li>Input TPM: 25,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 2,500,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Opus 5.5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,000</li>
+           
+           <li>Input TPM: 20,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 2,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Opus 5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,000</li>
+           
+           <li>Input TPM: 20,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 2,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Fable 5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,000</li>
+           
+           <li>Input TPM: 20,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 2,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Opus 4.8  on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,000</li>
+           
+           <li>Input TPM: 10,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 1,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,000</li>
+           
+           <li>Input TPM: 20,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 2,000,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Opus 4.7 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 400</li>
+           
+           <li>Input TPM: 4,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 400,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">Multi-region</code></td>
+      <td>
+          <ul>
+           <li>QPM: 400</li>
+           
+           <li>Input TPM: 4,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 400,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 800</li>
+           
+           <li>Input TPM: 8,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 800,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="4">Claude Opus 4.6 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 400</li>
+           
+           <li>Input TPM: 4,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 400,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="4">Claude Sonnet 4.6 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1800</li>
+           
+           <li>Input TPM: 1,800,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 180,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="4">Claude Opus 4.5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 200</li>
+           
+           <li>Input TPM: 2,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 200,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 400</li>
+           
+           <li>Input TPM: 4,000,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 400,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="2">Claude Opus 4.1 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           
+           <li>Input TPM: 60,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 6,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           
+           <li>Input TPM: 60,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 6,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="2">Claude Opus 4 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           
+           <li>Input TPM: 60,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 6,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           
+           <li>Input TPM: 60,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 6,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="4">Claude Sonnet 4.5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000 (beta), 200,000 (GA)
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,800</li>
+           
+           <li>Input TPM: 1,800,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 180,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000 (beta), 200,000 (GA)
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000 (beta), 200,000 (GA)
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000 (beta), 200,000 (GA)
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Sonnet 4 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 35</li>
+           
+           <li>Input TPM: 280,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 20,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           
+           <li>Input TPM: 180,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 20,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 35</li>
+           
+           <li>Input TPM: 276,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 24,000</li>
+          </ul>
+      </td>
+      <td>
+           1,000,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude 3.7 Sonnet on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 55</li>
+           <li>TPM: 500,000 (<a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached</a> input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 40</li>
+           <li>TPM: 300,000 (<a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached</a> input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 35</li>
+           <li>TPM: 300,000 (<a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached</a> input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude 3.5 Sonnet v2 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 90</li>
+           <li>TPM: 540,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 55</li>
+           <li>TPM: 330,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 25</li>
+           <li>TPM: 140,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude Haiku 4.5 on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,500</li>
+           
+           <li>Input TPM: 1,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 150,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 1,800</li>
+           
+           <li>Input TPM: 1,800,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 180,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">global endpoint</code></td>
+      <td>
+          <ul>
+           <li>QPM: 2,500</li>
+           
+           <li>Input TPM: 2,500,000 <a href="/gemini-enterprise-agent-platform/models/partner-models/claude/use-claude#input">uncached and cache write</a></li>
+           <li>Output TPM: 250,000</li>
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="2">Claude 3.5 Haiku on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 80</li>
+           <li>TPM: 350,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 90</li>
+           <li>TPM: 400,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude 3.5 Sonnet on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 80</li>
+           <li>TPM: 350,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 130</li>
+           <li>TPM: 600,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 35</li>
+           <li>TPM: 150,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="1">Claude 3 Opus on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 20</li>
+           <li>TPM: 105,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+      
+      
+        
+          
+            
+          
+            
+          
+            
+          
+        
+      
+        
+      
+
+      
+      
+        
+          
+    <tr>
+      
+      <td rowspan="3">Claude 3 Haiku on Google Cloud</td>
+      
+      
+      <td><code translate="no" dir="ltr">us-east5</code></td>
+      <td>
+          <ul>
+           <li>QPM: 245</li>
+           <li>TPM: 600,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">europe-west1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 75</li>
+           <li>TPM: 181,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+          
+    <tr>
+      
+      <td><code translate="no" dir="ltr">asia-southeast1</code></td>
+      <td>
+          <ul>
+           <li>QPM: 70</li>
+           <li>TPM: 174,000 (input and output)</li>
+           
+           
+          </ul>
+      </td>
+      <td>
+           200,000
+      </td>
+    </tr>
+          
+        
+      
+    
+
+  </tbody>
+</table>

@@ -25,11 +25,15 @@ from cloudcost.llm.planner import (
     CostEstimate,
     DimensionResult,
     LLMWorkload,
+    ModelComparison,
     QuotaOverride,
     QuotaPlanResult,
     QuotaReport,
+    Sensitivity,
     Verdict,
+    compare_models,
     evaluate_workload,
+    size_from_scenario,
 )
 
 __all__ = [
@@ -43,6 +47,7 @@ __all__ = [
     "LLMModel",
     "LLMPlatform",
     "LLMWorkload",
+    "ModelComparison",
     "Limit",
     "LimitStatus",
     "ModelInfo",
@@ -51,9 +56,12 @@ __all__ = [
     "QuotaPlan",
     "QuotaPlanResult",
     "QuotaReport",
+    "Sensitivity",
     "Verdict",
+    "compare_models",
     "evaluate_workload",
     "get_model",
     "list_models",
     "list_plans",
+    "size_from_scenario",
 ]

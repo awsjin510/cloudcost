@@ -290,6 +290,31 @@
               <label for="llm_monthly">每月總請求數 <span class="unit">用於估月費</span></label>
               <input type="number" id="llm_monthly" min="0" step="1000" placeholder="由上方自動推導">
             </div>
+            <div class="form-group">
+              <label for="llm_effort">思考強度 <span class="unit">effort</span></label>
+              <select id="llm_effort"></select>
+              <span class="llm-hint">越高思考越多，Output 費用與 OTPM 同步增加</span>
+            </div>
+            <div class="form-group" id="llm-fx-group">
+              <label for="llm_fx">匯率 <span class="unit">1 USD = TWD</span></label>
+              <input type="number" id="llm_fx" min="1" max="9999" step="0.5" value="32">
+            </div>
+          </div>
+          <label class="llm-inline-check"><input type="checkbox" id="llm_batch"> 可以非即時處理（改走批次 API，五折且另有獨立額度）</label>
+
+          <div class="llm-counter" id="llm-counter">
+            <div class="llm-apps-head" style="margin-top:0.5rem;">
+              <h3>用實際提示詞精算 token <span class="unit">取代情境估計值</span></h3>
+            </div>
+            <div id="llm-counter-live" style="display:none;">
+              <label for="llm-count-system" class="llm-hint">System Prompt 與每次都相同的固定前綴（可快取的部分）</label>
+              <textarea id="llm-count-system" placeholder="貼上你的 System Prompt、固定規則、每次都會帶入的文件…"></textarea>
+              <label for="llm-count-sample" class="llm-hint" style="margin-top:0.6rem;">一則典型的使用者訊息，含每次不同的 RAG 片段</label>
+              <textarea id="llm-count-sample" placeholder="貼上一則有代表性的使用者提問與檢索片段…"></textarea>
+              <button type="button" class="btn-icon" id="llm-count-btn" style="margin-top:0.6rem;">計算並套用</button>
+              <div class="llm-counter-result" id="llm-counter-result"></div>
+            </div>
+            <p class="llm-note" id="llm-counter-static">精算需要 Anthropic API 金鑰，公開網站無法安全地保存金鑰。自架的 CloudCost 網頁版（設定 ANTHROPIC_API_KEY）可以直接貼上提示詞，透過官方 token counting API 取得實際數字與固定前綴佔比。</p>
           </div>
 
           <div class="llm-apps-head">
@@ -322,6 +347,11 @@
       </section>
 
       <section>
+        <h2>換個模型會怎樣？ <span class="unit">同一情境、各模型的價格與配額</span></h2>
+        <div id="llm-models"></div>
+      </section>
+
+      <section>
         <h2>尖峰需求換算</h2>
         <div id="llm-demand" class="llm-demand"></div>
       </section>
@@ -346,7 +376,10 @@
           </div>
         </div>
         <div class="llm-share">
-          <button type="button" class="btn-icon" id="llm-btn-share">&#128279; 分享這份試算</button>
+          <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+            <button type="button" class="btn-icon" id="llm-btn-copy">&#128203; 複製提案用摘要</button>
+            <button type="button" class="btn-icon" id="llm-btn-share">&#128279; 分享這份試算</button>
+          </div>
           <div class="share-bar" id="llm-share-bar" style="display:none;">
             <input type="text" id="llm-share-url" readonly>
             <button type="button" id="llm-copy-url">複製連結</button>
@@ -388,7 +421,7 @@
   </main>
 
   <footer>
-    <p>CloudCost v0.9.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.10.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
 
 {% if result %}
@@ -873,6 +906,22 @@
     return resp.json();
   };
 </script>
+{% if token_counting %}
+<script>
+  // Exact prompt sizes via the server's token counting endpoint. Only offered
+  // when this server holds an API key; the key never reaches the browser.
+  window.llmCountTokens = async function (req) {
+    const resp = await fetch('/api/llm-quota/count-tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(body.detail || ('HTTP ' + resp.status));
+    return body;
+  };
+</script>
+{% endif %}
 <script src="/static/llm/form.js"></script>
 </body>
 </html>

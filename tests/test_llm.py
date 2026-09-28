@@ -52,7 +52,7 @@ class TestCatalogue:
         for info in list_models():
             p = info.pricing
             ratio = p.cache_read_per_mtok / p.input_per_mtok
-            expected = 0.025 if info.model is LLMModel.FABLE_5_1 else 0.1
+            expected = {LLMModel.FABLE_5_1: 0.025, LLMModel.OPUS_5_5: 0.05}.get(info.model, 0.1)
             assert ratio == pytest.approx(expected)
 
     def test_plan_table_covers_every_model_and_platform(self):
@@ -324,10 +324,21 @@ class TestActions:
         switch = next(a for a in start.actions if a.kind is ActionKind.SWITCH_PLAN)
         assert "Scale" in switch.text
 
-    def test_suggests_a_model_with_a_looser_quota(self, slide_workload):
+    def test_suggests_the_closest_capability_model_that_fits(self, slide_workload):
+        """From Fable, the next tier down is Opus; Opus 5.5 is the cheaper one."""
         start = _plan(evaluate_workload(slide_workload, LLMPlatform.ANTHROPIC), "start")
         alt = next(a for a in start.actions if a.kind is ActionKind.SWITCH_MODEL)
-        assert "Opus 5" in alt.text
+        assert "Opus 5.5" in alt.text
+        # A capability downgrade is never presented as a free win.
+        assert alt.text.startswith("若 ")
+
+    def test_never_suggests_a_more_capable_model_as_a_quota_fix(self):
+        w = LLMWorkload(model=LLMModel.SONNET_5,
+                        apps=[AppWorkload(concurrent_users=300, input_tokens_per_request=30_000)])
+        for r in evaluate_workload(w).results:
+            for a in r.actions:
+                if a.kind is ActionKind.SWITCH_MODEL:
+                    assert "Fable" not in a.text and "Opus" not in a.text
 
     def test_break_even_cache_rate_is_offered_when_itpm_alone_is_over(self, slide_workload):
         build = _plan(evaluate_workload(slide_workload, LLMPlatform.ANTHROPIC), "build")
@@ -464,3 +475,118 @@ class TestScenarioSizing:
         fitting = [r for r in report.results if r.verdict in (Verdict.AMPLE, Verdict.TIGHT)]
         assert len(fitting) >= 5
         assert report.cost.monthly_usd < 5_000
+
+
+
+# ---------------------------------------------------------------------------
+# Opus 5.5
+# ---------------------------------------------------------------------------
+
+
+class TestOpus55:
+    def test_priced_below_opus_5(self):
+        assert get_model(LLMModel.OPUS_5_5).pricing.input_per_mtok == 4.0
+        assert get_model(LLMModel.OPUS_5_5).pricing.output_per_mtok == 20.0
+        assert get_model(LLMModel.OPUS_5_5).pricing.cache_read_per_mtok == 0.20
+
+    def test_quota_matches_opus_5_on_every_plan(self):
+        a = {(p.platform, p.plan_id): p for p in list_plans(LLMModel.OPUS_5_5)}
+        b = {(p.platform, p.plan_id): p for p in list_plans(LLMModel.OPUS_5)}
+        assert a.keys() == b.keys()
+        for key in a:
+            for dim in ("rpm", "itpm", "otpm"):
+                assert getattr(a[key], dim) == getattr(b[key], dim), (key, dim)
+
+
+# ---------------------------------------------------------------------------
+# Thinking tokens
+# ---------------------------------------------------------------------------
+
+
+class TestThinking:
+    def test_thinking_counts_toward_otpm(self):
+        w = LLMWorkload(apps=[AppWorkload(concurrent_users=100, output_tokens_per_request=2_000,
+                                          thinking_tokens_per_request=3_000)])
+        assert w.otpm == 100 * 5_000
+        assert w.thinking_tpm == 100 * 3_000
+
+    def test_thinking_is_billed_at_the_output_rate(self):
+        base = LLMWorkload(apps=[AppWorkload(concurrent_users=100)])
+        thinking = LLMWorkload(apps=[AppWorkload(concurrent_users=100, thinking_tokens_per_request=1_000)])
+        delta = evaluate_workload(thinking).cost.per_request_usd - evaluate_workload(base).cost.per_request_usd
+        # 1,000 thinking tokens at Fable 5.1's $50/MTok output rate
+        assert delta == pytest.approx(0.05)
+
+    def test_breakdown_separates_thinking(self):
+        w = LLMWorkload(apps=[AppWorkload(concurrent_users=100, thinking_tokens_per_request=2_000)])
+        cost = evaluate_workload(w).cost
+        assert cost.breakdown_per_1k["thinking"] == pytest.approx(100.0)
+        assert sum(cost.breakdown_per_1k.values()) == pytest.approx(cost.per_1k_requests_usd, rel=1e-3)
+        assert cost.thinking_share_pct == pytest.approx(25.0)
+
+    def test_warns_when_max_tokens_would_truncate(self):
+        w = LLMWorkload(apps=[AppWorkload(output_tokens_per_request=2_000, thinking_tokens_per_request=3_000)],
+                        max_tokens=4_000)
+        assert any("截斷" in x for x in evaluate_workload(w).warnings)
+
+    def test_effort_scales_the_thinking_estimate(self):
+        low = size_from_scenario("rag", users=10, effort="low")
+        high = size_from_scenario("rag", users=10, effort="high")
+        assert high.apps[0].thinking_tokens_per_request == 4 * low.apps[0].thinking_tokens_per_request
+
+    def test_scenario_max_tokens_cover_reply_plus_thinking_at_top_effort(self):
+        from cloudcost.llm.catalog import EFFORT_THINKING_FACTORS, list_scenarios
+
+        top = max(EFFORT_THINKING_FACTORS.values())
+        for s in list_scenarios():
+            needed = s.output_tokens_per_request + s.thinking_tokens_per_request * top
+            assert s.max_tokens >= needed, s.scenario_id
+
+
+# ---------------------------------------------------------------------------
+# Batch, comparison, sensitivity
+# ---------------------------------------------------------------------------
+
+
+class TestBatch:
+    def test_batch_halves_the_bill(self):
+        w = LLMWorkload(apps=[AppWorkload(concurrent_users=100)], monthly_requests=1_000_000)
+        cost = evaluate_workload(w).cost
+        assert cost.batch_per_1k_requests_usd == pytest.approx(cost.per_1k_requests_usd / 2)
+        assert cost.batch_monthly_usd == pytest.approx(cost.monthly_usd / 2)
+
+    def test_batch_is_suggested_only_for_work_that_can_wait(self):
+        realtime = LLMWorkload(apps=[AppWorkload(concurrent_users=100)])
+        deferred = realtime.model_copy(update={"batch_eligible": True})
+        start_rt = _plan(evaluate_workload(realtime, LLMPlatform.ANTHROPIC), "start")
+        start_bt = _plan(evaluate_workload(deferred, LLMPlatform.ANTHROPIC), "start")
+        assert ActionKind.USE_BATCH not in {a.kind for a in start_rt.actions}
+        assert ActionKind.USE_BATCH in {a.kind for a in start_bt.actions}
+
+    def test_summarisation_scenario_is_batch_eligible(self):
+        assert size_from_scenario("summarize", users=10).batch_eligible is True
+        assert size_from_scenario("support", users=10).batch_eligible is False
+
+
+class TestModelComparison:
+    def test_every_model_is_compared_cheapest_first(self, slide_workload):
+        rows = evaluate_workload(slide_workload).model_comparison
+        assert {r.model for r in rows} == set(LLMModel)
+        prices = [r.per_1k_requests_usd for r in rows]
+        assert prices == sorted(prices)
+        assert sum(r.is_selected for r in rows) == 1
+
+    def test_comparison_uses_each_models_own_quota(self, slide_workload):
+        rows = {r.model: r for r in evaluate_workload(slide_workload, LLMPlatform.ANTHROPIC).model_comparison}
+        # Fable's Start and Build tiers are too small for this load; Opus 5.5 fits all three.
+        assert rows[LLMModel.FABLE_5_1].fitting_plans == 1
+        assert rows[LLMModel.OPUS_5_5].fitting_plans == 3
+
+
+class TestSensitivity:
+    def test_a_sharper_peak_never_fits_more_plans(self):
+        for sid in ("support", "rag", "coding"):
+            r = evaluate_workload(size_from_scenario(sid, users=400))
+            stress = r.sensitivity[0]
+            assert stress.multiplier == 2.0
+            assert stress.fitting_plans <= r.fitting_plans
