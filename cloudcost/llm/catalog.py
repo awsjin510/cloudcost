@@ -45,6 +45,12 @@ SRC_AZURE_OPENAI = "https://learn.microsoft.com/en-us/azure/foundry/openai/quota
 SRC_GEMINI_PRICING = "https://ai.google.dev/gemini-api/docs/pricing"
 SRC_GEMINI_RATE = "https://ai.google.dev/gemini-api/docs/rate-limits"
 SRC_VERTEX_PAYGO = "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/standard-paygo"
+SRC_XAI_MODELS = "https://docs.x.ai/developers/models"
+SRC_XAI_RATE = "https://docs.x.ai/developers/rate-limits"
+SRC_AZURE_GROK = "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok"
+SRC_VERTEX_GROK = "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok"
+SRC_OCI_GROK = "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm"
+SRC_BEDROCK_GROK = "https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-xai-grok-4-6.html"
 SRC_FOUNDRY = (
     "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/"
     "concepts/claude-models-quotas-limits"
@@ -80,6 +86,13 @@ class LLMModel(str, Enum):
     GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite"
     GEMINI_2_5_PRO = "gemini-2.5-pro"
     GEMINI_2_5_FLASH = "gemini-2.5-flash"
+    GROK_4_7 = "grok-4.7"
+    GROK_4_6 = "grok-4.6"
+    GROK_4_5 = "grok-4.5"
+    GROK_4_3 = "grok-4.3"
+    GROK_4_20_REASONING = "grok-4.20-0309-reasoning"
+    GROK_4_20_NON_REASONING = "grok-4.20-0309-non-reasoning"
+    GROK_BUILD_0_1 = "grok-build-0.1"
 
 
 class LLMPlatform(str, Enum):
@@ -89,6 +102,8 @@ class LLMPlatform(str, Enum):
     BEDROCK = "bedrock"
     FOUNDRY = "foundry"
     VERTEX = "vertex"
+    XAI = "xai"
+    OCI = "oci"
 
 
 class ModelLine(str, Enum):
@@ -97,6 +112,7 @@ class ModelLine(str, Enum):
     CLAUDE = "claude"
     GPT = "gpt"
     GEMINI = "gemini"
+    GROK = "grok"
 
 
 class LineInfo(BaseModel):
@@ -123,6 +139,11 @@ _LINES: dict[ModelLine, LineInfo] = {
         line=ModelLine.GEMINI, label="Gemini", vendor="Google",
         price_caveat="以 Gemini API 付費層牌價計算，與 Vertex 全域端點價格相同；Vertex 區域端點另加 10%。"
         "Gemini 的明確快取另按儲存時數收費，此處未計入",
+    ),
+    ModelLine.GROK: LineInfo(
+        line=ModelLine.GROK, label="Grok", vendor="xAI",
+        price_caveat="以 xAI 官方 API 牌價計算。Bedrock 全域跨區、Azure Global Standard、Vertex 全域端點與 "
+        "OCI 標準處理同樣採 xAI 牌價；Bedrock 區域內與 Azure Data Zone 另加 10%，OCI 優先處理（priority）為兩倍",
     ),
 }
 
@@ -170,10 +191,22 @@ class ModelPricing(BaseModel):
     long_input_per_mtok: Optional[float] = None
     long_output_per_mtok: Optional[float] = None
     long_cache_read_per_mtok: Optional[float] = None
+    #: True when the long rate starts at the threshold itself ("reaches 200K")
+    #: rather than above it ("> 200K").
+    long_context_inclusive: bool = False
+    #: Batch API discount on list price; None when the model has no Batch API.
+    batch_discount: Optional[float] = 0.50
+
+    def is_long(self, prompt_tokens: int) -> bool:
+        if self.long_context_threshold is None:
+            return False
+        if self.long_context_inclusive:
+            return prompt_tokens >= self.long_context_threshold
+        return prompt_tokens > self.long_context_threshold
 
     def rates_for(self, prompt_tokens: int) -> tuple[float, float, float]:
         """(input, output, cache read) for a request of this prompt size."""
-        if self.long_context_threshold is not None and prompt_tokens > self.long_context_threshold:
+        if self.is_long(prompt_tokens):
             return (
                 self.long_input_per_mtok if self.long_input_per_mtok is not None else self.input_per_mtok,
                 self.long_output_per_mtok if self.long_output_per_mtok is not None else self.output_per_mtok,
@@ -407,6 +440,73 @@ _MODELS += [
         model_class="balanced", tier=2,
         pricing=ModelPricing(input_per_mtok=0.3, output_per_mtok=2.5, cache_read_per_mtok=0.03),
         notes=['前一代 Flash，僅限過去用過的專案使用，新專案無法啟用'],
+    ),
+]
+
+# xAI Grok, verified 2026-09-29 against docs.x.ai models and per-model pages.
+_MODELS += [
+    ModelInfo(
+        model=LLMModel.GROK_4_7, label="Grok 4.7", version_label="Grok 4.7", line=ModelLine.GROK,
+        model_class="frontier", tier=4,
+        pricing=ModelPricing(input_per_mtok=2, output_per_mtok=6, cache_read_per_mtok=0.5,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=4, long_output_per_mtok=12,
+                             long_cache_read_per_mtok=1, batch_discount=None),
+        notes=['xAI 目前最強的模型，官方建議程式與一般對話都用它；一律會推理，預設推理強度 high', '不支援 Batch API；提示詞達 200K tokens 時整筆改按兩倍費率'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_4_6, label="Grok 4.6", version_label="Grok 4.6", line=ModelLine.GROK,
+        model_class="strong", tier=3,
+        pricing=ModelPricing(input_per_mtok=2, output_per_mtok=6, cache_read_per_mtok=0.5,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=4, long_output_per_mtok=12,
+                             long_cache_read_per_mtok=1, batch_discount=None),
+        notes=['前一代旗艦，單價與 4.7 相同；新專案建議直接評估 4.7', '目前唯一同時上架 Bedrock、Azure、Vertex 與 OCI 的 Grok'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_4_5, label="Grok 4.5", version_label="Grok 4.5", line=ModelLine.GROK,
+        model_class="strong", tier=3,
+        pricing=ModelPricing(input_per_mtok=2, output_per_mtok=6, cache_read_per_mtok=0.3,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=4, long_output_per_mtok=12,
+                             long_cache_read_per_mtok=0.6, batch_discount=None),
+        notes=['偏重程式與代理工作，快取讀取比 4.6／4.7 便宜（$0.30）', '只在 xAI API 提供'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_4_3, label="Grok 4.3", version_label="Grok 4.3", line=ModelLine.GROK,
+        model_class="balanced", tier=2,
+        pricing=ModelPricing(input_per_mtok=1.25, output_per_mtok=2.5, cache_read_per_mtok=0.2,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=2.5, long_output_per_mtok=5,
+                             long_cache_read_per_mtok=0.4, batch_discount=0.2),
+        notes=['1M context，推理強度可設 none 到 xhigh（預設 low）', '支援 Batch API，打八折'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_4_20_REASONING, label="Grok 4.20 Reasoning", version_label="Grok 4.20 Reasoning", line=ModelLine.GROK,
+        model_class="balanced", tier=2,
+        pricing=ModelPricing(input_per_mtok=1.25, output_per_mtok=2.5, cache_read_per_mtok=0.2,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=2.5, long_output_per_mtok=5,
+                             long_cache_read_per_mtok=0.4, batch_discount=0.2),
+        notes=['單價與 4.3 相同；xAI 官方建議新專案改用 4.3', '支援 Batch API，打八折'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_4_20_NON_REASONING, label="Grok 4.20 Non-reasoning", version_label="Grok 4.20 Non-reasoning", line=ModelLine.GROK,
+        model_class="fast", tier=1,
+        pricing=ModelPricing(input_per_mtok=1.25, output_per_mtok=2.5, cache_read_per_mtok=0.2,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=2.5, long_output_per_mtok=5,
+                             long_cache_read_per_mtok=0.4, batch_discount=0.2),
+        notes=['不推理、延遲最低，適合分類與摘要這類大量簡單工作', '支援 Batch API，打八折'],
+    ),
+    ModelInfo(
+        model=LLMModel.GROK_BUILD_0_1, label="Grok Build 0.1", version_label="Grok Build 0.1", line=ModelLine.GROK,
+        model_class="fast", tier=1,
+        pricing=ModelPricing(input_per_mtok=1, output_per_mtok=2, cache_read_per_mtok=0.2,
+                             long_context_threshold=200_000, long_context_inclusive=True,
+                             long_input_per_mtok=2, long_output_per_mtok=4,
+                             long_cache_read_per_mtok=0.4, batch_discount=None),
+        notes=['xAI 的程式專用模型（取代已退役的 grok-code-fast-1），也是最便宜的 Grok', '256K context，只在 xAI API 提供'],
     ),
 ]
 
@@ -798,6 +898,113 @@ _build_gpt()
 _build_gemini()
 
 
+# ---------------------------------------------------------------------------
+# xAI Grok
+# ---------------------------------------------------------------------------
+# Verified 2026-09-29: docs.x.ai rate limits (per-tier RPS / TPM) and models,
+# AWS General Reference and Grok 4.6 model card, Azure Foundry "Use Grok
+# models", Vertex Grok model pages, OCI Generative AI pretrained models and
+# the Oracle price list API. xAI meters requests per second; the planner
+# works per minute, so RPS is shown as RPS x 60.
+
+_GROK_ORDER = (LLMModel.GROK_4_7, LLMModel.GROK_4_6, LLMModel.GROK_4_5, LLMModel.GROK_4_3,
+               LLMModel.GROK_4_20_REASONING, LLMModel.GROK_4_20_NON_REASONING, LLMModel.GROK_BUILD_0_1)
+_GROK_FLAGSHIP = {LLMModel.GROK_4_7, LLMModel.GROK_4_6, LLMModel.GROK_4_5}
+
+# xAI API: {tier: (rps, tpm)} for the two published profiles.
+_XAI_FLAGSHIP = {"x_t0": (150, 50_000_000), "x_t2": (208, 60_000_000), "x_t4": (500, 100_000_000)}
+_XAI_STANDARD = {"x_t0": (37, 10_000_000), "x_t2": (75, 25_000_000), "x_t4": (208, 85_000_000)}
+_XAI_TIER_LABELS = {"x_t0": "Tier 0（預設）", "x_t2": "Tier 2（累計消費 $250 起）",
+                    "x_t4": "Tier 4（累計消費 $5,000 起）"}
+
+# Azure Foundry (Grok 4.6 only publishes numbers): {plan: (label, rpm, tpm)}.
+_AZURE_GROK_46 = {"az_low": ("Low 層級", 0, 0), "az_medium": ("Medium 層級", 50, 50_000),
+                  "az_high": ("High 層級", 5_000, 5_000_000)}
+_AZURE_GROK_OTHER = (LLMModel.GROK_4_3, LLMModel.GROK_4_20_REASONING, LLMModel.GROK_4_20_NON_REASONING)
+
+# Vertex (global quota shared with the US multi-region endpoint): (qpm, input tpm, output tpm).
+_VERTEX_GROK = {
+    LLMModel.GROK_4_6: (13, 188_000, 16_000),
+    LLMModel.GROK_4_3: (100, 540_000, 80_000),
+    LLMModel.GROK_4_20_REASONING: (100, 540_000, 80_000),
+    LLMModel.GROK_4_20_NON_REASONING: (100, 540_000, 80_000),
+}
+_VERTEX_GROK_PREVIEW = {LLMModel.GROK_4_3}
+
+# OCI on-demand: the TPM limit name to raise; no default is published.
+_OCI_GROK = {
+    LLMModel.GROK_4_7: None,
+    LLMModel.GROK_4_6: "grok-4-6-tokens-per-minute-count",
+    LLMModel.GROK_4_3: "grok-4-3-tokens-per-minute-count",
+    LLMModel.GROK_4_20_REASONING: "grok-4-2-reasoning-tokens-per-minute-count",
+    LLMModel.GROK_4_20_NON_REASONING: "grok-4-2-non-reasoning-tokens-per-minute-count",
+}
+
+_XAI_NOTES = (
+    "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示",
+    "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額",
+    "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算",
+)
+
+
+def _build_grok() -> None:
+    for model in _GROK_ORDER:
+        tiers = _XAI_FLAGSHIP if model in _GROK_FLAGSHIP else _XAI_STANDARD
+        for plan_id, (rps, tpm) in tiers.items():
+            _add(model, LLMPlatform.XAI, plan_id, "xAI API", _XAI_TIER_LABELS[plan_id], SRC_XAI_RATE,
+                 (f"每秒 {rps:,} 次請求", *_XAI_NOTES),
+                 rpm=_en(rps * 60), tpm=_en(tpm), input_cached_counts=True)
+
+        if model is LLMModel.GROK_4_6:
+            _add(model, LLMPlatform.BEDROCK, "mantle", "AWS Bedrock", "bedrock-mantle 端點", SRC_BEDROCK_GR,
+                 (*_MANTLE_COMMON, "AWS 配額總表未列出此模型的 Mantle 預設值，實際額度依帳號而定",
+                  "Mantle 僅提供區域內推論，比 xAI 牌價另加 10%"),
+                 rpm=_NO_RPM, itpm=_NO_TPM, otpm=_NO_TPM, reserves_max_tokens=True, list_priced=False)
+            _add(model, LLMPlatform.BEDROCK, "runtime", "AWS Bedrock", "bedrock-runtime（全域跨區）", SRC_BEDROCK_GR,
+                 ("TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算",
+                  "AWS 說明頁：未列名的模型 output burndown 為 1:1",
+                  "全域跨區推論以 xAI 牌價計費；美國跨區與區域內另加 10%"),
+                 rpm=_NO_RPM_RUNTIME, tpm=_en(10_000_000), tpm_reserves_max_tokens=True)
+
+            for plan_id, (label, rpm, tpm) in _AZURE_GROK_46.items():
+                _add(model, LLMPlatform.FOUNDRY, plan_id, "Azure Foundry", f"{label} (Global Standard)", SRC_AZURE_GROK,
+                     ("Azure 上的 Grok 4.6 目前為 Preview，context 200K、單次輸出上限 128K",
+                      "層級依訂閱與部署設定決定，官方未公開對照表",
+                      "Azure 未說明 Grok 的計量方式，此處沿用 Azure 的一般算法：以提示詞加 max_tokens 估算扣除",
+                      *(("此層級預設為 0，部署前必須先申請",) if tpm == 0 else ())),
+                     rpm=_en(rpm), tpm=_en(tpm), tpm_reserves_max_tokens=True, input_cached_counts=True)
+        elif model in _AZURE_GROK_OTHER:
+            azure_unpublished = Limit(status=LimitStatus.UNPUBLISHED,
+                                      note="Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看")
+            _add(model, LLMPlatform.FOUNDRY, "az_gs", "Azure Foundry", "Global Standard", SRC_AZURE_GROK,
+                 ("Azure 上為 Preview，context 約 200K–262K、單次輸出上限 8,192 tokens",
+                  "Data Zone Standard (US) 比 xAI 牌價另加 10%"),
+                 rpm=azure_unpublished, tpm=azure_unpublished, tpm_reserves_max_tokens=True,
+                 input_cached_counts=True)
+
+        if model in _VERTEX_GROK:
+            preview = ("此模型在 Vertex 仍為 Preview",) if model in _VERTEX_GROK_PREVIEW else ()
+            _add(model, LLMPlatform.VERTEX, "vx_global", "GCP Vertex", "全域端點 (global)", SRC_VERTEX_GROK,
+                 (*preview, "Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度",
+                  "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入",
+                  "預設額度偏低，正式上線前通常需要申請調升"),
+                 input_cached_counts=True, **_en3(_VERTEX_GROK[model]))
+
+        if model in _OCI_GROK:
+            limit_name = _OCI_GROK[model]
+            how = (f"調額時在 Limits 申請 {limit_name}" if limit_name
+                   else "OCI 尚未公布此模型的限制名稱與預設值")
+            _add(model, LLMPlatform.OCI, "oci_ondemand", "Oracle OCI", "Generative AI 隨選 (On-Demand)", SRC_OCI_GROK,
+                 ("OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", how,
+                  "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"),
+                 tpm=Limit(status=LimitStatus.UNPUBLISHED,
+                           note="OCI 只公布調額用的限制名稱，未公布預設 TPM"),
+                 input_cached_counts=True)
+
+
+_build_grok()
+
+
 def list_plans(
     model: Optional[LLMModel] = None, platform: Optional[LLMPlatform] = None
 ) -> list[QuotaPlan]:
@@ -960,9 +1167,6 @@ EFFORT_THINKING_FACTORS: dict[str, float] = {
     "high": 1.0,
     "xhigh": 1.5,
 }
-
-#: Batch API list-price discount on input and output (first-party).
-BATCH_DISCOUNT = 0.50
 
 #: Hours per day over which the daily volume is assumed to be spread.
 ACTIVE_HOURS_PER_DAY = 8

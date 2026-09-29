@@ -173,6 +173,12 @@
 
   // -- cost ---------------------------------------------------------------
 
+  // 50 (% off) -> 五折, 20 -> 八折.
+  function zhe(pct) {
+    const pay = Math.floor((100 - pct) / 10 + 0.5);
+    return pay > 0 && pay < 10 ? '零一二三四五六七八九'[pay] + '折' : pay + ' 折';
+  }
+
   function renderCost(r) {
     const c = r.cost;
     const basis = document.getElementById('llm-cost-basis');
@@ -193,8 +199,12 @@
       '<div class="llm-cost-row">' +
         item('每 1,000 次請求', fmtUsd(c.per_1k_requests_usd), twd(c.per_1k_requests_usd) + '・單次 ' + fmtUsd(c.per_request_usd) + ' ' + saving) +
         monthly +
-        item(r.workload.batch_eligible ? '改走批次 API' : '批次 API 參考', fmtUsd(c.batch_monthly_usd != null ? c.batch_monthly_usd : c.batch_per_1k_requests_usd),
-             (c.batch_monthly_usd != null ? '每月' : '每 1,000 次') + '・五折，適合不需即時回應的工作', !r.workload.batch_eligible) +
+        (c.batch_discount_pct == null
+          ? item('批次 API', '不支援', '此模型只能即時呼叫', true)
+          : item(r.workload.batch_eligible ? '改走批次 API' : '批次 API 參考',
+                 fmtUsd(c.batch_monthly_usd != null ? c.batch_monthly_usd : c.batch_per_1k_requests_usd),
+                 (c.batch_monthly_usd != null ? '每月' : '每 1,000 次') + '・' + zhe(c.batch_discount_pct) +
+                 '，適合不需即時回應的工作', !r.workload.batch_eligible)) +
       '</div>' +
       '<div class="llm-cost-bar">' + SEGMENTS.map(s =>
         '<span class="seg seg-' + s[0] + '" style="width:' + ((b[s[0]] || 0) / total * 100).toFixed(1) +

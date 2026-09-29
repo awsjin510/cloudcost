@@ -34,7 +34,6 @@ from pydantic import BaseModel, Field
 
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
-    BATCH_DISCOUNT,
     EFFORT_THINKING_FACTORS,
     MAX_OUTPUT_TOKENS,
     PEAK_FACTORS,
@@ -251,8 +250,10 @@ class CostEstimate(BaseModel):
     breakdown_per_1k: dict[str, float]
     #: Share of the bill that is thinking tokens.
     thinking_share_pct: float = 0.0
-    #: Same traffic through the Batch API (first-party, 50% off).
-    batch_per_1k_requests_usd: float = 0.0
+    #: Batch API discount in percent; None when the model has no Batch API.
+    batch_discount_pct: Optional[float] = None
+    #: Same traffic through the Batch API; None when the model has no Batch API.
+    batch_per_1k_requests_usd: Optional[float] = None
     batch_monthly_usd: Optional[float] = None
     caveats: list[str] = Field(default_factory=list)
 
@@ -502,6 +503,22 @@ def _fmt_dim(dim: str, value: float) -> str:
     return f"${value:,.2f}" if dim == "usd10m" else _fmt(value)
 
 
+def _where_to_look(plan: QuotaPlan) -> str:
+    """Where an account's real quota for an unpublished default can be read."""
+    if plan.platform is LLMPlatform.BEDROCK:
+        what = "Bedrock Mantle 的輸入／輸出 TPM" if plan.plan_id == "mantle" else "Bedrock 跨區推論的 TPM"
+        return f"請到 Service Quotas 主控台搜尋 {what}"
+    if plan.platform is LLMPlatform.OCI:
+        return "請到 OCI 主控台的 Limits, Quotas and Usage 查出 Generative AI 的 Grok TPM"
+    return "請在該平台的配額主控台查出本帳號的實際額度"
+
+
+def _zhe(discount: float) -> str:
+    """A discount as the Chinese 折 a buyer expects: 0.5 -> 五折, 0.2 -> 八折."""
+    pay = _half_up((1 - discount) * 10)
+    return "零一二三四五六七八九"[pay] + "折" if 0 < pay < 10 else f"{pay} 折"
+
+
 def _reserves(plan: QuotaPlan) -> bool:
     return plan.reserves_max_tokens or plan.tpm_reserves_max_tokens
 
@@ -512,9 +529,7 @@ def _build_actions(
     actions: list[Action] = []
 
     if verdict is Verdict.UNKNOWN:
-        where = ("請到 Service Quotas 主控台搜尋 Bedrock Mantle 查出本帳號的輸入／輸出 TPM"
-                 if plan.platform is LLMPlatform.BEDROCK
-                 else "請在該平台的配額主控台查出本帳號的實際額度")
+        where = _where_to_look(plan)
         actions.append(
             Action(
                 kind=ActionKind.ENTER_ACCOUNT_QUOTA,
@@ -613,11 +628,12 @@ def _build_actions(
                 )
             )
 
-    if workload.batch_eligible:
+    discount = get_model(workload.model).pricing.batch_discount
+    if workload.batch_eligible and discount is not None:
         actions.append(
             Action(
                 kind=ActionKind.USE_BATCH,
-                text="這類工作可以非即時處理：改走批次 API 不佔即時配額，且費用打五折",
+                text=f"這類工作可以非即時處理：改走批次 API 不佔即時配額，且費用打{_zhe(discount)}",
             )
         )
 
@@ -726,7 +742,8 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
     def per_1k_of(usd: float) -> float:
         return _round(usd / rpm * 1000, 4) if rpm else 0.0
 
-    batch_per_request = per_request * (1 - BATCH_DISCOUNT)
+    discount = price.batch_discount
+    batch_per_request = per_request * (1 - discount) if discount is not None else None
 
     caveats = [
         get_line(info.line).price_caveat,
@@ -740,8 +757,12 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
         )
     if price.long_context_threshold is not None:
         caveats.append(
-            f"提示詞超過 {_fmt(price.long_context_threshold)} tokens 時，整筆請求改按長上下文費率計算"
+            f"提示詞{'達到' if price.long_context_inclusive else '超過'} {_fmt(price.long_context_threshold)} "
+            "tokens 時，整筆請求改按長上下文費率計算"
         )
+    if discount is None:
+        caveats.append("此模型不支援 Batch API，所有請求都按即時費率計算")
+    caveats.append("AI 模型調用記憶或檔案功能（例如記憶工具、檔案搜尋、上傳文件）時額外讀入的 token 與工具費用，不包含在本頁的模型預估消耗中，實際用量請以 API 回傳的 usage 為準")
 
     return CostEstimate(
         per_request_usd=_round(per_request, 6),
@@ -761,10 +782,11 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
             "thinking": per_1k_of(thinking_usd),
         },
         thinking_share_pct=_round(thinking_usd / per_minute * 100, 1) if per_minute else 0.0,
-        batch_per_1k_requests_usd=_round(batch_per_request * 1000, 4),
+        batch_discount_pct=_round(discount * 100, 1) if discount is not None else None,
+        batch_per_1k_requests_usd=_round(batch_per_request * 1000, 4) if batch_per_request is not None else None,
         batch_monthly_usd=(
             _round(batch_per_request * workload.monthly_requests, 2)
-            if workload.monthly_requests is not None
+            if workload.monthly_requests is not None and batch_per_request is not None
             else None
         ),
         caveats=caveats,

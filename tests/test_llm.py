@@ -638,10 +638,10 @@ class TestSensitivity:
 
 
 class TestLines:
-    def test_three_lines_in_picker_order(self):
+    def test_four_lines_in_picker_order(self):
         from cloudcost.llm import list_lines
 
-        assert [l.line for l in list_lines()] == [ModelLine.CLAUDE, ModelLine.GPT, ModelLine.GEMINI]
+        assert [l.line for l in list_lines()] == [ModelLine.CLAUDE, ModelLine.GPT, ModelLine.GEMINI, ModelLine.GROK]
 
     def test_every_line_resolves_every_capability_class(self):
         from cloudcost.llm import model_for
@@ -731,3 +731,92 @@ class TestGemini:
         w = LLMWorkload(model=LLMModel.GEMINI_3_8_FLASH, apps=[AppWorkload()])
         rpd = _plan(evaluate_workload(w, LLMPlatform.GOOGLE_AI), "g_t1").rpd
         assert rpd.demand_known is False
+
+
+class TestGrok:
+    def _report(self, model=LLMModel.GROK_4_7, platform=None, **kw):
+        apps = kw.pop("apps", [AppWorkload(concurrent_users=100)])
+        return evaluate_workload(LLMWorkload(model=model, apps=apps, **kw), platform)
+
+    def test_requests_per_second_are_shown_per_minute(self):
+        t0 = _plan(self._report(platform=LLMPlatform.XAI), "x_t0")
+        assert t0.rpm.limit == 150 * 60
+        assert t0.tpm.limit == 50_000_000
+        # The smaller models have their own, lower profile.
+        assert _plan(self._report(LLMModel.GROK_4_3, LLMPlatform.XAI), "x_t0").rpm.limit == 37 * 60
+
+    def test_cached_input_still_counts_toward_xai_tpm(self):
+        w = LLMWorkload(model=LLMModel.GROK_4_7,
+                        apps=[AppWorkload(concurrent_users=100, cache_hit_rate=0.8)], max_tokens=4_000)
+        t0 = _plan(evaluate_workload(w, LLMPlatform.XAI), "x_t0")
+        # Actual output (not max_tokens) plus every input token, cached or not.
+        assert t0.tpm.demand == pytest.approx(w.rpm * w.apps[0].input_tokens_per_request + w.otpm)
+
+    def test_long_context_starts_at_the_threshold_itself(self):
+        price = get_model(LLMModel.GROK_4_7).pricing
+        assert price.rates_for(199_999) == (2, 6, 0.5)
+        assert price.rates_for(200_000) == (4, 12, 1.0)
+        # Gemini's threshold is exclusive: exactly 200K is still the base rate.
+        assert get_model(LLMModel.GEMINI_3_1_PRO).pricing.rates_for(200_000)[0] == 2
+
+    def test_models_without_a_batch_api_never_suggest_it(self):
+        r = self._report(platform=LLMPlatform.XAI, batch_eligible=True, monthly_requests=100_000)
+        assert r.cost.batch_discount_pct is None
+        assert r.cost.batch_monthly_usd is None
+        assert any("不支援 Batch API" in c for c in r.cost.caveats)
+        assert all(a.kind is not ActionKind.USE_BATCH for p in r.results for a in p.actions)
+
+    def test_grok_batch_is_twenty_percent_off(self):
+        r = self._report(LLMModel.GROK_4_3, LLMPlatform.VERTEX, apps=[AppWorkload(concurrent_users=2_000)],
+                         batch_eligible=True, monthly_requests=100_000)
+        assert r.cost.batch_discount_pct == 20
+        assert r.cost.batch_monthly_usd == pytest.approx(r.cost.monthly_usd * 0.8, rel=1e-3)
+        vx = _plan(r, "vx_global")
+        assert vx.verdict is Verdict.OVER
+        batch = next(a for a in vx.actions if a.kind is ActionKind.USE_BATCH)
+        assert "八折" in batch.text
+
+    def test_vertex_default_is_small_and_shared(self):
+        vx = _plan(self._report(LLMModel.GROK_4_6, LLMPlatform.VERTEX), "vx_global")
+        assert (vx.rpm.limit, vx.itpm.limit, vx.otpm.limit) == (13, 188_000, 16_000)
+        assert vx.verdict is Verdict.OVER
+
+    def test_oci_points_to_its_own_console(self):
+        oci = _plan(self._report(platform=LLMPlatform.OCI), "oci_ondemand")
+        assert oci.verdict is Verdict.UNKNOWN
+        assert "OCI 主控台" in oci.actions[0].text
+
+    def test_bedrock_runtime_advice_does_not_mention_mantle(self):
+        r = self._report(LLMModel.SONNET_5_5, LLMPlatform.BEDROCK)
+        runtime = _plan(r, "runtime")
+        assert runtime.verdict is Verdict.UNKNOWN
+        assert "Mantle" not in runtime.actions[0].text
+
+    def test_grok_on_bedrock_burns_output_one_to_one(self):
+        from cloudcost.llm.catalog import list_plans
+
+        runtime = next(p for p in list_plans(LLMModel.GROK_4_6, LLMPlatform.BEDROCK) if p.plan_id == "runtime")
+        assert runtime.output_burndown == 1.0
+        assert runtime.tpm.value == 10_000_000
+
+    def test_azure_low_tier_is_blocked_until_requested(self):
+        low = _plan(self._report(LLMModel.GROK_4_6, LLMPlatform.FOUNDRY), "az_low")
+        assert low.verdict is Verdict.BLOCKED
+
+    def test_platform_coverage_matches_the_vendors_docs(self):
+        from cloudcost.llm.catalog import list_plans
+
+        def platforms(model):
+            return {p.platform for p in list_plans(model)}
+
+        assert platforms(LLMModel.GROK_4_6) == {LLMPlatform.XAI, LLMPlatform.BEDROCK, LLMPlatform.FOUNDRY,
+                                                LLMPlatform.VERTEX, LLMPlatform.OCI}
+        assert platforms(LLMModel.GROK_4_7) == {LLMPlatform.XAI, LLMPlatform.OCI}
+        assert platforms(LLMModel.GROK_BUILD_0_1) == {LLMPlatform.XAI}
+
+
+def test_memory_and_file_features_are_flagged_as_excluded():
+    """Tool-driven context (memory, file search, uploads) is outside the estimate; say so on every quote."""
+    for model in (LLMModel.OPUS_5_5, LLMModel.GPT_6_SOL, LLMModel.GEMINI_3_8_FLASH, LLMModel.GROK_4_7):
+        cost = evaluate_workload(LLMWorkload(model=model, apps=[AppWorkload()])).cost
+        assert any("記憶或檔案功能" in c and "不包含" in c for c in cost.caveats), model

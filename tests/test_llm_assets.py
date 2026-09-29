@@ -93,7 +93,7 @@ SCENARIOS: list[LLMWorkload] = [
       for sid in ("support", "rag", "summarize", "coding", "writing")],
     # Every scenario on every vendor line.
     *[size_from_scenario(sid, users=800, line=line)
-      for line in (ModelLine.GPT, ModelLine.GEMINI)
+      for line in (ModelLine.GPT, ModelLine.GEMINI, ModelLine.GROK)
       for sid in ("support", "rag", "summarize", "coding", "writing")],
     # Every model at one load, without a monthly volume (daily quotas unknown).
     *[LLMWorkload(model=m, apps=[AppWorkload(concurrent_users=300, cache_hit_rate=0.3,
@@ -104,6 +104,12 @@ SCENARIOS: list[LLMWorkload] = [
                 max_tokens=8_000, monthly_requests=200_000),
     LLMWorkload(model=LLMModel.GEMINI_3_1_PRO, apps=[AppWorkload(concurrent_users=20, input_tokens_per_request=250_000)],
                 max_tokens=8_000, monthly_requests=200_000),
+    # Grok's long-context rate starts at exactly 200K; Batch is 20% off or absent.
+    LLMWorkload(model=LLMModel.GROK_4_7, apps=[AppWorkload(concurrent_users=20, input_tokens_per_request=200_000)],
+                max_tokens=8_000, monthly_requests=200_000, batch_eligible=True),
+    LLMWorkload(model=LLMModel.GROK_4_3, apps=[AppWorkload(concurrent_users=3_000, input_tokens_per_request=199_999)],
+                max_tokens=8_000, monthly_requests=200_000, batch_eligible=True),
+    LLMWorkload(model=LLMModel.SONNET_5_5, apps=[AppWorkload(concurrent_users=50)], max_tokens=2_000),
     # Account overrides on combined-TPM and spend-cap dimensions.
     LLMWorkload(model=LLMModel.GPT_6_ASTRA, apps=[AppWorkload(concurrent_users=200)], max_tokens=6_000,
                 account_quotas=[QuotaOverride(plan_id="runtime", tpm=50_000_000, rpm=20_000),

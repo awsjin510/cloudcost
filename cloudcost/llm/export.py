@@ -25,7 +25,6 @@ from typing import Optional
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
     MAX_OUTPUT_TOKENS,
-    BATCH_DISCOUNT,
     EFFORT_THINKING_FACTORS,
     PEAK_FACTORS,
     VERIFIED,
@@ -87,7 +86,6 @@ def render_data_js() -> str:
         "ACTIVE_HOURS_PER_DAY": ACTIVE_HOURS_PER_DAY,
         "WORKING_DAYS_PER_MONTH": WORKING_DAYS_PER_MONTH,
         "EFFORT_THINKING_FACTORS": EFFORT_THINKING_FACTORS,
-        "BATCH_DISCOUNT": BATCH_DISCOUNT,
         "MODEL_CLASSES": list(MODEL_CLASSES),
         "DIMS": list(DIMS),
     }

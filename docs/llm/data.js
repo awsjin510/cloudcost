@@ -5,7 +5,7 @@
 // Quota values are platform DEFAULTS, not model limits; every one of them
 // can be raised on request. Each row carries the document it came from.
 
-const LLM_CONST = {"MAX_OUTPUT_TOKENS": 128000, "VERIFIED": "2026-09-29", "AMPLE_THRESHOLD": 0.7, "MAX_SUGGESTED_CACHE_RATE": 0.95, "PEAK_FACTORS": {"flat": 1.5, "normal": 3.0, "spiky": 6.0}, "ACTIVE_HOURS_PER_DAY": 8, "WORKING_DAYS_PER_MONTH": 22, "EFFORT_THINKING_FACTORS": {"low": 0.25, "medium": 0.5, "high": 1.0, "xhigh": 1.5}, "BATCH_DISCOUNT": 0.5, "MODEL_CLASSES": ["frontier", "strong", "balanced", "fast"], "DIMS": ["rpm", "itpm", "otpm", "tpm", "rpd", "usd10m"]};
+const LLM_CONST = {"MAX_OUTPUT_TOKENS": 128000, "VERIFIED": "2026-09-29", "AMPLE_THRESHOLD": 0.7, "MAX_SUGGESTED_CACHE_RATE": 0.95, "PEAK_FACTORS": {"flat": 1.5, "normal": 3.0, "spiky": 6.0}, "ACTIVE_HOURS_PER_DAY": 8, "WORKING_DAYS_PER_MONTH": 22, "EFFORT_THINKING_FACTORS": {"low": 0.25, "medium": 0.5, "high": 1.0, "xhigh": 1.5}, "MODEL_CLASSES": ["frontier", "strong", "balanced", "fast"], "DIMS": ["rpm", "itpm", "otpm", "tpm", "rpd", "usd10m"]};
 
 const LLM_LINES = [
   {
@@ -25,6 +25,12 @@ const LLM_LINES = [
     "label": "Gemini",
     "vendor": "Google",
     "price_caveat": "以 Gemini API 付費層牌價計算，與 Vertex 全域端點價格相同；Vertex 區域端點另加 10%。Gemini 的明確快取另按儲存時數收費，此處未計入"
+  },
+  {
+    "line": "grok",
+    "label": "Grok",
+    "vendor": "xAI",
+    "price_caveat": "以 xAI 官方 API 牌價計算。Bedrock 全域跨區、Azure Global Standard、Vertex 全域端點與 OCI 標準處理同樣採 xAI 牌價；Bedrock 區域內與 Azure Data Zone 另加 10%，OCI 優先處理（priority）為兩倍"
   }
 ];
 
@@ -45,7 +51,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "快取讀取為輸入價的 0.025 倍，是所有模型中最低的，有做 prompt caching 時省下的比例最大"
@@ -67,7 +75,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "快取讀取為輸入價的 0.1 倍，比 Fable 5.1 貴 4 倍"
@@ -89,7 +99,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "配額與 Opus 5 相同、單價便宜兩成，快取讀取為輸入價的 0.05 倍"
@@ -111,7 +123,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "單價為 Fable 的一半；同配額下 Opus 5.5 更便宜，新專案建議直接評估 Opus 5.5"
@@ -133,7 +147,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "目前的 Sonnet，高流量生產工作負載的預設選擇，單價與 Sonnet 5 相同、為 Fable 的五分之一",
@@ -156,7 +172,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代 Sonnet，單價與 Sonnet 5.5 相同；新專案建議直接評估 Sonnet 5.5"
@@ -178,7 +196,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代 Opus，單價與 Opus 5 相同；新專案建議直接評估 Opus 5.5"
@@ -200,7 +220,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代 Sonnet，單價比 Sonnet 5 高；使用較舊的 tokenizer，同樣文字的 token 數約少三成"
@@ -222,7 +244,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "Claude 最便宜的版本，適合高流量的簡單任務；上下文上限 200K"
@@ -244,7 +268,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 20.0,
       "long_output_per_mtok": 75.0,
-      "long_cache_read_per_mtok": 2.0
+      "long_cache_read_per_mtok": 2.0,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "OpenAI 目前最強的旗艦，一律會推理、無法關閉",
@@ -267,7 +293,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 4.0,
       "long_output_per_mtok": 15.0,
-      "long_cache_read_per_mtok": 0.4
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "GPT-6 的中階版本，偏重程式與代理工作，預設推理強度 medium"
@@ -289,7 +317,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 0.2,
       "long_output_per_mtok": 0.75,
-      "long_cache_read_per_mtok": 0.02
+      "long_cache_read_per_mtok": 0.02,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "GPT-6 的低成本、高流量版本"
@@ -311,7 +341,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 8.0,
       "long_output_per_mtok": 30.0,
-      "long_cache_read_per_mtok": 0.8
+      "long_cache_read_per_mtok": 0.8,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代旗艦；$4 / $20 為促銷價，官方保證至少維持到 2026-11-21，報價時請留意"
@@ -333,7 +365,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 4.0,
       "long_output_per_mtok": 18.0,
-      "long_cache_read_per_mtok": 0.4
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "相當於舊的 mini 級距"
@@ -355,7 +389,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 0.4,
       "long_output_per_mtok": 1.8,
-      "long_cache_read_per_mtok": 0.04
+      "long_cache_read_per_mtok": 0.04,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "相當於舊的 nano 級距"
@@ -377,7 +413,9 @@ const LLM_MODELS = [
       "long_context_threshold": 272000,
       "long_input_per_mtok": 10.0,
       "long_output_per_mtok": 45.0,
-      "long_cache_read_per_mtok": 1.0
+      "long_cache_read_per_mtok": 1.0,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "較舊但仍常用的旗艦，沒有快取寫入費"
@@ -399,7 +437,9 @@ const LLM_MODELS = [
       "long_context_threshold": 200000,
       "long_input_per_mtok": 4.0,
       "long_output_per_mtok": 18.0,
-      "long_cache_read_per_mtok": 0.4
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "目前唯一的 Pro，仍為 Preview 且沒有免費層",
@@ -422,7 +462,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "此價格維持到 2026-12-31；2027-01-01 起調為 $1.50 / $7.50，年約報價請特別留意"
@@ -444,7 +486,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "Google 建議新專案使用的輕量版本之一，思考預設為最低"
@@ -466,7 +510,9 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "目前最便宜的 Gemini；音訊輸入另計 $0.50"
@@ -488,7 +534,9 @@ const LLM_MODELS = [
       "long_context_threshold": 200000,
       "long_input_per_mtok": 2.5,
       "long_output_per_mtok": 15.0,
-      "long_cache_read_per_mtok": 0.25
+      "long_cache_read_per_mtok": 0.25,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代 Pro，僅限過去用過的專案使用，新專案無法啟用"
@@ -510,10 +558,187 @@ const LLM_MODELS = [
       "long_context_threshold": null,
       "long_input_per_mtok": null,
       "long_output_per_mtok": null,
-      "long_cache_read_per_mtok": null
+      "long_cache_read_per_mtok": null,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
     },
     "notes": [
       "前一代 Flash，僅限過去用過的專案使用，新專案無法啟用"
+    ]
+  },
+  {
+    "model": "grok-4.7",
+    "label": "Grok 4.7",
+    "line": "grok",
+    "version_label": "Grok 4.7",
+    "model_class": "frontier",
+    "tier": 4,
+    "api_id": "grok-4.7",
+    "pricing": {
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 6.0,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 4.0,
+      "long_output_per_mtok": 12.0,
+      "long_cache_read_per_mtok": 1.0,
+      "long_context_inclusive": true,
+      "batch_discount": null
+    },
+    "notes": [
+      "xAI 目前最強的模型，官方建議程式與一般對話都用它；一律會推理，預設推理強度 high",
+      "不支援 Batch API；提示詞達 200K tokens 時整筆改按兩倍費率"
+    ]
+  },
+  {
+    "model": "grok-4.6",
+    "label": "Grok 4.6",
+    "line": "grok",
+    "version_label": "Grok 4.6",
+    "model_class": "strong",
+    "tier": 3,
+    "api_id": "grok-4.6",
+    "pricing": {
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 6.0,
+      "cache_read_per_mtok": 0.5,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 4.0,
+      "long_output_per_mtok": 12.0,
+      "long_cache_read_per_mtok": 1.0,
+      "long_context_inclusive": true,
+      "batch_discount": null
+    },
+    "notes": [
+      "前一代旗艦，單價與 4.7 相同；新專案建議直接評估 4.7",
+      "目前唯一同時上架 Bedrock、Azure、Vertex 與 OCI 的 Grok"
+    ]
+  },
+  {
+    "model": "grok-4.5",
+    "label": "Grok 4.5",
+    "line": "grok",
+    "version_label": "Grok 4.5",
+    "model_class": "strong",
+    "tier": 3,
+    "api_id": "grok-4.5",
+    "pricing": {
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 6.0,
+      "cache_read_per_mtok": 0.3,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 4.0,
+      "long_output_per_mtok": 12.0,
+      "long_cache_read_per_mtok": 0.6,
+      "long_context_inclusive": true,
+      "batch_discount": null
+    },
+    "notes": [
+      "偏重程式與代理工作，快取讀取比 4.6／4.7 便宜（$0.30）",
+      "只在 xAI API 提供"
+    ]
+  },
+  {
+    "model": "grok-4.3",
+    "label": "Grok 4.3",
+    "line": "grok",
+    "version_label": "Grok 4.3",
+    "model_class": "balanced",
+    "tier": 2,
+    "api_id": "grok-4.3",
+    "pricing": {
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 2.5,
+      "cache_read_per_mtok": 0.2,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 2.5,
+      "long_output_per_mtok": 5.0,
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": true,
+      "batch_discount": 0.2
+    },
+    "notes": [
+      "1M context，推理強度可設 none 到 xhigh（預設 low）",
+      "支援 Batch API，打八折"
+    ]
+  },
+  {
+    "model": "grok-4.20-0309-reasoning",
+    "label": "Grok 4.20 Reasoning",
+    "line": "grok",
+    "version_label": "Grok 4.20 Reasoning",
+    "model_class": "balanced",
+    "tier": 2,
+    "api_id": "grok-4.20-0309-reasoning",
+    "pricing": {
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 2.5,
+      "cache_read_per_mtok": 0.2,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 2.5,
+      "long_output_per_mtok": 5.0,
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": true,
+      "batch_discount": 0.2
+    },
+    "notes": [
+      "單價與 4.3 相同；xAI 官方建議新專案改用 4.3",
+      "支援 Batch API，打八折"
+    ]
+  },
+  {
+    "model": "grok-4.20-0309-non-reasoning",
+    "label": "Grok 4.20 Non-reasoning",
+    "line": "grok",
+    "version_label": "Grok 4.20 Non-reasoning",
+    "model_class": "fast",
+    "tier": 1,
+    "api_id": "grok-4.20-0309-non-reasoning",
+    "pricing": {
+      "input_per_mtok": 1.25,
+      "output_per_mtok": 2.5,
+      "cache_read_per_mtok": 0.2,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 2.5,
+      "long_output_per_mtok": 5.0,
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": true,
+      "batch_discount": 0.2
+    },
+    "notes": [
+      "不推理、延遲最低，適合分類與摘要這類大量簡單工作",
+      "支援 Batch API，打八折"
+    ]
+  },
+  {
+    "model": "grok-build-0.1",
+    "label": "Grok Build 0.1",
+    "line": "grok",
+    "version_label": "Grok Build 0.1",
+    "model_class": "fast",
+    "tier": 1,
+    "api_id": "grok-build-0.1",
+    "pricing": {
+      "input_per_mtok": 1.0,
+      "output_per_mtok": 2.0,
+      "cache_read_per_mtok": 0.2,
+      "cache_write_5m_per_mtok": null,
+      "long_context_threshold": 200000,
+      "long_input_per_mtok": 2.0,
+      "long_output_per_mtok": 4.0,
+      "long_cache_read_per_mtok": 0.4,
+      "long_context_inclusive": true,
+      "batch_discount": null
+    },
+    "notes": [
+      "xAI 的程式專用模型（取代已退役的 grok-code-fast-1），也是最便宜的 Grok",
+      "256K context，只在 xAI API 提供"
     ]
   }
 ];
@@ -772,6 +997,44 @@ const LLM_PLANS = [
   {"model": "gemini-2.5-flash", "model_label": "Gemini 2.5 Flash", "platform": "vertex", "plan_id": "vx_t2", "platform_label": "GCP Vertex", "plan_label": "Standard PayGo Tier 2（30 天消費 $250–$2K）", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 4000000.0, "soft": true}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["基準 TPM 依組織過去 30 天的 Vertex 總消費決定，並非硬上限；超出部分以盡力方式服務，可能被節流", "官方未說明基準 TPM 是否計入輸出，此處保守以輸入加輸出計算", "不設 RPM；數值以送往全域端點為準，區域端點另加 10% 價格", "需要保證容量可改買 Provisioned Throughput"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/standard-paygo", "verified": "2026-09-29"},
   {"model": "gemini-2.5-flash", "model_label": "Gemini 2.5 Flash", "platform": "vertex", "plan_id": "vx_t3", "platform_label": "GCP Vertex", "plan_label": "Standard PayGo Tier 3（30 天消費 $2K–$50K）", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0, "soft": true}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["基準 TPM 依組織過去 30 天的 Vertex 總消費決定，並非硬上限；超出部分以盡力方式服務，可能被節流", "官方未說明基準 TPM 是否計入輸出，此處保守以輸入加輸出計算", "不設 RPM；數值以送往全域端點為準，區域端點另加 10% 價格", "需要保證容量可改買 Provisioned Throughput"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/standard-paygo", "verified": "2026-09-29"},
   {"model": "gemini-2.5-flash", "model_label": "Gemini 2.5 Flash", "platform": "vertex", "plan_id": "vx_t4", "platform_label": "GCP Vertex", "plan_label": "Standard PayGo Tier 4（30 天消費 $50K 以上）", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0, "soft": true}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["基準 TPM 依組織過去 30 天的 Vertex 總消費決定，並非硬上限；超出部分以盡力方式服務，可能被節流", "官方未說明基準 TPM 是否計入輸出，此處保守以輸入加輸出計算", "不設 RPM；數值以送往全域端點為準，區域端點另加 10% 價格", "需要保證容量可改買 Provisioned Throughput"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/standard-paygo", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 9000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 150 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 60000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 30000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 100000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 500 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "OCI 尚未公布此模型的限制名稱與預設值", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 9000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 150 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 60000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 30000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 100000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 500 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "otpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "AWS 配額總表未列出此模型的 Mantle 預設值，實際額度依帳號而定", "Mantle 僅提供區域內推論，比 xAI 牌價另加 10%"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "AWS 說明頁：未列名的模型 output burndown 為 1:1", "全域跨區推論以 xAI 牌價計費；美國跨區與區域內另加 10%"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "foundry", "plan_id": "az_low", "platform_label": "Azure Foundry", "plan_label": "Low 層級 (Global Standard)", "rpm": {"status": "enforced", "value": 0.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 0.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上的 Grok 4.6 目前為 Preview，context 200K、單次輸出上限 128K", "層級依訂閱與部署設定決定，官方未公開對照表", "Azure 未說明 Grok 的計量方式，此處沿用 Azure 的一般算法：以提示詞加 max_tokens 估算扣除", "此層級預設為 0，部署前必須先申請"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "foundry", "plan_id": "az_medium", "platform_label": "Azure Foundry", "plan_label": "Medium 層級 (Global Standard)", "rpm": {"status": "enforced", "value": 50.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上的 Grok 4.6 目前為 Preview，context 200K、單次輸出上限 128K", "層級依訂閱與部署設定決定，官方未公開對照表", "Azure 未說明 Grok 的計量方式，此處沿用 Azure 的一般算法：以提示詞加 max_tokens 估算扣除"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "foundry", "plan_id": "az_high", "platform_label": "Azure Foundry", "plan_label": "High 層級 (Global Standard)", "rpm": {"status": "enforced", "value": 5000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 5000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上的 Grok 4.6 目前為 Preview，context 200K、單次輸出上限 128K", "層級依訂閱與部署設定決定，官方未公開對照表", "Azure 未說明 Grok 的計量方式，此處沿用 Azure 的一般算法：以提示詞加 max_tokens 估算扣除"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "vertex", "plan_id": "vx_global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 13.0}, "itpm": {"status": "enforced", "value": 188000.0}, "otpm": {"status": "enforced", "value": 16000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度", "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入", "預設額度偏低，正式上線前通常需要申請調升"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok", "verified": "2026-09-29"},
+  {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "調額時在 Limits 申請 grok-4-6-tokens-per-minute-count", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
+  {"model": "grok-4.5", "model_label": "Grok 4.5", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 9000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 150 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.5", "model_label": "Grok 4.5", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 60000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.5", "model_label": "Grok 4.5", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 30000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 100000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 500 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 2220.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 37 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 4500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 25000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 75 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 85000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "foundry", "plan_id": "az_gs", "platform_label": "Azure Foundry", "plan_label": "Global Standard", "rpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上為 Preview，context 約 200K–262K、單次輸出上限 8,192 tokens", "Data Zone Standard (US) 比 xAI 牌價另加 10%"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "vertex", "plan_id": "vx_global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 100.0}, "itpm": {"status": "enforced", "value": 540000.0}, "otpm": {"status": "enforced", "value": 80000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["此模型在 Vertex 仍為 Preview", "Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度", "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入", "預設額度偏低，正式上線前通常需要申請調升"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok", "verified": "2026-09-29"},
+  {"model": "grok-4.3", "model_label": "Grok 4.3", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "調額時在 Limits 申請 grok-4-3-tokens-per-minute-count", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 2220.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 37 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 4500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 25000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 75 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 85000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "foundry", "plan_id": "az_gs", "platform_label": "Azure Foundry", "plan_label": "Global Standard", "rpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上為 Preview，context 約 200K–262K、單次輸出上限 8,192 tokens", "Data Zone Standard (US) 比 xAI 牌價另加 10%"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "vertex", "plan_id": "vx_global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 100.0}, "itpm": {"status": "enforced", "value": 540000.0}, "otpm": {"status": "enforced", "value": 80000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度", "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入", "預設額度偏低，正式上線前通常需要申請調升"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-reasoning", "model_label": "Grok 4.20 Reasoning", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "調額時在 Limits 申請 grok-4-2-reasoning-tokens-per-minute-count", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 2220.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 37 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 4500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 25000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 75 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 85000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "foundry", "plan_id": "az_gs", "platform_label": "Azure Foundry", "plan_label": "Global Standard", "rpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "Azure 只公布 Grok 4.6 的配額，此模型需在 Foundry 入口網站查看"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 上為 Preview，context 約 200K–262K、單次輸出上限 8,192 tokens", "Data Zone Standard (US) 比 xAI 牌價另加 10%"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/use-foundry-models-grok", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "vertex", "plan_id": "vx_global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 100.0}, "itpm": {"status": "enforced", "value": 540000.0}, "otpm": {"status": "enforced", "value": 80000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度", "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入", "預設額度偏低，正式上線前通常需要申請調升"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok", "verified": "2026-09-29"},
+  {"model": "grok-4.20-0309-non-reasoning", "model_label": "Grok 4.20 Non-reasoning", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "調額時在 Limits 申請 grok-4-2-non-reasoning-tokens-per-minute-count", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
+  {"model": "grok-build-0.1", "model_label": "Grok Build 0.1", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 2220.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 37 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-build-0.1", "model_label": "Grok Build 0.1", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 4500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 25000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 75 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-build-0.1", "model_label": "Grok Build 0.1", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 85000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
 ];
 
 if (typeof module !== 'undefined') { module.exports = { LLM_CONST, LLM_LINES, LLM_MODELS, LLM_SCENARIOS, LLM_PLANS }; }

@@ -16,14 +16,22 @@ from cloudcost.llm.drift import (
     page_urls,
     parse_anthropic_pricing,
     parse_anthropic_rate_limits,
+    parse_azure_grok,
     parse_azure_openai,
+    parse_azure_prices,
     parse_bedrock_gr,
     parse_foundry,
     parse_gemini_pricing,
+    parse_oci_grok_models,
+    parse_oci_prices,
     parse_openai_model_page,
     parse_openai_pricing,
     parse_vertex,
+    parse_vertex_grok_ids,
+    parse_vertex_grok_model,
     parse_vertex_paygo,
+    parse_xai_models,
+    parse_xai_rate,
     render_markdown,
 )
 
@@ -38,6 +46,16 @@ FILES = {
     "azure_openai": "azure_openai.html",
     "gemini_pricing": "gemini_pricing.md",
     "vertex_paygo": "vertex_paygo.html",
+    "xai_models": "xai_models.md",
+    "xai_rate": "xai_rate.md",
+    "azure_grok": "azure_grok.html",
+    "vertex_grok": "vertex_grok.html",
+    "vertex_grok:grok-4-6": "vertex_grok_grok-4-6.html",
+    "vertex_grok:grok-4-3": "vertex_grok_grok-4-3.html",
+    "vertex_grok:grok-4-20": "vertex_grok_grok-4-20.html",
+    "oci_models": "oci_models.html",
+    "oci_prices": "oci_prices.json",
+    "azure_grok_prices": "azure_grok_prices.json",
 }
 
 
@@ -116,6 +134,39 @@ class TestParsers:
         assert v["flash"][4] == 50_000_000
 
 
+class TestGrokParsers:
+    def test_xai_pricing_has_base_and_long_rows(self, pages):
+        t = parse_xai_models(pages["xai_models"])
+        assert t["grok-4.7"] == {"base": (2.0, 0.5, 6.0), "long": (4.0, 1.0, 12.0)}
+        assert t["grok-4.5"]["base"][1] == 0.3
+
+    def test_xai_rate_table_reads_every_tier(self, pages):
+        r = parse_xai_rate(pages["xai_rate"])
+        assert r["grok-4.7"]["rps"] == {0: 150, 1: 172, 2: 208, 3: 312, 4: 500}
+        assert r["grok-4.20-multi-agent-0309"]["tpm"][0] == 2_500_000
+
+    def test_azure_grok_tiers(self, pages):
+        assert parse_azure_grok(pages["azure_grok"]) == {
+            "low": (0, 0), "medium": (50, 50_000), "high": (5_000, 5_000_000)}
+
+    def test_vertex_grok_ids_and_quotas(self, pages):
+        assert "grok-4.6" in parse_vertex_grok_ids(pages["vertex_grok"])
+        both = parse_vertex_grok_model(pages["vertex_grok:grok-4-20"])
+        assert both["grok-4.20-non-reasoning"] == (100, 540_000, 80_000)
+        assert parse_vertex_grok_model(pages["vertex_grok:grok-4-6"])["grok-4.6"] == (13, 188_000, 16_000)
+
+    def test_oci_index_and_price_list(self, pages):
+        assert "xAI Grok 4.7" in parse_oci_grok_models(pages["oci_models"])
+        prices = parse_oci_prices(pages["oci_prices"])
+        assert prices[("4.7", "output", False, False)] == 6
+        assert prices[("4.7", "output", False, True)] == 12  # priority is twice the list price
+        assert prices[("4.2", "input", True, False)] == 2.5
+
+    def test_azure_price_is_what_most_regions_charge(self, pages):
+        """Two special regions charge $2.50 for Grok 4.6 input; the rest charge the xAI price."""
+        assert parse_azure_prices(pages["azure_grok_prices"])["4.6 Inp Glbl Tokens"] == 2.0
+
+
 class TestCurrentCatalogue:
     def test_matches_every_published_number(self, pages):
         report = compare(pages)
@@ -124,9 +175,9 @@ class TestCurrentCatalogue:
     def test_every_source_was_actually_checked(self, pages):
         report = compare(pages)
         for source in ("anthropic", "pricing", "foundry", "vertex", "bedrock", "openai",
-                       "azure_openai", "gemini", "vertex_paygo"):
+                       "azure_openai", "gemini", "vertex_paygo", "xai", "azure_grok", "vertex_grok", "oci"):
             assert report.checked.get(source, 0) > 0, source
-        assert sum(report.checked.values()) >= 160
+        assert sum(report.checked.values()) >= 230
 
     def test_every_claude_model_is_mapped_to_its_rate_limit_row(self):
         """A model missing from this map would never be checked against the tier table."""
@@ -230,6 +281,40 @@ class TestDetection:
     def test_a_vertex_paygo_change(self, pages):
         pages["vertex_paygo"] = pages["vertex_paygo"].replace("500,000", "750,000", 1)
         assert ("vertex_paygo", "mismatch") in _kinds(compare(pages))
+
+    def test_a_grok_price_change(self, pages):
+        pages["xai_models"] = pages["xai_models"].replace(
+            "| grok-4.7 (< 200k prompt tokens) | 500k | $2.00 |", "| grok-4.7 (< 200k prompt tokens) | 500k | $2.50 |", 1)
+        assert any(f.source == "xai" and "Grok 4.7" in f.subject for f in compare(pages).findings)
+
+    def test_a_new_grok_model(self, pages):
+        pages["xai_models"] = pages["xai_models"].replace(
+            "| grok-4.7 (< 200k", "| grok-4.8 (< 200k prompt tokens) | 500k | $2.00 | $0.50 | $6.00 |\n| grok-4.7 (< 200k", 1)
+        assert any(f.kind == "new_model" and "grok-4.8" in f.subject for f in compare(pages).findings)
+
+    def test_an_xai_tier_change(self, pages):
+        pages["xai_rate"] = pages["xai_rate"].replace("| grok-4.7 | T0: 150,", "| grok-4.7 | T0: 200,", 1)
+        assert any(f.source == "xai" and "x_t0" in f.subject for f in compare(pages).findings)
+
+    def test_a_vertex_grok_quota_change(self, pages):
+        key = "vertex_grok:grok-4-6"
+        pages[key] = pages[key].replace("QPM: 13", "QPM: 26")
+        assert ("vertex_grok", "mismatch") in _kinds(compare(pages))
+
+    def test_a_new_grok_on_oci(self, pages):
+        pages["oci_models"] = pages["oci_models"].replace("xAI Grok 4.7", "xAI Grok 4.8 xAI Grok 4.7", 1)
+        assert any(f.kind == "new_model" and "Grok 4.8" in f.subject for f in compare(pages).findings)
+
+    def test_an_oci_price_change(self, pages):
+        pages["oci_prices"] = pages["oci_prices"].replace('"value": 6', '"value": 7', 1)
+        assert ("oci", "mismatch") in _kinds(compare(pages))
+
+    def test_a_grok_bedrock_quota_change(self, pages):
+        gr = pages["bedrock_gr"]
+        i = gr.index("Global cross-region model inference tokens per minute for Grok 4.6")
+        j = gr.index("10,000,000", i)
+        pages["bedrock_gr"] = gr[:j] + "20,000,000" + gr[j + len("10,000,000"):]
+        assert any(f.source == "bedrock" and "Grok 4.6" in f.subject for f in compare(pages).findings)
 
     def test_a_restructured_page_is_a_finding_not_a_crash(self):
         report = compare({})

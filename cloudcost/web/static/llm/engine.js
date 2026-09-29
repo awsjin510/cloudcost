@@ -62,8 +62,13 @@
     return ranked.length ? ranked[0].model : null;
   }
 
+  function isLong(p, prompt) {
+    if (p.long_context_threshold == null) return false;
+    return p.long_context_inclusive ? prompt >= p.long_context_threshold : prompt > p.long_context_threshold;
+  }
+
   function ratesFor(p, prompt) {
-    if (p.long_context_threshold != null && prompt > p.long_context_threshold) {
+    if (isLong(p, prompt)) {
       return [p.long_input_per_mtok != null ? p.long_input_per_mtok : p.input_per_mtok,
               p.long_output_per_mtok != null ? p.long_output_per_mtok : p.output_per_mtok,
               p.long_cache_read_per_mtok != null ? p.long_cache_read_per_mtok : p.cache_read_per_mtok];
@@ -127,7 +132,8 @@
     const noCachePer1k = rpm ? (parts[4] / rpm) * 1000 : 0;
     const savingPct = noCachePer1k > 0 ? ((noCachePer1k - per1k) / noCachePer1k) * 100 : 0;
     const per1kOf = usd => (rpm ? round((usd / rpm) * 1000, 4) : 0);
-    const batchPerRequest = perRequest * (1 - C.BATCH_DISCOUNT);
+    const discount = price.batch_discount;
+    const batchPerRequest = discount != null ? perRequest * (1 - discount) : null;
     const monthly = x => (w.monthly_requests != null ? round(x * w.monthly_requests, 2) : null);
 
     const caveats = [
@@ -139,8 +145,11 @@
                    g(price.cache_write_5m_per_mtok) + '/MTok）');
     }
     if (price.long_context_threshold != null) {
-      caveats.push('提示詞超過 ' + fmt(price.long_context_threshold) + ' tokens 時，整筆請求改按長上下文費率計算');
+      caveats.push('提示詞' + (price.long_context_inclusive ? '達到' : '超過') + ' ' + fmt(price.long_context_threshold) +
+                   ' tokens 時，整筆請求改按長上下文費率計算');
     }
+    if (discount == null) caveats.push('此模型不支援 Batch API，所有請求都按即時費率計算');
+    caveats.push('AI 模型調用記憶或檔案功能（例如記憶工具、檔案搜尋、上傳文件）時額外讀入的 token 與工具費用，不包含在本頁的模型預估消耗中，實際用量請以 API 回傳的 usage 為準');
 
     return {
       per_request_usd: round(perRequest, 6),
@@ -154,8 +163,9 @@
         output: per1kOf(parts[2]), thinking: per1kOf(parts[3]),
       },
       thinking_share_pct: perMinute ? round(parts[3] / perMinute * 100, 1) : 0,
-      batch_per_1k_requests_usd: round(batchPerRequest * 1000, 4),
-      batch_monthly_usd: monthly(batchPerRequest),
+      batch_discount_pct: discount != null ? round(discount * 100, 1) : null,
+      batch_per_1k_requests_usd: batchPerRequest != null ? round(batchPerRequest * 1000, 4) : null,
+      batch_monthly_usd: batchPerRequest != null ? monthly(batchPerRequest) : null,
       caveats: caveats,
     };
   }
@@ -252,12 +262,25 @@
 
   // -- next actions -------------------------------------------------------
 
+  function whereToLook(plan) {
+    if (plan.platform === 'bedrock') {
+      return '請到 Service Quotas 主控台搜尋 ' +
+        (plan.plan_id === 'mantle' ? 'Bedrock Mantle 的輸入／輸出 TPM' : 'Bedrock 跨區推論的 TPM');
+    }
+    if (plan.platform === 'oci') return '請到 OCI 主控台的 Limits, Quotas and Usage 查出 Generative AI 的 Grok TPM';
+    return '請在該平台的配額主控台查出本帳號的實際額度';
+  }
+
+  // 0.5 -> 五折, 0.2 -> 八折.
+  function zhe(discount) {
+    const pay = halfUp((1 - discount) * 10);
+    return pay > 0 && pay < 10 ? '零一二三四五六七八九'[pay] + '折' : pay + ' 折';
+  }
+
   function buildActions(w, agg, plan, dims, verdict) {
     const actions = [];
     if (verdict === 'unknown') {
-      const where = plan.platform === 'bedrock'
-        ? '請到 Service Quotas 主控台搜尋 Bedrock Mantle 查出本帳號的輸入／輸出 TPM'
-        : '請在該平台的配額主控台查出本帳號的實際額度';
+      const where = whereToLook(plan);
       actions.push({ kind: 'enter_account_quota', text: '此平台未公布預設值。' + where + '，填入上方「我的帳號配額」即可得到判讀' });
       if (w.max_tokens == null && reserves(plan)) {
         actions.push({ kind: 'set_max_tokens',
@@ -308,8 +331,9 @@
           text: '把快取命中率提高到 ' + halfUp(rate * 100) + '% 就能塞進現有額度，不必申請調額（目前 ' + halfUp(cur * 100) + '%）' });
       }
     }
-    if (w.batch_eligible) {
-      actions.push({ kind: 'use_batch', text: '這類工作可以非即時處理：改走批次 API 不佔即時配額，且費用打五折' });
+    const discount = getModel(w.model).pricing.batch_discount;
+    if (w.batch_eligible && discount != null) {
+      actions.push({ kind: 'use_batch', text: '這類工作可以非即時處理：改走批次 API 不佔即時配額，且費用打' + zhe(discount) });
     }
     if (reserves(plan) && w.max_tokens == null) {
       actions.push({ kind: 'set_max_tokens',

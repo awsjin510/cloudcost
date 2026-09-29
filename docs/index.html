@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本比較計算機</title>
-  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，並試算 Claude、GPT、Gemini 常見模型在 Anthropic、OpenAI、Google、AWS、Azure、GCP 上的 LLM 配額負載與 API 費用。免費、開源、無需登入。">
+  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，並試算 Claude、GPT、Gemini、Grok 常見模型在 Anthropic、OpenAI、Google、xAI、AWS、Azure、GCP、Oracle 上的 LLM 配額負載與 API 費用。免費、開源、無需登入。">
   <meta property="og:title" content="CloudCost — 多雲成本比較計算機">
   <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用，並試算 LLM 配額負載與 API 費用">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="stylesheet" href="llm/style.css?v=0.11.0">
+  <link rel="stylesheet" href="llm/style.css?v=0.12.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9729;</text></svg>">
   <style>
 :root {
@@ -414,7 +414,7 @@ footer a:hover { text-decoration: underline; }
         <h1>CloudCost</h1>
       </div>
       <p class="tagline">一鍵跨雲比價，找出最划算的雲端方案！</p>
-      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，並可試算 Claude、GPT、Gemini 常見模型在各平台的 LLM 配額負載與 API 費用，幫您告別繁瑣試算表，精準控管每一分預算。</p>
+      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，並可試算 Claude、GPT、Gemini、Grok 常見模型在各平台的 LLM 配額負載與 API 費用，幫您告別繁瑣試算表，精準控管每一分預算。</p>
     </div>
   </header>
 
@@ -799,7 +799,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.11.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.12.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -811,9 +811,9 @@ footer a:hover { text-decoration: underline; }
 
   <div class="toast" id="toast"></div>
 
-<script src="llm/data.js?v=0.11.0"></script>
-<script src="llm/engine.js?v=0.11.0"></script>
-<script src="llm/render.js?v=0.11.0"></script>
+<script src="llm/data.js?v=0.12.0"></script>
+<script src="llm/engine.js?v=0.12.0"></script>
+<script src="llm/render.js?v=0.12.0"></script>
 <script>
 (function() {
 
@@ -1805,6 +1805,6 @@ if (urlSpec) {
 
 })();
 </script>
-<script src="llm/form.js?v=0.11.0"></script>
+<script src="llm/form.js?v=0.12.0"></script>
 </body>
 </html>

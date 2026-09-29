@@ -1,14 +1,16 @@
 """Detect drift between the planner's catalogue and the vendors' own pages.
 
-No vendor publishes default quotas or list prices for these models through
-an API (checked 2026-09-28/29: the AWS Price List only reaches Claude 3, the
-Azure Retail Prices API has no Claude rows, Google no longer publishes Gemini
-API limits at all). The documentation pages themselves are the authoritative
-source, and they are machine-readable enough to parse, so this module fetches
-them — Anthropic, AWS General Reference, Microsoft Learn, OpenAI model pages,
-Google pricing and Vertex PayGo — parses the tables, and reports every place
-the catalogue disagrees, including models the vendors list that the
-catalogue does not know about yet.
+Few vendors publish default quotas or list prices through an API (checked
+2026-09-28/29: the AWS Price List only reaches Claude 3, the Azure Retail
+Prices API has no Claude rows, Google no longer publishes Gemini API limits
+at all). The documentation pages are the authoritative source, and they are
+machine-readable enough to parse, so this module fetches them — Anthropic,
+AWS General Reference, Microsoft Learn, OpenAI and xAI model pages, Google
+pricing, Vertex PayGo and Grok pages, OCI Generative AI — parses the tables,
+and reports every place the catalogue disagrees, including models the
+vendors list that the catalogue does not know about yet. Grok is the one
+line with real price APIs behind it (Oracle's price list and Azure Retail
+Prices), and those are checked too.
 
 Run weekly from CI (.github/workflows/llm-drift.yml)::
 
@@ -23,22 +25,30 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import re
 import sys
+import urllib.parse
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable, Optional
 
 from cloudcost.llm.catalog import (
     SRC_ANTHROPIC,
+    SRC_AZURE_GROK,
     SRC_AZURE_OPENAI,
     SRC_BEDROCK_GR,
     SRC_FOUNDRY,
     SRC_GEMINI_PRICING,
     SRC_OPENAI_MODELS,
+    SRC_OCI_GROK,
     SRC_OPENAI_PRICING,
     SRC_PRICING,
     SRC_VERTEX,
+    SRC_VERTEX_GROK,
     SRC_VERTEX_PAYGO,
+    SRC_XAI_MODELS,
+    SRC_XAI_RATE,
     LimitStatus,
     LLMModel,
     LLMPlatform,
@@ -46,6 +56,19 @@ from cloudcost.llm.catalog import (
     get_model,
     list_models,
     list_plans,
+)
+
+OCI_PRICE_LIST = "https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD"
+#: Global Standard meters only; each is listed once per region.
+_AZURE_GROK_METERS = {
+    LLMModel.GROK_4_6: ("4.6 Inp Glbl Tokens", "4.6 Cached Glbl Tokens", "4.6 Outp Glbl Tokens"),
+    LLMModel.GROK_4_3: ("4.3 Inp Glbl Tokens", "4.3 Cached Inp Glbl Tokens", "4.3 Outp Glbl Tokens"),
+}
+AZURE_GROK_PRICES = (
+    "https://prices.azure.com/api/retail/prices?$filter="
+    + urllib.parse.quote("productName eq 'Azure Grok Models' and ("
+                         + " or ".join(f"meterName eq '{m}'" for ms in _AZURE_GROK_METERS.values() for m in ms)
+                         + ")")
 )
 
 # Markdown variants of the Anthropic pages parse far more reliably than HTML.
@@ -60,6 +83,14 @@ URLS = {
     "azure_openai": SRC_AZURE_OPENAI,
     "gemini_pricing": SRC_GEMINI_PRICING + ".md.txt",
     "vertex_paygo": SRC_VERTEX_PAYGO + "?hl=en",
+    "xai_models": SRC_XAI_MODELS + ".md",
+    "xai_rate": SRC_XAI_RATE + ".md",
+    "azure_grok": SRC_AZURE_GROK,
+    "vertex_grok": SRC_VERTEX_GROK + "?hl=en",
+    "oci_models": SRC_OCI_GROK,
+    # Real price APIs: Oracle's public price list and Azure Retail Prices.
+    "oci_prices": OCI_PRICE_LIST,
+    "azure_grok_prices": AZURE_GROK_PRICES,
 }
 
 # Labels the vendors list that the planner deliberately does not model
@@ -325,6 +356,125 @@ def parse_vertex_paygo(page: str) -> dict[str, dict[int, float]]:
 # Comparison
 # ---------------------------------------------------------------------------
 
+def _money(text: str) -> Optional[float]:
+    m = re.search(r"\$\s*([\d,]*\.?\d+)", text)
+    return float(m.group(1).replace(",", "")) if m else None
+
+
+def _millions(text: str) -> Optional[float]:
+    """"50M" -> 50,000,000; "188,000" -> 188,000."""
+    m = re.match(r"\s*([\d.,]+)\s*([MK])?", text)
+    if not m:
+        return None
+    value = float(m.group(1).replace(",", ""))
+    return value * {"M": 1_000_000, "K": 1_000}.get(m.group(2) or "", 1)
+
+
+def parse_xai_models(md: str) -> dict[str, dict[str, tuple]]:
+    """{model id: {"base"|"long": (input, cached, output)}} from the Text API Pricing table."""
+    out: dict[str, dict[str, tuple]] = {}
+    m = re.search(r"### Text API Pricing(.*?)(?:\n### |\n## |\Z)", md, re.S)
+    for line in (m.group(1) if m else "").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 5 or not cells[0].startswith("grok-"):
+            continue
+        mid = cells[0].split(" ")[0]
+        kind = "long" if "≥" in cells[0] or ">=" in cells[0] else "base"
+        out.setdefault(mid, {})[kind] = (_money(cells[2]), _money(cells[3]), _money(cells[4]))
+    return out
+
+
+def parse_xai_rate(md: str) -> dict[str, dict[str, dict[int, float]]]:
+    """{model id: {"rps"|"tpm": {tier: value}}} from the per-model limits table."""
+    out: dict[str, dict[str, dict[int, float]]] = {}
+    for line in md.splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3 or not cells[0].startswith("grok-"):
+            continue
+        row = {}
+        for key, cell in (("rps", cells[1]), ("tpm", cells[2])):
+            row[key] = {int(t): _millions(v) for t, v in re.findall(r"T(\d):\s*([\d.,]+[MK]?)", cell)}
+        if row["rps"] and row["tpm"]:
+            out[cells[0]] = row
+    return out
+
+
+def parse_azure_grok(page: str) -> dict[str, tuple[float, float]]:
+    """{tier: (rpm, tpm)} for the Global Standard rows of the Grok quota table."""
+    out: dict[str, tuple[float, float]] = {}
+    for tr in re.findall(r"<tr>(.*?)</tr>", page, re.S):
+        cells = [" ".join(_strip(c).split()) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+        if len(cells) == 4 and cells[0] == "Global Standard":
+            tpm, rpm = _num(cells[2]), _num(cells[3])
+            if tpm is not None and rpm is not None:
+                out[cells[1].lower()] = (rpm, tpm)
+    return out
+
+
+def parse_vertex_grok_ids(page: str) -> set[str]:
+    """Model IDs the Vertex Grok overview tells callers to use."""
+    text = " ".join(_strip(page).split())
+    return set(re.findall(r"For Grok [^,]+, use (grok-[\w.\-]+)", text))
+
+
+def parse_vertex_grok_model(page: str) -> dict[str, tuple[float, float, float]]:
+    """{model id: (qpm, input tpm, output tpm)} from a Vertex Grok model page."""
+    out: dict[str, tuple[float, float, float]] = {}
+    current = None
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", page, re.S):
+        cells = [" ".join(_strip(c).split()) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S)]
+        if len(cells) >= 2 and cells[0] == "Model ID":
+            current = cells[1]
+        elif len(cells) >= 2 and cells[0] == "Quota limits" and current:
+            m = re.search(r"global endpoint: QPM: ([\d,]+) Input TPM: ([\d,]+) Output TPM: ([\d,]+)", cells[1])
+            if m:
+                out[current] = tuple(float(x.replace(",", "")) for x in m.groups())
+    return out
+
+
+def parse_oci_grok_models(page: str) -> set[str]:
+    """Grok model names in the OCI Generative AI pretrained-model index."""
+    text = " ".join(_strip(page).split())
+    return set(re.findall(r"xAI Grok \d+(?:\.\d+)?(?: Multi-Agent)?", text))
+
+
+def parse_oci_prices(body: str) -> dict[tuple[str, str, bool, bool], float]:
+    """{(version, "input"|"cached"|"output", long, priority): USD per 1M} from the Oracle price list."""
+    try:
+        items = json.loads(body).get("items", [])
+    except ValueError:
+        return {}
+    out: dict[tuple[str, str, bool, bool], float] = {}
+    for item in items:
+        name = " ".join(item.get("displayName", "").split())
+        m = re.search(r"Grok (\d+(?:\.\d+)?)( Priority)? - (Cached Input|Input|Output) Tokens (.+)$", name)
+        if not m:
+            continue
+        usd = [p for loc in item.get("currencyCodeLocalizations", []) if loc.get("currencyCode") == "USD"
+               for p in loc.get("prices", []) if p.get("model") == "PAY_AS_YOU_GO"]
+        if not usd:
+            continue
+        kind = {"Cached Input": "cached", "Input": "input", "Output": "output"}[m.group(3)]
+        long = bool(re.search(r"greater than|long", m.group(4), re.I))
+        out[(m.group(1), kind, long, bool(m.group(2)))] = float(usd[0]["value"])
+    return out
+
+
+def parse_azure_prices(body: str) -> dict[str, float]:
+    """{meter name: USD per 1M}, taking the price most regions charge."""
+    try:
+        items = json.loads(body).get("Items", [])
+    except ValueError:
+        return {}
+    seen: dict[str, Counter] = {}
+    for item in items:
+        if item.get("type") != "Consumption":
+            continue
+        per_m = round(item["retailPrice"] * (1000 if item.get("unitOfMeasure") == "1K" else 1), 4)
+        seen.setdefault(item["meterName"], Counter())[per_m] += 1
+    return {meter: counts.most_common(1)[0][0] for meter, counts in seen.items()}
+
+
 _ANTHROPIC_RL_LABEL = {
     LLMModel.FABLE_5_1: "Claude Fable 5.x",
     LLMModel.FABLE_5: "Claude Fable 5.x",
@@ -342,10 +492,26 @@ _ANTHROPIC_RL_LABEL = {
 _BEDROCK_KNOWN_OTHER = (
     "anthropic claude opus 4", "anthropic claude sonnet 4", "anthropic claude 3",
     "anthropic claude haiku 3", "anthropic claude mythos", "anthropic claude instant",
-    "gpt-5.4", "gpt oss", "gpt-5.6 cyber", "openai gpt oss",
+    "gpt-5.4", "gpt oss", "gpt-5.6 cyber", "openai gpt oss", "grok 4.1", "grok 4 ",
 )
 _GPT_KNOWN_ALIASES = {"gpt-6", "gpt-5.6"}
 _GEMINI_KNOWN_OTHER = {"gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"}
+#: Grok variants deliberately left out: a different workload with its own limits.
+_GROK_KNOWN_OTHER = {"grok-4.20-multi-agent-0309"}
+_VERTEX_GROK_ID = {
+    LLMModel.GROK_4_6: ("grok-4-6", "grok-4.6"),
+    LLMModel.GROK_4_3: ("grok-4-3", "grok-4.3"),
+    LLMModel.GROK_4_20_REASONING: ("grok-4-20", "grok-4.20-reasoning"),
+    LLMModel.GROK_4_20_NON_REASONING: ("grok-4-20", "grok-4.20-non-reasoning"),
+}
+_VERTEX_GROK_KNOWN_OTHER = {"grok-4.1-fast-reasoning", "grok-4.1-fast-non-reasoning"}
+_OCI_GROK_NAME = {
+    LLMModel.GROK_4_7: ("xAI Grok 4.7", "4.7"),
+    LLMModel.GROK_4_6: ("xAI Grok 4.6", "4.6"),
+    LLMModel.GROK_4_3: ("xAI Grok 4.3", "4.3"),
+    LLMModel.GROK_4_20_REASONING: ("xAI Grok 4.20", "4.2"),
+    LLMModel.GROK_4_20_NON_REASONING: ("xAI Grok 4.20", "4.2"),
+}
 
 
 def _plan(model: LLMModel, platform: LLMPlatform, plan_id: str):
@@ -459,7 +625,7 @@ def _compare_bedrock(report: DriftReport, pages: dict[str, str]) -> None:
         report.findings.append(Finding("bedrock", "parse_error", "AWS 配額總表解析失敗"))
         return
     modelled: set[str] = set()
-    for info in list_models(ModelLine.CLAUDE) + list_models(ModelLine.GPT):
+    for info in list_models(ModelLine.CLAUDE) + list_models(ModelLine.GPT) + list_models(ModelLine.GROK):
         prefix = "Anthropic " if info.line is ModelLine.CLAUDE else ""
         modelled.add((prefix + info.label).lower())
 
@@ -494,7 +660,7 @@ def _compare_bedrock(report: DriftReport, pages: dict[str, str]) -> None:
             continue
         name = m.group(1).strip()
         low = name.lower()
-        if not (low.startswith("anthropic claude") or low.startswith("gpt-")):
+        if not (low.startswith("anthropic claude") or low.startswith("gpt-") or low.startswith("grok")):
             continue
         if low not in modelled and not low.startswith(_BEDROCK_KNOWN_OTHER):
             report.findings.append(Finding("bedrock", "new_model", f"Bedrock 新增 {name}，工具尚未收錄"))
@@ -591,6 +757,101 @@ def _compare_gemini(report: DriftReport, pages: dict[str, str]) -> None:
             _cmp(report, "vertex_paygo", f"{info.label} Tier {n}", (_v(plan.tpm),), (paygo[family].get(n),))
 
 
+def _compare_grok(report: DriftReport, pages: dict[str, str]) -> None:
+    grok = list_models(ModelLine.GROK)
+
+    prices = parse_xai_models(pages.get("xai_models", ""))
+    if not prices:
+        report.findings.append(Finding("xai", "parse_error", "xAI 定價表（Text API Pricing）解析失敗"))
+    else:
+        for info in grok:
+            p = info.pricing
+            row = prices.get(info.api_id)
+            if not row or "base" not in row:
+                report.findings.append(Finding("xai", "missing", f"{info.api_id} 不在 xAI 定價表"))
+                continue
+            _cmp(report, "xai", f"{info.label} 定價",
+                 (p.input_per_mtok, p.cache_read_per_mtok, p.output_per_mtok,
+                  p.long_input_per_mtok, p.long_cache_read_per_mtok, p.long_output_per_mtok),
+                 (*row["base"], *row.get("long", (None, None, None))))
+        known = {m.api_id for m in grok}
+        for mid in sorted(prices):
+            if mid not in known and mid not in _GROK_KNOWN_OTHER:
+                report.findings.append(Finding("xai", "new_model", f"xAI 新增 {mid}，工具尚未收錄"))
+
+    rate = parse_xai_rate(pages.get("xai_rate", ""))
+    if not rate:
+        report.findings.append(Finding("xai", "parse_error", "xAI 各模型配額表解析失敗"))
+    else:
+        for info in grok:
+            row = rate.get(info.api_id)
+            if row is None:
+                report.findings.append(Finding("xai", "missing", f"{info.api_id} 不在 xAI 配額表"))
+                continue
+            for plan_id in ("x_t0", "x_t2", "x_t4"):
+                plan = _plan(info.model, LLMPlatform.XAI, plan_id)
+                tier = int(plan_id[-1])
+                ours = (_v(plan.rpm) / 60 if plan and _v(plan.rpm) else None, _v(plan.tpm) if plan else None)
+                _cmp(report, "xai", f"{info.label} {plan_id}", ours,
+                     (row["rps"].get(tier), row["tpm"].get(tier)))
+
+    azure = parse_azure_grok(pages.get("azure_grok", ""))
+    if not azure:
+        report.findings.append(Finding("azure_grok", "parse_error", "Azure Grok 配額表解析失敗"))
+    else:
+        for plan_id, tier in (("az_low", "low"), ("az_medium", "medium"), ("az_high", "high")):
+            plan = _plan(LLMModel.GROK_4_6, LLMPlatform.FOUNDRY, plan_id)
+            _cmp(report, "azure_grok", f"Grok 4.6 {tier}", (_v(plan.rpm), _v(plan.tpm)), azure.get(tier, (None, None)))
+
+    ids = parse_vertex_grok_ids(pages.get("vertex_grok", ""))
+    if not ids:
+        report.findings.append(Finding("vertex_grok", "parse_error", "Vertex Grok 總覽頁解析失敗"))
+    known = {vid for _, vid in _VERTEX_GROK_ID.values()}
+    for vid in sorted(ids - known - _VERTEX_GROK_KNOWN_OTHER):
+        report.findings.append(Finding("vertex_grok", "new_model", f"Vertex 新增 {vid}，工具尚未收錄"))
+    for model, (slug, vid) in _VERTEX_GROK_ID.items():
+        got = parse_vertex_grok_model(pages.get(f"vertex_grok:{slug}", "")).get(vid)
+        plan = _plan(model, LLMPlatform.VERTEX, "vx_global")
+        if got is None:
+            report.findings.append(Finding("vertex_grok", "parse_error", f"Vertex {vid} 模型頁的配額解析失敗"))
+            continue
+        _cmp(report, "vertex_grok", f"{get_model(model).label} Vertex", _triple(plan), got)
+
+    names = parse_oci_grok_models(pages.get("oci_models", ""))
+    if not names:
+        report.findings.append(Finding("oci", "parse_error", "OCI Generative AI 模型清單解析失敗"))
+    else:
+        ours = {name for name, _ in _OCI_GROK_NAME.values()}
+        for name in sorted(names):
+            if name not in ours and "Multi-Agent" not in name:
+                report.findings.append(Finding("oci", "new_model", f"OCI 新增 {name}，工具尚未收錄"))
+        for name in sorted(ours - names):
+            report.findings.append(Finding("oci", "missing", f"{name} 不在 OCI 模型清單"))
+
+    oci = parse_oci_prices(pages.get("oci_prices", ""))
+    if not oci:
+        report.findings.append(Finding("oci", "parse_error", "Oracle 價目表 API 解析失敗"))
+    else:
+        for model, (_, ver) in _OCI_GROK_NAME.items():
+            p = get_model(model).pricing
+            for long, (inp, cached, out) in ((False, (p.input_per_mtok, p.cache_read_per_mtok, p.output_per_mtok)),
+                                             (True, (p.long_input_per_mtok, p.long_cache_read_per_mtok,
+                                                     p.long_output_per_mtok))):
+                theirs = tuple(oci.get((ver, k, long, False)) for k in ("input", "cached", "output"))
+                _cmp(report, "oci", f"{get_model(model).label} OCI {'長' if long else '短'}上下文牌價",
+                     (inp, cached, out), theirs)
+
+    azure_prices = parse_azure_prices(pages.get("azure_grok_prices", ""))
+    if not azure_prices:
+        report.findings.append(Finding("azure_grok", "parse_error", "Azure Retail Prices API 解析失敗"))
+    else:
+        for model, meters in _AZURE_GROK_METERS.items():
+            p = get_model(model).pricing
+            _cmp(report, "azure_grok", f"{get_model(model).label} Azure Global 牌價",
+                 (p.input_per_mtok, p.cache_read_per_mtok, p.output_per_mtok),
+                 tuple(azure_prices.get(m) for m in meters))
+
+
 def compare(pages: dict[str, str]) -> DriftReport:
     """Diff the catalogue against already-fetched page bodies."""
     report = DriftReport()
@@ -598,6 +859,7 @@ def compare(pages: dict[str, str]) -> DriftReport:
     _compare_bedrock(report, pages)
     _compare_openai(report, pages)
     _compare_gemini(report, pages)
+    _compare_grok(report, pages)
     return report
 
 
@@ -606,6 +868,8 @@ def page_urls() -> dict[str, str]:
     urls = dict(URLS)
     for info in list_models(ModelLine.GPT):
         urls[f"openai_model:{info.api_id}"] = f"{SRC_OPENAI_MODELS}/{info.api_id}.md"
+    for slug in sorted({slug for slug, _ in _VERTEX_GROK_ID.values()}):
+        urls[f"vertex_grok:{slug}"] = f"{SRC_VERTEX_GROK}/{slug}?hl=en"
     return urls
 
 
