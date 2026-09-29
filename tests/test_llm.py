@@ -820,3 +820,34 @@ def test_memory_and_file_features_are_flagged_as_excluded():
     for model in (LLMModel.OPUS_5_5, LLMModel.GPT_6_SOL, LLMModel.GEMINI_3_8_FLASH, LLMModel.GROK_4_7):
         cost = evaluate_workload(LLMWorkload(model=model, apps=[AppWorkload()])).cost
         assert any("記憶或檔案功能" in c and "不包含" in c for c in cost.caveats), model
+
+
+class TestCacheWrites:
+    def _cost(self, model, write=0.2, hit=0.6):
+        w = LLMWorkload(model=model, apps=[AppWorkload(concurrent_users=100, input_tokens_per_request=10_000,
+                                                       cache_hit_rate=hit, cache_write_rate=write)],
+                        monthly_requests=100_000)
+        return evaluate_workload(w).cost
+
+    def test_written_tokens_are_billed_at_the_write_price(self):
+        with_writes, without = self._cost(LLMModel.OPUS_5_5), self._cost(LLMModel.OPUS_5_5, write=0)
+        # 20% of 10K tokens move from $4 input to the $5 write rate: +$2 per 1K requests.
+        assert with_writes.per_1k_requests_usd - without.per_1k_requests_usd == pytest.approx(2.0, abs=1e-6)
+        assert with_writes.breakdown_per_1k["cache_write"] == pytest.approx(10.0)
+        assert any("快取寫入依實際用量計入" in c for c in with_writes.caveats)
+
+    def test_vendors_without_a_write_premium_bill_plain_input(self):
+        with_writes, without = self._cost(LLMModel.GEMINI_3_8_FLASH), self._cost(LLMModel.GEMINI_3_8_FLASH, write=0)
+        assert with_writes.per_1k_requests_usd == pytest.approx(without.per_1k_requests_usd)
+        assert any("不另收費" in c for c in with_writes.caveats)
+
+    def test_writes_still_count_toward_input_quota(self):
+        """Anthropic ITPM counts uncached input and cache creation; only reads are free."""
+        w = LLMWorkload(model=LLMModel.OPUS_5_5, apps=[AppWorkload(input_tokens_per_request=10_000,
+                                                                   cache_hit_rate=0.6, cache_write_rate=0.2)])
+        start = _plan(evaluate_workload(w, LLMPlatform.ANTHROPIC), "start")
+        assert start.itpm.demand == pytest.approx(w.rpm * 4_000)
+
+    def test_shares_cannot_exceed_the_prompt(self):
+        with pytest.raises(Exception):
+            AppWorkload(cache_hit_rate=0.8, cache_write_rate=0.3)

@@ -390,6 +390,17 @@ class TestMultiVendorAPI:
         assert x_t0["rpm"]["limit"] == 9_000
 
     @pytest.mark.asyncio
+    async def test_measured_cache_writes_are_accepted_and_bounded(self, client):
+        app = {"concurrent_users": 100, "input_tokens_per_request": 10_000, "cache_hit_rate": 0.75,
+               "cache_write_rate": 0.05}
+        ok = await client.post("/api/llm-quota", json={"model": "sonnet-5-5", "apps": [app]})
+        assert ok.status_code == 200
+        assert ok.json()["cost"]["breakdown_per_1k"]["cache_write"] > 0
+        bad = await client.post("/api/llm-quota", json={"model": "sonnet-5-5",
+                                                        "apps": [dict(app, cache_write_rate=0.3)]})
+        assert bad.status_code == 422
+
+    @pytest.mark.asyncio
     async def test_token_counting_refuses_other_tokenizers(self, client, fake_counter):
         resp = await client.post("/api/llm-quota/count-tokens", json={"model": "gpt-6-sol", "sample": "hi"})
         assert resp.status_code == 422

@@ -9,7 +9,7 @@
   <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用，並試算 LLM 配額負載與 API 費用">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="stylesheet" href="llm/style.css?v=0.12.0">
+  <link rel="stylesheet" href="llm/style.css?v=0.13.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9729;</text></svg>">
   <style>
 :root {
@@ -638,7 +638,7 @@ footer a:hover { text-decoration: underline; }
           </div>
           <div class="form-group">
             <label for="llm_per_day">每人每天使用次數 <span class="unit">次</span></label>
-            <input type="number" id="llm_per_day" min="0.1" max="10000" step="any" value="8" required>
+            <input type="number" id="llm_per_day" min="0.01" max="10000" step="any" value="8" required>
           </div>
           <div class="form-group">
             <label for="llm_peak">尖峰集中度</label>
@@ -681,7 +681,7 @@ footer a:hover { text-decoration: underline; }
               <input type="number" id="llm_fx" min="1" max="9999" step="any" value="32">
             </div>
           </div>
-          <label class="llm-inline-check"><input type="checkbox" id="llm_batch"> 可以非即時處理（改走批次 API，五折且另有獨立額度）</label>
+          <label class="llm-inline-check"><input type="checkbox" id="llm_batch"> 可以非即時處理（改走批次 API，享批次折扣且另有獨立額度）</label>
 
           <div class="llm-counter" id="llm-counter">
             <div class="llm-apps-head" style="margin-top:0.5rem;">
@@ -767,6 +767,53 @@ footer a:hover { text-decoration: underline; }
           </div>
         </div>
       </section>
+
+      <section id="llm-calibration" class="llm-calibration">
+        <h2>用實際用量校正 <span class="unit">以 PoC／試用期的真實數據取代情境估計</span></h2>
+        <p class="llm-note">從用量主控台（Anthropic Console、OpenAI Usage、Google AI Studio、xAI Console…）把一段期間的總量填進來，工具會反推每次請求的 token 組成、快取命中率與每人使用頻率，並重新試算上方所有結果。數字只在瀏覽器裡計算，不會送出。</p>
+        <div class="form-grid llm-cal-grid">
+          <div class="form-group">
+            <label for="llm_cal_users">試用人數 <span class="unit">人</span></label>
+            <input type="number" id="llm_cal_users" min="1" step="any" placeholder="例如 10">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_days">統計天數 <span class="unit">有使用的工作天</span></label>
+            <input type="number" id="llm_cal_days" min="1" step="any" placeholder="例如 10">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_requests">請求次數 <span class="unit">Requests</span></label>
+            <input type="number" id="llm_cal_requests" min="1" step="any" placeholder="例如 4,200">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_input">Input <span class="unit">Tokens</span></label>
+            <input type="number" id="llm_cal_input" min="0" step="any">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_read">快取讀取 <span class="unit">Cache read tokens</span></label>
+            <input type="number" id="llm_cal_read" min="0" step="any" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_write">快取寫入 <span class="unit">Cache write tokens</span></label>
+            <input type="number" id="llm_cal_write" min="0" step="any" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_output">Output <span class="unit">Tokens，含思考</span></label>
+            <input type="number" id="llm_cal_output" min="0" step="any">
+          </div>
+          <div class="form-group">
+            <label for="llm_cal_thinking">思考 <span class="unit">選填，主控台另列時才填</span></label>
+            <input type="number" id="llm_cal_thinking" min="0" step="any" placeholder="0">
+          </div>
+        </div>
+        <label class="llm-inline-check"><input type="checkbox" id="llm_cal_includes"> Input 欄位已包含快取讀取與寫入的 tokens</label>
+        <p class="llm-hint" id="llm-cal-hint"></p>
+        <div class="llm-cal-actions">
+          <button type="button" class="btn-icon llm-cal-apply" id="llm-cal-apply">套用校正</button>
+          <button type="button" class="btn-icon" id="llm-cal-clear" style="display:none;">清除校正，回到情境估計</button>
+        </div>
+        <div id="llm-cal-status"></div>
+        <div id="llm-cal-table"></div>
+      </section>
     </div>
 
     </div><!-- end llm-mode -->
@@ -799,7 +846,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.12.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.13.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -811,9 +858,9 @@ footer a:hover { text-decoration: underline; }
 
   <div class="toast" id="toast"></div>
 
-<script src="llm/data.js?v=0.12.0"></script>
-<script src="llm/engine.js?v=0.12.0"></script>
-<script src="llm/render.js?v=0.12.0"></script>
+<script src="llm/data.js?v=0.13.0"></script>
+<script src="llm/engine.js?v=0.13.0"></script>
+<script src="llm/render.js?v=0.13.0"></script>
 <script>
 (function() {
 
@@ -1805,6 +1852,6 @@ if (urlSpec) {
 
 })();
 </script>
-<script src="llm/form.js?v=0.12.0"></script>
+<script src="llm/form.js?v=0.13.0"></script>
 </body>
 </html>

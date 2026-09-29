@@ -90,10 +90,7 @@ def render_data_js() -> str:
         "DIMS": list(DIMS),
     }
 
-    lines_data = [
-        {"line": l.line.value, "label": l.label, "vendor": l.vendor, "price_caveat": l.price_caveat}
-        for l in list_lines()
-    ]
+    lines_data = [l.model_dump(mode="json") for l in list_lines()]
 
     scenarios = [
         {

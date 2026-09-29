@@ -27,7 +27,7 @@
     raise_cache: '⚡', set_max_tokens: '\u{1F3AF}', enter_account_quota: '\u{1F511}',
     use_batch: '\u{1F4E6}',
   };
-  const SEGMENTS = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'],
+  const SEGMENTS = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'], ['cache_write', '快取寫入'],
                     ['output', 'Output'], ['thinking', '思考']];
 
   let lastReport = null;
@@ -173,6 +173,42 @@
 
   // -- cost ---------------------------------------------------------------
 
+  // -- calibration from measured usage --------------------------------------
+
+  // Turns a period's usage totals (as a vendor console reports them) into the
+  // per-request profile the planner works with. `includesCache` says whether
+  // the console's input figure already counts cache reads and writes.
+  function calibrateFromUsage(u, includesCache) {
+    const n = v => (v == null || v === '' || isNaN(v) ? 0 : Number(v));
+    const users = n(u.trial_users), days = n(u.days), requests = n(u.requests);
+    const input = n(u.input), read = n(u.cache_read), write = n(u.cache_write);
+    const output = n(u.output), thinking = n(u.thinking);
+    if (users <= 0 || days <= 0 || requests <= 0) {
+      return { error: '請填入試用人數、統計天數與請求次數' };
+    }
+    if (includesCache && read + write > input) {
+      return { error: '快取讀取加寫入大於 Input 總量。這家的 Input 若不含快取，請取消勾選「Input 已包含快取」' };
+    }
+    const total = includesCache ? input : input + read + write;
+    if (total <= 0) return { error: '請填入 Input tokens' };
+    if (output + thinking <= 0) return { error: '請填入 Output tokens' };
+    const perRequest = total / requests;
+    const r4 = x => Math.floor(x * 10000 + 0.5) / 10000;
+    if (perRequest > 1000000) return { error: '換算後每次 Input 超過 100 萬 tokens，請確認數字與單位' };
+    const hit = Math.min(0.99, r4(read / total));
+    // Rounded shares must still fit inside the prompt.
+    const writeShare = Math.max(0, Math.min(r4(write / total), 1 - hit));
+    return {
+      input_tokens_per_request: Math.max(1, Math.round(perRequest)),
+      output_tokens_per_request: Math.min(LLM_CONST.MAX_OUTPUT_TOKENS, Math.max(1, Math.round(output / requests))),
+      thinking_tokens_per_request: Math.min(LLM_CONST.MAX_OUTPUT_TOKENS, Math.round(thinking / requests)),
+      cache_hit_rate: hit,
+      cache_write_rate: Math.min(0.99, writeShare),
+      requests_per_day: requests / days,
+      per_user_per_day: Math.floor(requests / days / users * 100 + 0.5) / 100,
+    };
+  }
+
   // 50 (% off) -> 五折, 20 -> 八折.
   function zhe(pct) {
     const pay = Math.floor((100 - pct) / 10 + 0.5);
@@ -195,6 +231,8 @@
     const b = c.breakdown_per_1k;
     const total = SEGMENTS.reduce((t, s) => t + (b[s[0]] || 0), 0) || 1;
 
+    // Cache writes only appear once measured usage supplies them.
+    const segs = SEGMENTS.filter(s => s[0] !== 'cache_write' || (b.cache_write || 0) > 0);
     el('llm-cost').innerHTML =
       '<div class="llm-cost-row">' +
         item('每 1,000 次請求', fmtUsd(c.per_1k_requests_usd), twd(c.per_1k_requests_usd) + '・單次 ' + fmtUsd(c.per_request_usd) + ' ' + saving) +
@@ -206,10 +244,10 @@
                  (c.batch_monthly_usd != null ? '每月' : '每 1,000 次') + '・' + zhe(c.batch_discount_pct) +
                  '，適合不需即時回應的工作', !r.workload.batch_eligible)) +
       '</div>' +
-      '<div class="llm-cost-bar">' + SEGMENTS.map(s =>
+      '<div class="llm-cost-bar">' + segs.map(s =>
         '<span class="seg seg-' + s[0] + '" style="width:' + ((b[s[0]] || 0) / total * 100).toFixed(1) +
         '%" title="' + s[1] + ' ' + fmtUsd(b[s[0]]) + '"></span>').join('') + '</div>' +
-      '<div class="llm-legend">' + SEGMENTS.map(s =>
+      '<div class="llm-legend">' + segs.map(s =>
         '<span class="llm-legend-item"><i class="seg-' + s[0] + '"></i>' + esc(s[1]) + ' ' +
         fmtUsd(b[s[0]]) + '</span>').join('') + '</div>' +
       (c.thinking_share_pct > 0 ? '<p class="llm-note">思考 token 佔費用 ' + c.thinking_share_pct +
@@ -412,7 +450,7 @@
     renderLLMReport,
     llmRerender: () => { if (lastReport) renderLLMReport(lastReport); },
     llmSummaryText: r => summaryText(r || lastReport),
-    llmModelFor: modelFor,
+    llmModelFor: modelFor, llmCalibrate: calibrateFromUsage,
     llmEsc: esc, llmFmtTok: fmtTok, llmFmtUsd: fmtUsd,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

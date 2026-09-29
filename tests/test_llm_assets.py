@@ -110,6 +110,11 @@ SCENARIOS: list[LLMWorkload] = [
     LLMWorkload(model=LLMModel.GROK_4_3, apps=[AppWorkload(concurrent_users=3_000, input_tokens_per_request=199_999)],
                 max_tokens=8_000, monthly_requests=200_000, batch_eligible=True),
     LLMWorkload(model=LLMModel.SONNET_5_5, apps=[AppWorkload(concurrent_users=50)], max_tokens=2_000),
+    # Measured usage with cache writes: billed at the write price, or as input where there is none.
+    *[LLMWorkload(model=m, apps=[AppWorkload(concurrent_users=150, input_tokens_per_request=30_000,
+                                             cache_hit_rate=0.97, cache_write_rate=0.02,
+                                             thinking_tokens_per_request=700)], monthly_requests=90_000)
+      for m in (LLMModel.OPUS_5_5, LLMModel.GPT_6_ASTRA, LLMModel.GEMINI_3_1_PRO, LLMModel.GROK_4_3)],
     # Account overrides on combined-TPM and spend-cap dimensions.
     LLMWorkload(model=LLMModel.GPT_6_ASTRA, apps=[AppWorkload(concurrent_users=200)], max_tokens=6_000,
                 account_quotas=[QuotaOverride(plan_id="runtime", tpm=50_000_000, rpm=20_000),
@@ -264,3 +269,64 @@ def test_llm_number_inputs_do_not_step_validate():
             assert re.findall(r'step="(?!any")', tag) == [], (page.name, tag)
     form = (ASSET_DIR / "form.js").read_text(encoding="utf-8")
     assert re.findall(r'step="(?!any")', form) == []
+
+
+_CAL_DRIVER = """
+const path = process.argv[1];
+Object.assign(globalThis, require(path + '/data.js'));
+const render = require(path + '/render.js');
+const cases = JSON.parse(process.argv[2]);
+process.stdout.write(JSON.stringify(cases.map(c => render.llmCalibrate(c[0], c[1]))));
+"""
+
+
+def _calibrate(*cases):
+    proc = subprocess.run([NODE, "-e", _CAL_DRIVER, str(ASSET_DIR), json.dumps(cases)],
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+@requires_node
+class TestCalibration:
+    usage = {"trial_users": 10, "days": 10, "requests": 4_000, "input": 8_000_000,
+             "cache_read": 30_000_000, "cache_write": 2_000_000, "output": 6_000_000, "thinking": None}
+
+    def test_anthropic_style_input_excludes_cache(self):
+        (p,) = _calibrate([self.usage, False])
+        assert p["input_tokens_per_request"] == 10_000   # (8M + 30M + 2M) / 4,000
+        assert p["cache_hit_rate"] == 0.75
+        assert p["cache_write_rate"] == 0.05
+        assert p["output_tokens_per_request"] == 1_500
+        assert p["per_user_per_day"] == 40
+
+    def test_openai_style_input_already_includes_cache(self):
+        usage = dict(self.usage, input=40_000_000, cache_write=0)
+        (p,) = _calibrate([usage, True])
+        assert p["input_tokens_per_request"] == 10_000
+        assert p["cache_hit_rate"] == 0.75 and p["cache_write_rate"] == 0
+
+    def test_separately_reported_thinking_is_kept_apart(self):
+        (p,) = _calibrate([dict(self.usage, thinking=2_000_000), False])
+        assert p["thinking_tokens_per_request"] == 500
+
+    def test_impossible_or_missing_numbers_explain_themselves(self):
+        wrong_flag, missing, too_big = _calibrate(
+            [self.usage, True],                                    # cache bigger than an input that "includes" it
+            [dict(self.usage, requests=None), False],
+            [dict(self.usage, requests=1), False],
+        )
+        assert "取消勾選" in wrong_flag["error"]
+        assert "請求次數" in missing["error"]
+        assert "100 萬" in too_big["error"]
+
+    def test_rounded_shares_never_exceed_the_prompt(self):
+        (p,) = _calibrate([dict(self.usage, input=1, cache_read=2, cache_write=1), False])
+        assert p["cache_hit_rate"] + p["cache_write_rate"] <= 1
+
+    def test_every_line_says_how_its_console_counts_input(self):
+        from cloudcost.llm import list_lines
+
+        for info in list_lines():
+            assert info.usage_hint
+        assert [l.usage_input_includes_cache for l in list_lines()] == [False, True, True, True]
