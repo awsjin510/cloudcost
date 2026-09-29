@@ -1,0 +1,668 @@
+{
+ "lastUpdated": "2026-09-23T13:10:59.012Z",
+ "items": [
+  {
+   "partNumber": "B111910",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Input Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1.25
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B111911",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Cached Input Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112076",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Output Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112077",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Input Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112078",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Cached Input Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112079",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.2 - Output Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112080",
+   "displayName": "OCI Generative AI - xAI - Grok 4.3 - Input Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1.25
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112081",
+   "displayName": "OCI Generative AI - xAI - Grok 4.3 - Cached Input Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112082",
+   "displayName": "OCI Generative AI - xAI - Grok 4.3 - Output Tokens less than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112083",
+   "displayName": "OCI  Generative AI - xAI - Grok 4.3 - Input Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112084",
+   "displayName": "OCI Generative AI - xAI - Grok 4.3 - Cached Input Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112085",
+   "displayName": "OCI Generative AI - xAI - Grok 4.3 - Output Tokens greater than 200K Tokens",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112086",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112087",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Cached Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112517",
+   "displayName": "OCI Generative AI - xAI - Grok Imagine Image",
+   "metricName": "Image",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.02
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112518",
+   "displayName": "OCI Generative AI - xAI - Grok Voice Agent API",
+   "metricName": "Connection Time Minute",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.05
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112589",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Output Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112590",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112591",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Cached Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112592",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 - Output Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 12
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112593",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112594",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Cached Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112595",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Output Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 12
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112596",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 8
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112597",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Cached Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112598",
+   "displayName": "OCI - Generative AI - xAI - Grok 4.6 Priority - Output Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 24
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B112608",
+   "displayName": "OCI Generative AI - xAI - Grok Text to Speech",
+   "metricName": "1,000,000 Characters",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 15
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113303",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113304",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Cached Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 0.5
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113305",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Output Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113306",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Input Tokens long context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113307",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Cached Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113308",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 - Output Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 12
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113309",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 4
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113310",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Cached Input Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 1
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113311",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Output Tokens Short Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 12
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113312",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 8
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113313",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Cached Input Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "partNumber": "B113314",
+   "displayName": "Oracle Cloud Infrastructure Generative AI - xAI - Grok 4.7 Priority - Output Tokens Long Context",
+   "metricName": "1,000,000 Tokens",
+   "serviceCategory": "OCI Generative AI - Models",
+   "currencyCodeLocalizations": [
+    {
+     "currencyCode": "USD",
+     "prices": [
+      {
+       "model": "PAY_AS_YOU_GO",
+       "value": 24
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

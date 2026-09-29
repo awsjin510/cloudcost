@@ -10,7 +10,7 @@
 // the FastAPI page posts it to /api/llm-quota. That single difference is
 // injected as `window.llmEvaluate`.
 //
-// Requires: data.js (LLM_CONST / LLM_MODELS / LLM_SCENARIOS / LLM_PLANS),
+// Requires: data.js (LLM_CONST / LLM_LINES / LLM_MODELS / LLM_SCENARIOS / LLM_PLANS),
 //           render.js (renderLLMReport).
 
 (function () {
@@ -48,6 +48,27 @@
       : LLM_MODELS.find(m => m.model === id);
   }
   const currentModel = () => $('llm_model').value || 'fable-5-1';
+  const lineOf = id => (modelInfo(id) || {}).line || 'claude';
+  const modelsOf = line => LLM_MODELS.filter(m => m.line === line);
+  const ACCT_LABELS = { rpm: 'RPM', itpm: 'ITPM', otpm: 'OTPM', tpm: 'TPM', rpd: 'RPD', usd10m: '每 10 分鐘 $' };
+
+  // Two-level picker: the vendor line, then a version inside it.
+  function populateVersions(line, selected) {
+    $('llm_model').innerHTML = modelsOf(line).map(m =>
+      '<option value="' + m.model + '"' + (m.model === selected ? ' selected' : '') + '>' +
+      llmEsc(m.version_label || m.label) + '　$' + m.pricing.input_per_mtok + ' / $' +
+      m.pricing.output_per_mtok + ' per MTok</option>').join('');
+  }
+
+  function setModel(id) {
+    const line = lineOf(id);
+    $('llm_line').value = line;
+    populateVersions(line, id);
+    $('llm_model').value = id;
+    // Account overrides are per plan id, which differ between models.
+    const valid = plansFor(id).map(p => p.plan_id);
+    accounts = accounts.filter(o => valid.indexOf(o.plan_id) >= 0);
+  }
 
   // -- scenario -> workload ------------------------------------------------
 
@@ -85,7 +106,7 @@
     scenarioId = id;
     customised = false;
     const s = scenario(id);
-    $('llm_model').value = s.suggested_model;
+    setModel(llmModelFor($('llm_line').value || 'claude', s.suggested_class));
     $('llm_per_day').value = s.messages_per_user_per_day;
     $('llm_effort').value = s.default_effort;
     $('llm_batch').checked = !!s.batch_friendly;
@@ -142,10 +163,12 @@
         '以上為情境預設的規劃估計，可在進階設定調整。';
   }
 
-  function num(i, field, label, unit, value, min, max, step, hint) {
+  // step="any": a stepped input rejects values off its min-anchored grid (8 with
+  // min 0.1 step 1, 20,000 with min 1 step 100) and silently blocks the submit.
+  function num(i, field, label, unit, value, min, max, hint) {
     return '<div class="form-group"><label>' + label + ' <span class="unit">' + unit + '</span></label>' +
       '<input type="number" data-app-field="' + field + '" value="' + value + '" min="' + min +
-      '" max="' + max + '" step="' + step + '" required>' + (hint || '') + '</div>';
+      '" max="' + max + '" step="any" required>' + (hint || '') + '</div>';
   }
 
   // Official guidance: ~4 English characters per token. CJK runs hotter, so the
@@ -162,15 +185,15 @@
       '<div class="llm-app-row-head"><input type="text" class="llm-app-name" data-app-field="name" value="' +
         llmEsc(a.name) + '" placeholder="應用名稱">' + rm + '</div>' +
       '<div class="form-grid">' +
-        num(i, 'concurrent_users', '使用者人數', '人', a.concurrent_users, 1, 1000000, 1) +
+        num(i, 'concurrent_users', '使用者人數', '人', a.concurrent_users, 1, 1000000) +
         num(i, 'requests_per_user_per_minute', '尖峰每人每分鐘', 'Requests',
-            Math.round(a.requests_per_user_per_minute * 10000) / 10000, 0.0001, 600, 0.0001) +
-        num(i, 'input_tokens_per_request', '單次 Input', 'Tokens', a.input_tokens_per_request, 1, 1000000, 100,
+            Math.round(a.requests_per_user_per_minute * 10000) / 10000, 0.0001, 600) +
+        num(i, 'input_tokens_per_request', '單次 Input', 'Tokens', a.input_tokens_per_request, 1, 1000000,
             '<span class="llm-hint" data-token-hint="' + i + '">' + tokenHint(a.input_tokens_per_request) + '</span>') +
-        num(i, 'output_tokens_per_request', '單次回覆', 'Output Tokens', a.output_tokens_per_request, 1, 128000, 100) +
-        num(i, 'thinking_tokens_per_request', '單次思考', 'Tokens', a.thinking_tokens_per_request || 0, 0, 128000, 100,
+        num(i, 'output_tokens_per_request', '單次回覆', 'Output Tokens', a.output_tokens_per_request, 1, 128000) +
+        num(i, 'thinking_tokens_per_request', '單次思考', 'Tokens', a.thinking_tokens_per_request || 0, 0, 128000,
             '<span class="llm-hint">思考一律按 Output 計費並佔用 OTPM，即使畫面不顯示</span>') +
-        num(i, 'cache_hit_rate_pct', '固定前綴佔比', '% of Input', Math.round(a.cache_hit_rate * 100), 0, 95, 5,
+        num(i, 'cache_hit_rate_pct', '固定前綴佔比', '% of Input', Math.round(a.cache_hit_rate * 100), 0, 95,
             '<span class="llm-hint">System Prompt + 固定 RAG 前綴的比例，這段可以快取，不佔 ITPM</span>') +
       '</div></div>';
   }
@@ -215,14 +238,18 @@
 
   function accountRow(o, i) {
     const plans = plansFor(currentModel());
+    const plan = plans.find(p => p.plan_id === o.plan_id) || plans[0];
+    if (plan && o.plan_id !== plan.plan_id) o.plan_id = plan.plan_id;
+    // Only the dimensions this platform actually meters get an input.
+    // A dimension the platform does not meter (Mantle RPM) has nothing to override.
+    const dims = LLM_CONST.DIMS.filter(d => plan && plan[d] && plan[d].status !== 'not_enforced');
     return '<div class="llm-account-row" data-acct="' + i + '">' +
       '<select data-acct-field="plan_id">' +
         plans.map(p => '<option value="' + p.plan_id + '"' + (p.plan_id === o.plan_id ? ' selected' : '') +
           '>' + llmEsc(p.platform_label + ' — ' + p.plan_label) + '</option>').join('') +
       '</select>' +
-      '<input type="number" data-acct-field="rpm" placeholder="RPM" min="0" value="' + (o.rpm != null ? o.rpm : '') + '">' +
-      '<input type="number" data-acct-field="itpm" placeholder="ITPM" min="0" value="' + (o.itpm != null ? o.itpm : '') + '">' +
-      '<input type="number" data-acct-field="otpm" placeholder="OTPM" min="0" value="' + (o.otpm != null ? o.otpm : '') + '">' +
+      dims.map(d => '<input type="number" data-acct-field="' + d + '" placeholder="' + ACCT_LABELS[d] +
+        '" title="' + ACCT_LABELS[d] + '" min="0" step="any" value="' + (o[d] != null ? o[d] : '') + '">').join('') +
       '<button type="button" class="llm-row-del" data-acct-del="' + i + '" title="移除">✕</button></div>';
   }
 
@@ -233,8 +260,13 @@
       accounts.splice(parseInt(b.dataset.acctDel, 10), 1);
       renderAccounts();
     }));
-    host.querySelectorAll('[data-acct-field]').forEach(input =>
-      input.addEventListener('input', collectAccounts));
+    host.querySelectorAll('[data-acct-field]').forEach(input => {
+      input.addEventListener('input', collectAccounts);
+      // A different plan meters different dimensions: redraw its inputs.
+      if (input.dataset.acctField === 'plan_id') {
+        input.addEventListener('change', () => { collectAccounts(); renderAccounts(); });
+      }
+    });
   }
 
   function collectAccounts() {
@@ -296,7 +328,7 @@
   }
 
   function applyShared(w) {
-    $('llm_model').value = w.model || 'fable-5-1';
+    setModel(modelInfo(w.model) ? w.model : 'fable-5-1');
     $('llm_max').value = w.max_tokens != null ? w.max_tokens : '';
     $('llm_monthly').value = w.monthly_requests != null ? w.monthly_requests : '';
     apps = (w.apps && w.apps.length ? w.apps : apps).map(a => Object.assign({}, a));
@@ -318,9 +350,9 @@
 
   // -- wiring --------------------------------------------------------------
 
-  $('llm_model').innerHTML = LLM_MODELS.map(m =>
-    '<option value="' + m.model + '">' + llmEsc(m.label) +
-    '  ($' + m.pricing.input_per_mtok + ' / $' + m.pricing.output_per_mtok + ' per MTok)</option>').join('');
+  $('llm_line').innerHTML = LLM_LINES.map(l =>
+    '<option value="' + l.line + '">' + llmEsc(l.label + '（' + l.vendor + '）') + '</option>').join('');
+  setModel('fable-5-1');
   $('llm_peak').innerHTML = Object.keys(PEAK_LABELS).map(k =>
     '<option value="' + k + '"' + (k === 'normal' ? ' selected' : '') + '>' +
     PEAK_LABELS[k][0] + '　' + PEAK_LABELS[k][1] + '</option>').join('');
@@ -339,7 +371,17 @@
     });
   });
 
-  $('llm_model').addEventListener('change', () => { syncHints(); renderAccounts(); run(); });
+  $('llm_line').addEventListener('change', () => {
+    // Keep the capability level when switching vendor: a balanced Claude
+    // becomes a balanced GPT, not whatever happens to be listed first.
+    const cls = (modelInfo(currentModel()) || {}).model_class || 'balanced';
+    setModel(llmModelFor($('llm_line').value, cls));
+    syncHints(); renderAccounts(); run();
+  });
+  $('llm_model').addEventListener('change', () => {
+    setModel(currentModel());
+    syncHints(); renderAccounts(); run();
+  });
   ['llm_max', 'llm_monthly'].forEach(id =>
     $(id).addEventListener('input', () => { markCustomised(); }));
 
@@ -397,7 +439,7 @@
 
   // Model comparison table -> switch the working model.
   window.llmSelectModel = function (id) {
-    $('llm_model').value = id;
+    setModel(id);
     syncHints();
     renderAccounts();
     run();
@@ -431,6 +473,10 @@
         const system = $('llm-count-system').value;
         const sample = $('llm-count-sample').value;
         const out = $('llm-counter-result');
+        if (lineOf(currentModel()) !== 'claude') {
+          out.textContent = '精算使用 Anthropic 的 tokenizer，目前只支援 Claude 模型；GPT 與 Gemini 的 token 數會不同。';
+          return;
+        }
         if (!system.trim() && !sample.trim()) { out.textContent = '請至少貼上一段提示詞。'; return; }
         out.textContent = '計算中…';
         Promise.resolve(window.llmCountTokens({ model: currentModel(), system: system, sample: sample }))

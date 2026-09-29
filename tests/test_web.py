@@ -133,7 +133,10 @@ class TestLLMQuotaAPI:
         resp = await client.get("/api/llm-quota/models")
         assert resp.status_code == 200
         models = resp.json()
-        assert {m["model"] for m in models} == {"fable-5-1", "fable-5", "opus-5-5", "opus-5", "sonnet-5"}
+        assert {"fable-5-1", "opus-5-5", "sonnet-5", "haiku-4-5", "gpt-6-astra", "gemini-3.8-flash"} <= {
+            m["model"] for m in models
+        }
+        assert len(models) == 29
         assert all(m["pricing"]["input_per_mtok"] > 0 for m in models)
 
     @pytest.mark.asyncio
@@ -141,8 +144,8 @@ class TestLLMQuotaAPI:
         resp = await client.get("/api/llm-quota/plans")
         assert resp.status_code == 200
         plans = resp.json()
-        assert len(plans) == 40
-        assert {p["platform"] for p in plans} == {"anthropic", "bedrock", "foundry", "vertex"}
+        assert len(plans) == 213
+        assert {p["platform"] for p in plans} == {"anthropic", "openai", "google_ai", "bedrock", "foundry", "vertex", "xai", "oci"}
         assert all(p["source"].startswith("https://") for p in plans)
 
     @pytest.mark.asyncio
@@ -185,7 +188,11 @@ class TestLLMQuotaAPI:
         assert by_plan["scale"]["verdict"] == "ample"
         assert by_plan["scale"]["max_users"] == 200
         assert by_plan["payg"]["verdict"] == "blocked"
-        assert by_plan["mantle"]["verdict"] == "unknown"
+        # AWS publishes Fable 5.1's Mantle default (5M / 500K); an unset
+        # max_tokens reserves 128K per request, which blows through it.
+        assert by_plan["mantle"]["verdict"] == "over"
+        assert by_plan["mantle"]["itpm"]["limit"] == 5_000_000
+        assert by_plan["runtime"]["tpm"]["limit"] == 10_000_000
         # Over-quota plans must come with concrete next steps.
         assert {a["kind"] for a in by_plan["start"]["actions"]} >= {
             "request_quota",
@@ -348,7 +355,42 @@ class TestTokenCounting:
         assert resp.status_code == 200
         body = resp.json()
         assert body["model_label"] == "Claude Opus 5.5"
-        assert len(body["model_comparison"]) == 5
+        assert len(body["model_comparison"]) == 29
         assert body["sensitivity"][0]["multiplier"] == 2.0
         assert body["cost"]["batch_monthly_usd"] == pytest.approx(body["cost"]["monthly_usd"] / 2)
         assert body["cost"]["breakdown_per_1k"]["thinking"] > 0
+
+
+class TestMultiVendorAPI:
+    @pytest.mark.asyncio
+    async def test_models_carry_their_line(self, client):
+        models = (await client.get("/api/llm-quota/models")).json()
+        assert {m["line"] for m in models} == {"claude", "gpt", "gemini", "grok"}
+
+    @pytest.mark.asyncio
+    async def test_gpt_workload_is_sized_on_gpt_platforms(self, client):
+        resp = await client.post("/api/llm-quota", json={"model": "gpt-6-sol", "apps": [{"concurrent_users": 100}],
+                                                         "max_tokens": 4000})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert {r["platform"] for r in body["results"]} == {"openai", "foundry", "bedrock"}
+        t1 = next(r for r in body["results"] if r["plan_id"] == "t1")
+        assert t1["tpm"]["limit"] == 500_000 and t1["itpm"] is None
+
+    @pytest.mark.asyncio
+    async def test_grok_workload_is_sized_on_all_five_platforms(self, client):
+        resp = await client.post("/api/llm-quota", json={"model": "grok-4.6", "apps": [{"concurrent_users": 100}],
+                                                         "max_tokens": 4000, "monthly_requests": 50000,
+                                                         "batch_eligible": True})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert {r["platform"] for r in body["results"]} == {"xai", "bedrock", "foundry", "vertex", "oci"}
+        assert body["cost"]["batch_discount_pct"] is None
+        x_t0 = next(r for r in body["results"] if r["plan_id"] == "x_t0")
+        assert x_t0["rpm"]["limit"] == 9_000
+
+    @pytest.mark.asyncio
+    async def test_token_counting_refuses_other_tokenizers(self, client, fake_counter):
+        resp = await client.post("/api/llm-quota/count-tokens", json={"model": "gpt-6-sol", "sample": "hi"})
+        assert resp.status_code == 422
+        assert fake_counter == []
