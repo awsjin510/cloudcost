@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
@@ -29,10 +30,13 @@ from cloudcost.llm.catalog import (
     PEAK_FACTORS,
     VERIFIED,
     WORKING_DAYS_PER_MONTH,
+    MODEL_CLASSES,
+    list_lines,
     list_models,
     list_plans,
     list_scenarios,
 )
+from cloudcost.llm.planner import DIMS
 from cloudcost.llm.planner import AMPLE_THRESHOLD, MAX_SUGGESTED_CACHE_RATE
 
 #: Served by the FastAPI app and installed with the package.
@@ -59,10 +63,14 @@ def _js(value: object) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def _limit(limit) -> dict:
+def _limit(limit) -> Optional[dict]:
+    if limit is None:
+        return None
     out: dict = {"status": limit.status.value}
     if limit.value is not None:
         out["value"] = limit.value
+    if limit.soft:
+        out["soft"] = True
     if limit.note:
         out["note"] = limit.note
     return out
@@ -80,7 +88,14 @@ def render_data_js() -> str:
         "WORKING_DAYS_PER_MONTH": WORKING_DAYS_PER_MONTH,
         "EFFORT_THINKING_FACTORS": EFFORT_THINKING_FACTORS,
         "BATCH_DISCOUNT": BATCH_DISCOUNT,
+        "MODEL_CLASSES": list(MODEL_CLASSES),
+        "DIMS": list(DIMS),
     }
+
+    lines_data = [
+        {"line": l.line.value, "label": l.label, "vendor": l.vendor, "price_caveat": l.price_caveat}
+        for l in list_lines()
+    ]
 
     scenarios = [
         {
@@ -92,7 +107,7 @@ def render_data_js() -> str:
             "output_tokens_per_request": s.output_tokens_per_request,
             "cache_hit_rate": s.cache_hit_rate,
             "max_tokens": s.max_tokens,
-            "suggested_model": s.suggested_model.value,
+            "suggested_class": s.suggested_class,
             "messages_per_user_per_day": s.messages_per_user_per_day,
             "thinking_tokens_per_request": s.thinking_tokens_per_request,
             "default_effort": s.default_effort,
@@ -105,13 +120,12 @@ def render_data_js() -> str:
         {
             "model": m.model.value,
             "label": m.label,
+            "line": m.line.value,
+            "version_label": m.version_label,
+            "model_class": m.model_class,
             "tier": m.tier,
-            "pricing": {
-                "input_per_mtok": m.pricing.input_per_mtok,
-                "output_per_mtok": m.pricing.output_per_mtok,
-                "cache_read_per_mtok": m.pricing.cache_read_per_mtok,
-                "cache_write_5m_per_mtok": m.pricing.cache_write_5m_per_mtok,
-            },
+            "api_id": m.api_id,
+            "pricing": m.pricing.model_dump(),
             "notes": m.notes,
         }
         for m in list_models()
@@ -125,10 +139,12 @@ def render_data_js() -> str:
             "plan_id": p.plan_id,
             "platform_label": p.platform_label,
             "plan_label": p.plan_label,
-            "rpm": _limit(p.rpm),
-            "itpm": _limit(p.itpm),
-            "otpm": _limit(p.otpm),
+            **{dim: _limit(getattr(p, dim)) for dim in DIMS},
             "reserves_max_tokens": p.reserves_max_tokens,
+            "tpm_reserves_max_tokens": p.tpm_reserves_max_tokens,
+            "input_cached_counts": p.input_cached_counts,
+            "output_burndown": p.output_burndown,
+            "list_priced": p.list_priced,
             "notes": p.notes,
             "source": p.source,
             "verified": p.verified,
@@ -139,6 +155,8 @@ def render_data_js() -> str:
     lines = [
         _HEADER,
         f"const LLM_CONST = {_js(consts)};",
+        "",
+        f"const LLM_LINES = {json.dumps(lines_data, ensure_ascii=False, indent=2)};",
         "",
         f"const LLM_MODELS = {json.dumps(models, ensure_ascii=False, indent=2)};",
         "",
@@ -152,7 +170,7 @@ def render_data_js() -> str:
     lines.append("")
     lines.append(
         "if (typeof module !== 'undefined') "
-        "{ module.exports = { LLM_CONST, LLM_MODELS, LLM_SCENARIOS, LLM_PLANS }; }"
+        "{ module.exports = { LLM_CONST, LLM_LINES, LLM_MODELS, LLM_SCENARIOS, LLM_PLANS }; }"
     )
     lines.append("")
     return "\n".join(lines)

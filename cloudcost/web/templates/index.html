@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本計算機</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/llm/style.css">
+  <link rel="stylesheet" href="/static/llm/style.css?v=0.11.0">
 </head>
 <body>
 
@@ -261,7 +261,7 @@
           </div>
           <div class="form-group">
             <label for="llm_per_day">每人每天使用次數 <span class="unit">次</span></label>
-            <input type="number" id="llm_per_day" min="0.1" max="10000" step="1" value="8" required>
+            <input type="number" id="llm_per_day" min="0.1" max="10000" step="any" value="8" required>
           </div>
           <div class="form-group">
             <label for="llm_peak">尖峰集中度</label>
@@ -269,7 +269,11 @@
             <span class="llm-hint">配額是「每分鐘」上限，流量多集中比總量更關鍵</span>
           </div>
           <div class="form-group">
-            <label for="llm_model">模型</label>
+            <label for="llm_line">AI 模型</label>
+            <select id="llm_line"></select>
+          </div>
+          <div class="form-group">
+            <label for="llm_model">版本</label>
             <select id="llm_model"></select>
             <span class="llm-hint" id="llm-model-hint"></span>
           </div>
@@ -283,12 +287,12 @@
           <div class="form-grid" style="margin-top:0.9rem;">
             <div class="form-group">
               <label for="llm_max">max_tokens <span class="unit">留空 = 模型上限</span></label>
-              <input type="number" id="llm_max" min="1" max="128000" step="100" placeholder="128000">
+              <input type="number" id="llm_max" min="1" max="128000" step="any" placeholder="128000">
               <span class="llm-hint">Bedrock 以此預扣 ITPM，留空等於每次預扣 128K</span>
             </div>
             <div class="form-group">
               <label for="llm_monthly">每月總請求數 <span class="unit">用於估月費</span></label>
-              <input type="number" id="llm_monthly" min="0" step="1000" placeholder="由上方自動推導">
+              <input type="number" id="llm_monthly" min="0" step="any" placeholder="由上方自動推導">
             </div>
             <div class="form-group">
               <label for="llm_effort">思考強度 <span class="unit">effort</span></label>
@@ -297,7 +301,7 @@
             </div>
             <div class="form-group" id="llm-fx-group">
               <label for="llm_fx">匯率 <span class="unit">1 USD = TWD</span></label>
-              <input type="number" id="llm_fx" min="1" max="9999" step="0.5" value="32">
+              <input type="number" id="llm_fx" min="1" max="9999" step="any" value="32">
             </div>
           </div>
           <label class="llm-inline-check"><input type="checkbox" id="llm_batch"> 可以非即時處理（改走批次 API，五折且另有獨立額度）</label>
@@ -342,7 +346,7 @@
       </section>
 
       <section>
-        <h2>費用估算 <span class="unit">Anthropic 官方第一方定價</span></h2>
+        <h2>費用估算 <span class="unit" id="llm-cost-basis">官方牌價</span></h2>
         <div id="llm-cost" class="llm-cost"></div>
       </section>
 
@@ -421,7 +425,7 @@
   </main>
 
   <footer>
-    <p>CloudCost v0.10.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.11.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
 
 {% if result %}
@@ -891,8 +895,8 @@
 
 })();
 </script>
-<script src="/static/llm/data.js"></script>
-<script src="/static/llm/render.js"></script>
+<script src="/static/llm/data.js?v=0.11.0"></script>
+<script src="/static/llm/render.js?v=0.11.0"></script>
 <script>
   // Server-side evaluation: this page has the API, so it uses the same engine
   // the tests exercise rather than a second copy in the browser.
@@ -922,6 +926,6 @@
   };
 </script>
 {% endif %}
-<script src="/static/llm/form.js"></script>
+<script src="/static/llm/form.js?v=0.11.0"></script>
 </body>
 </html>

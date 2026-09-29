@@ -4,12 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本比較計算機</title>
-  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，並試算 Claude Fable 5.1 / Opus 5.5 / Opus 5 / Sonnet 5 在三大公有雲的 LLM 配額負載與 API 費用。免費、開源、無需登入。">
+  <meta name="description" content="即時比較 AWS、GCP、Azure、Oracle Cloud 雲端主機費用，並試算 Claude、GPT、Gemini 常見模型在 Anthropic、OpenAI、Google、AWS、Azure、GCP 上的 LLM 配額負載與 API 費用。免費、開源、無需登入。">
   <meta property="og:title" content="CloudCost — 多雲成本比較計算機">
   <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用，並試算 LLM 配額負載與 API 費用">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="stylesheet" href="llm/style.css">
+  <link rel="stylesheet" href="llm/style.css?v=0.11.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9729;</text></svg>">
   <style>
 :root {
@@ -414,7 +414,7 @@ footer a:hover { text-decoration: underline; }
         <h1>CloudCost</h1>
       </div>
       <p class="tagline">一鍵跨雲比價，找出最划算的雲端方案！</p>
-      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，並可試算 Claude 各模型在四大平台的 LLM 配額負載與 API 費用，幫您告別繁瑣試算表，精準控管每一分預算。</p>
+      <p class="subtitle">CloudCost 支援 AWS, GCP, Azure, Oracle 即時費用計算，並可試算 Claude、GPT、Gemini 常見模型在各平台的 LLM 配額負載與 API 費用，幫您告別繁瑣試算表，精準控管每一分預算。</p>
     </div>
   </header>
 
@@ -638,7 +638,7 @@ footer a:hover { text-decoration: underline; }
           </div>
           <div class="form-group">
             <label for="llm_per_day">每人每天使用次數 <span class="unit">次</span></label>
-            <input type="number" id="llm_per_day" min="0.1" max="10000" step="1" value="8" required>
+            <input type="number" id="llm_per_day" min="0.1" max="10000" step="any" value="8" required>
           </div>
           <div class="form-group">
             <label for="llm_peak">尖峰集中度</label>
@@ -646,7 +646,11 @@ footer a:hover { text-decoration: underline; }
             <span class="llm-hint">配額是「每分鐘」上限，流量多集中比總量更關鍵</span>
           </div>
           <div class="form-group">
-            <label for="llm_model">模型</label>
+            <label for="llm_line">AI 模型</label>
+            <select id="llm_line"></select>
+          </div>
+          <div class="form-group">
+            <label for="llm_model">版本</label>
             <select id="llm_model"></select>
             <span class="llm-hint" id="llm-model-hint"></span>
           </div>
@@ -660,12 +664,12 @@ footer a:hover { text-decoration: underline; }
           <div class="form-grid" style="margin-top:0.9rem;">
             <div class="form-group">
               <label for="llm_max">max_tokens <span class="unit">留空 = 模型上限</span></label>
-              <input type="number" id="llm_max" min="1" max="128000" step="100" placeholder="128000">
+              <input type="number" id="llm_max" min="1" max="128000" step="any" placeholder="128000">
               <span class="llm-hint">Bedrock 以此預扣 ITPM，留空等於每次預扣 128K</span>
             </div>
             <div class="form-group">
               <label for="llm_monthly">每月總請求數 <span class="unit">用於估月費</span></label>
-              <input type="number" id="llm_monthly" min="0" step="1000" placeholder="由上方自動推導">
+              <input type="number" id="llm_monthly" min="0" step="any" placeholder="由上方自動推導">
             </div>
             <div class="form-group">
               <label for="llm_effort">思考強度 <span class="unit">effort</span></label>
@@ -674,7 +678,7 @@ footer a:hover { text-decoration: underline; }
             </div>
             <div class="form-group" id="llm-fx-group">
               <label for="llm_fx">匯率 <span class="unit">1 USD = TWD</span></label>
-              <input type="number" id="llm_fx" min="1" max="9999" step="0.5" value="32">
+              <input type="number" id="llm_fx" min="1" max="9999" step="any" value="32">
             </div>
           </div>
           <label class="llm-inline-check"><input type="checkbox" id="llm_batch"> 可以非即時處理（改走批次 API，五折且另有獨立額度）</label>
@@ -719,7 +723,7 @@ footer a:hover { text-decoration: underline; }
       </section>
 
       <section>
-        <h2>費用估算 <span class="unit">Anthropic 官方第一方定價</span></h2>
+        <h2>費用估算 <span class="unit" id="llm-cost-basis">官方牌價</span></h2>
         <div id="llm-cost" class="llm-cost"></div>
       </section>
 
@@ -795,7 +799,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.10.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.11.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -807,9 +811,9 @@ footer a:hover { text-decoration: underline; }
 
   <div class="toast" id="toast"></div>
 
-<script src="llm/data.js"></script>
-<script src="llm/engine.js"></script>
-<script src="llm/render.js"></script>
+<script src="llm/data.js?v=0.11.0"></script>
+<script src="llm/engine.js?v=0.11.0"></script>
+<script src="llm/render.js?v=0.11.0"></script>
 <script>
 (function() {
 
@@ -1801,6 +1805,6 @@ if (urlSpec) {
 
 })();
 </script>
-<script src="llm/form.js"></script>
+<script src="llm/form.js?v=0.11.0"></script>
 </body>
 </html>

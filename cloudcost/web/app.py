@@ -23,6 +23,7 @@ from cloudcost.llm import (
     LLMModel,
     LLMPlatform,
     LLMWorkload,
+    ModelLine,
     ModelInfo,
     QuotaPlan,
     QuotaReport,
@@ -216,7 +217,12 @@ async def api_llm_count_tokens(req: TokenCountRequest) -> TokenCountResult:
     if not req.system.strip() and not req.sample.strip():
         raise HTTPException(status_code=422, detail="請至少提供一段提示詞")
 
-    model_id = get_model(req.model).api_id
+    info = get_model(req.model)
+    if info.line is not ModelLine.CLAUDE:
+        # Anthropic's endpoint counts with Claude's tokenizer; a GPT or Gemini
+        # prompt tokenises differently, so a number here would be wrong.
+        raise HTTPException(status_code=422, detail="token 精算使用 Anthropic 的 tokenizer，目前只支援 Claude 模型")
+    model_id = info.api_id
     # count_tokens needs at least one user turn; a single character stands in
     # when only a system prompt was pasted.
     turn = [{"role": "user", "content": req.sample if req.sample.strip() else "."}]

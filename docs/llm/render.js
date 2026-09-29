@@ -16,21 +16,44 @@
     blocked: '⛔ 預設為 0', unknown: '❓ 未公布',
   };
   const VERDICT_RANK = { over: 0, blocked: 1, unknown: 2, tight: 3, ample: 4 };
-  const DIM_LABEL = { rpm: 'RPM', itpm: 'ITPM<span class="llm-dim-sub">未快取 Input</span>',
-                      otpm: 'OTPM<span class="llm-dim-sub">Output + 思考</span>' };
+  const DIM_LABEL = { rpm: 'RPM', itpm: 'ITPM<span class="llm-dim-sub">Input</span>',
+                      otpm: 'OTPM<span class="llm-dim-sub">Output + 思考</span>',
+                      tpm: 'TPM<span class="llm-dim-sub">Input + Output 合併</span>',
+                      rpd: 'RPD<span class="llm-dim-sub">每日請求</span>',
+                      usd10m: '消費上限<span class="llm-dim-sub">每 10 分鐘</span>' };
+  const DIMS = ['rpm', 'itpm', 'otpm', 'tpm', 'rpd', 'usd10m'];
   const ACTION_ICON = {
     request_quota: '\u{1F4C4}', switch_plan: '↕', switch_model: '\u{1F504}',
     raise_cache: '⚡', set_max_tokens: '\u{1F3AF}', enter_account_quota: '\u{1F511}',
     use_batch: '\u{1F4E6}',
   };
-  // Anthropic list price applies here; Bedrock and Vertex set their own.
-  const LIST_PRICED = { anthropic: true, foundry: true };
   const SEGMENTS = [['uncached_input', '未快取 Input'], ['cache_read', '快取讀取'],
                     ['output', 'Output'], ['thinking', '思考']];
 
   let lastReport = null;
   let onlyFitting = false;
   let sortBy = 'platform';
+  let compareAll = false;
+
+  function vendorOf(report) {
+    const m = (typeof LLM_MODELS !== 'undefined') ? LLM_MODELS.find(x => x.model === report.workload.model) : null;
+    const l = m && typeof LLM_LINES !== 'undefined' ? LLM_LINES.find(x => x.line === m.line) : null;
+    return l ? l.vendor : '';
+  }
+
+  // Mirrors catalog.model_for: the version of a capability class inside a
+  // line — nearest class, prefer the more capable side on a tie, then order.
+  function modelFor(line, cls) {
+    const classes = LLM_CONST.MODEL_CLASSES;
+    const want = classes.indexOf(cls) >= 0 ? classes.indexOf(cls) : 2;
+    const cands = LLM_MODELS.filter(m => m.line === line);
+    const ranked = cands.slice().sort((a, b) => {
+      const ia = classes.indexOf(a.model_class), ib = classes.indexOf(b.model_class);
+      return (Math.abs(ia - want) - Math.abs(ib - want)) || ((ia > want) - (ib > want)) ||
+             (cands.indexOf(a) - cands.indexOf(b));
+    });
+    return ranked.length ? ranked[0].model : null;
+  }
 
   const el = id => document.getElementById(id);
   const fits = v => v === 'ample' || v === 'tight';
@@ -92,7 +115,7 @@
       ? fmtUsd(c.monthly_usd) + twdSpan(c.monthly_usd) : fmtUsd(c.per_1k_requests_usd) + ' / 千次';
     const costSub = (c.monthly_usd != null
       ? '以 ' + Number(r.workload.monthly_requests).toLocaleString() + ' 次/月、' : '') +
-      'Anthropic 官方與 Foundry 牌價；Bedrock、Vertex 另依合作夥伴定價';
+      vendorOf(r) + ' 官方牌價計算；未套用牌價的平台另依其定價';
 
     const stress = (r.sensitivity || [])[0];
     let stressLine = '';
@@ -110,13 +133,13 @@
     let head, tone, tiles;
     if (fitting.length) {
       const caps = platformCapacity(r).sort((a, b) => a.max_users - b.max_users);
-      const listed = caps.filter(x => LIST_PRICED[x.platform]).map(x => x.platform_label);
-      const partner = caps.filter(x => !LIST_PRICED[x.platform]).map(x => x.platform_label);
+      const listed = caps.filter(x => x.list_priced).map(x => x.platform_label);
+      const partner = caps.filter(x => !x.list_priced).map(x => x.platform_label);
       tone = 'ok';
       head = '<strong>' + users + ' 位使用者撐得住，不必先申請調額。</strong>' +
         (listed.length ? listed.join('、') + ' 可直接套用下方月費' : '') +
         (listed.length && partner.length ? '；' : '') +
-        (partner.length ? partner.join('、') + ' 同樣撐得住，但費用需依其合作夥伴定價另計' : '') + '。';
+        (partner.length ? partner.join('、') + ' 同樣撐得住，但費用需依該平台定價另計' : '') + '。';
       tiles = [
         ['每月費用', monthlyLine, costSub],
         ['保守可成長到', caps.length ? caps[0].max_users.toLocaleString() + ' 人' : '—',
@@ -152,6 +175,8 @@
 
   function renderCost(r) {
     const c = r.cost;
+    const basis = document.getElementById('llm-cost-basis');
+    if (basis) basis.textContent = vendorOf(r) + ' 官方牌價';
     const saving = c.cache_saving_pct > 0 ? '<span class="llm-saving">快取已省 ' + c.cache_saving_pct + '%</span>' : '';
     const item = (label, value, sub, muted) =>
       '<div class="llm-cost-item"><span class="llm-cost-label">' + label + '</span>' +
@@ -187,8 +212,12 @@
   function renderModels(r) {
     const host = el('llm-models');
     if (!host || !r.model_comparison) return;
-    const rows = r.model_comparison;
+    const selected = r.model_comparison.find(m => m.is_selected);
+    const line = selected ? selected.line : null;
+    const rows = compareAll ? r.model_comparison : r.model_comparison.filter(m => m.line === line);
     host.innerHTML =
+      '<label class="llm-toggle" style="margin-bottom:0.6rem;"><input type="checkbox" id="llm-compare-all"' +
+        (compareAll ? ' checked' : '') + '> 比較所有廠商（' + r.model_comparison.length + ' 個版本）</label>' +
       '<div class="llm-table-wrap"><table class="llm-table"><thead><tr>' +
         '<th>模型</th><th>每月費用</th><th>每千次</th><th>可用方案</th><th>最多支撐</th><th></th>' +
       '</tr></thead><tbody>' + rows.map(m =>
@@ -200,8 +229,10 @@
           '<td>' + (m.best_max_users != null ? m.best_max_users.toLocaleString() + ' 人' : '—') + '</td>' +
           '<td>' + (m.is_selected ? '' : '<button type="button" class="llm-row-pick" data-pick-model="' + m.model + '">改用</button>') + '</td>' +
         '</tr>').join('') + '</tbody></table></div>' +
-      '<p class="llm-note">各模型以相同的回覆與思考量比較，只反映已公布的價格與配額差異；實際思考量因模型而異。' +
-      '能力由上到下大致為 Fable、Opus、Sonnet，省錢前請先確認能力是否足夠。</p>';
+      '<p class="llm-note">各模型以相同的 token 量比較，只反映已公布的價格與配額差異。實際 token 數會因模型而異：' +
+      '不同廠商的 tokenizer 不同，思考量也不同。省錢前請先確認能力是否足夠，跨廠商比較僅供參考。</p>';
+    const toggle = el('llm-compare-all');
+    if (toggle) toggle.addEventListener('change', e => { compareAll = e.target.checked; renderModels(lastReport); });
     host.querySelectorAll('[data-pick-model]').forEach(b => b.addEventListener('click', () => {
       if (typeof root.llmSelectModel === 'function') root.llmSelectModel(b.dataset.pickModel);
     }));
@@ -225,26 +256,33 @@
         ? '含思考 token，思考同樣佔用 OTPM' : '尖峰 1 分鐘生成的 token 數');
   }
 
+  function dimVal(key, v) { return key === 'usd10m' ? fmtUsd(v) : fmtTok(v); }
+
   function dimRow(key, dim) {
     const name = '<span class="llm-dim-name">' + DIM_LABEL[key] + '</span>';
-    const acct = dim.from_account ? '<span class="llm-acct" title="來自你填入的帳號配額">帳號值</span>' : '';
+    const acct = dim.from_account ? '<span class="llm-acct" title="來自你填入的帳號配額">帳號值</span>'
+      : (dim.soft ? '<span class="llm-acct" title="基準值，並非硬上限">基準值</span>' : '');
+    if (dim.demand_known === false)
+      return '<div class="llm-dim"><div class="llm-dim-top">' + name +
+        '<span class="llm-dim-nums">' + (dim.limit != null ? '上限 ' + dimVal(key, dim.limit) : '') + '</span>' +
+        '<span class="llm-dim-load llm-muted">需填每月請求數</span></div></div>';
     if (dim.status === 'not_enforced')
       return '<div class="llm-dim"><div class="llm-dim-top">' + name +
         '<span class="llm-dim-load llm-muted">不設限</span></div>' +
         (dim.note ? '<div class="llm-note">' + esc(dim.note) + '</div>' : '') + '</div>';
     if (dim.status === 'unpublished')
       return '<div class="llm-dim"><div class="llm-dim-top">' + name +
-        '<span class="llm-dim-nums">需求 ' + fmtTok(dim.demand) + '</span>' +
+        '<span class="llm-dim-nums">需求 ' + dimVal(key, dim.demand) + '</span>' +
         '<span class="llm-dim-load llm-muted">未公布</span></div></div>';
     if (dim.load == null)
       return '<div class="llm-dim"><div class="llm-dim-top">' + name +
-        '<span class="llm-dim-nums">需求 ' + fmtTok(dim.demand) + '</span>' +
+        '<span class="llm-dim-nums">需求 ' + dimVal(key, dim.demand) + '</span>' +
         '<span class="llm-dim-load" style="color:var(--danger)">額度 0</span></div>' +
         '<div class="llm-bar"><span class="over" style="width:100%"></span></div></div>';
     const cls = dim.load > 1 ? 'over' : (dim.load > 0.7 ? 'tight' : 'ample');
     const colour = cls === 'over' ? 'var(--danger)' : (cls === 'tight' ? 'var(--warning)' : 'var(--success)');
     return '<div class="llm-dim"><div class="llm-dim-top">' + name +
-      '<span class="llm-dim-nums">' + fmtTok(dim.demand) + ' / ' + fmtTok(dim.limit) + acct + '</span>' +
+      '<span class="llm-dim-nums">' + dimVal(key, dim.demand) + ' / ' + dimVal(key, dim.limit) + acct + '</span>' +
       '<span class="llm-dim-load" style="color:' + colour + '">' + Math.round(dim.load * 100) + '%</span></div>' +
       '<div class="llm-bar"><span class="' + cls + '" style="width:' + Math.min(100, dim.load * 100) + '%"></span></div></div>';
   }
@@ -259,13 +297,13 @@
           '<div class="llm-action"><span class="llm-action-icon">' + (ACTION_ICON[a.kind] || '•') +
           '</span>' + esc(a.text) + '</div>').join('') + '</div>'
       : '';
-    const price = LIST_PRICED[r.platform] ? '' :
-      '<div class="llm-note">此平台費用依合作夥伴定價，與上方月費不同</div>';
+    const price = r.list_priced ? '' :
+      '<div class="llm-note">此方案費用依該平台自己的定價，與上方月費不同</div>';
     return '<div class="llm-card verdict-' + r.verdict + '">' +
       '<div class="llm-card-head"><div><span class="llm-card-name">' + esc(r.platform_label) + '</span>' +
         '<span class="llm-card-plan">' + esc(r.plan_label) + '</span></div>' +
         '<span class="llm-badge ' + r.verdict + '">' + VERDICT_LABEL[r.verdict] + '</span></div>' +
-      capacity + ['rpm', 'itpm', 'otpm'].map(k => dimRow(k, r[k])).join('') + actions +
+      capacity + DIMS.filter(k => r[k]).map(k => dimRow(k, r[k])).join('') + actions +
       '<div class="llm-card-notes">' + price + r.notes.map(n => '<div class="llm-note">' + esc(n) + '</div>').join('') +
       '</div></div>';
   }
@@ -322,7 +360,7 @@
     ];
     if (c.monthly_usd != null) {
       lines.push('預估月費：' + fmtUsd(c.monthly_usd) + '（約 ' + twd(c.monthly_usd) + '，' +
-        Number(r.workload.monthly_requests).toLocaleString() + ' 次請求，Anthropic 官方牌價）');
+        Number(r.workload.monthly_requests).toLocaleString() + ' 次請求，' + vendorOf(r) + ' 官方牌價）');
     }
     lines.push('每 1,000 次請求：' + fmtUsd(c.per_1k_requests_usd) +
       (c.cache_saving_pct > 0 ? '，已含快取節省 ' + c.cache_saving_pct + '%' : ''));
@@ -334,13 +372,14 @@
     }
     const stress = (r.sensitivity || [])[0];
     if (stress) lines.push('壓力測試（尖峰再集中一倍）：' + stress.fitting_plans + ' / ' + stress.total_plans + ' 個方案仍可用');
-    const cheaper = (r.model_comparison || []).filter(m => !m.is_selected && m.fitting_plans > 0 && m.monthly_usd != null)
+    const selLine = ((r.model_comparison || []).find(m => m.is_selected) || {}).line;
+    const cheaper = (r.model_comparison || []).filter(m => m.line === selLine && !m.is_selected && m.fitting_plans > 0 && m.monthly_usd != null)
       .filter(m => c.monthly_usd != null && m.monthly_usd < c.monthly_usd);
     if (cheaper.length) {
       lines.push('其他選擇：' + cheaper.map(m => m.label + ' ' + fmtUsd(m.monthly_usd) + '/月').join('、') + '（能力需另行評估）');
     }
     lines.push('');
-    lines.push('註：Bedrock 與 Vertex 為合作夥伴定價；token 量與尖峰集中度為規劃估計，正式報價前請以實際提示詞與用量校正。' +
+    lines.push('註：部分平台另依其定價計費；token 量與尖峰集中度為規劃估計，正式報價前請以實際提示詞與用量校正。' +
       '配額資料驗證 ' + (r.results[0] ? r.results[0].verified : '') + '。');
     return lines.join('\n');
   }
@@ -363,6 +402,7 @@
     renderLLMReport,
     llmRerender: () => { if (lastReport) renderLLMReport(lastReport); },
     llmSummaryText: r => summaryText(r || lastReport),
+    llmModelFor: modelFor,
     llmEsc: esc, llmFmtTok: fmtTok, llmFmtUsd: fmtUsd,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
