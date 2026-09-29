@@ -161,6 +161,7 @@
       ];
     }
 
+    renderSticky(r, tiles, tone);
     host.innerHTML = '<div class="llm-summary ' + tone + '">' +
       '<p class="llm-summary-head">' + head + '</p>' +
       '<div class="llm-summary-tiles">' + tiles.map(t =>
@@ -169,6 +170,41 @@
         '<span class="llm-summary-sub">' + esc(t[2]) + '</span></div>').join('') + '</div>' +
       (stressLine ? '<p class="llm-summary-note">' + stressLine + '</p>' : '') + batchLine +
       '</div>';
+  }
+
+  // A compact copy of the summary that follows the reader down the results.
+  function renderSticky(r, tiles, tone) {
+    if (typeof document === 'undefined' || !document.body) return;
+    let bar = document.getElementById('llm-sticky');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'llm-sticky';
+      bar.setAttribute('role', 'region');
+      bar.setAttribute('aria-label', '試算摘要');
+      document.body.appendChild(bar);
+      const sync = () => {
+        const summary = el('llm-summary'), results = el('llm-results');
+        const on = !!(results && results.offsetParent !== null && summary &&
+                      summary.getBoundingClientRect().bottom < 0);
+        bar.classList.toggle('show', on);
+        document.body.classList.toggle('llm-sticky-on', on);
+      };
+      window.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync);
+      // Switching to another tab hides the results without any scrolling.
+      document.addEventListener('click', () => setTimeout(sync, 0));
+      bar.addEventListener('click', e => {
+        if (e.target.closest('[data-sticky-top]')) el('llm-summary').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      bar.syncVisibility = sync;
+    }
+    const info = (typeof LLM_MODELS !== 'undefined' ? LLM_MODELS : []).find(m => m.model === r.workload.model);
+    bar.className = 'llm-sticky ' + tone + (bar.classList.contains('show') ? ' show' : '');
+    bar.innerHTML = '<div class="llm-sticky-inner">' +
+      '<span class="llm-sticky-model">' + esc(info ? info.label : r.workload.model) + '</span>' +
+      tiles.map(t => '<span class="llm-sticky-item"><em>' + esc(t[0]) + '</em>' + t[1] + '</span>').join('') +
+      '<button type="button" class="llm-sticky-top" data-sticky-top>&#8593; 看摘要</button></div>';
+    bar.syncVisibility();
   }
 
   // -- cost ---------------------------------------------------------------
@@ -352,8 +388,12 @@
         '<span class="llm-card-plan">' + esc(r.plan_label) + '</span></div>' +
         '<span class="llm-badge ' + r.verdict + '">' + VERDICT_LABEL[r.verdict] + '</span></div>' +
       capacity + DIMS.filter(k => r[k]).map(k => dimRow(k, r[k])).join('') + actions +
-      '<div class="llm-card-notes">' + price + r.notes.map(n => '<div class="llm-note">' + esc(n) + '</div>').join('') +
-      '</div></div>';
+      (price ? '<div class="llm-card-price">' + price + '</div>' : '') +
+      (r.notes.length
+        ? '<details class="llm-card-notes"><summary>方案說明（' + r.notes.length + ' 則）</summary>' +
+          r.notes.map(n => '<div class="llm-note">' + esc(n) + '</div>').join('') + '</details>'
+        : '') +
+      '</div>';
   }
 
   function renderCards(report) {
@@ -453,6 +493,25 @@
     llmModelFor: modelFor, llmCalibrate: calibrateFromUsage,
     llmEsc: esc, llmFmtTok: fmtTok, llmFmtUsd: fmtUsd,
   };
+  // Dark is the brand default; light suits proposals, printing and bright rooms.
+  if (typeof document !== 'undefined') {
+    const btn = document.getElementById('btn-theme');
+    if (btn) {
+      const root = document.documentElement;
+      const label = () => {
+        const light = root.classList.contains('light');
+        btn.innerHTML = light ? '&#9789;' : '&#9728;';
+        btn.title = light ? '切換深色主題' : '切換淺色主題';
+        btn.setAttribute('aria-label', btn.title);
+      };
+      btn.addEventListener('click', () => {
+        root.classList.toggle('light');
+        try { localStorage.setItem('theme', root.classList.contains('light') ? 'light' : 'dark'); } catch (e) {}
+        label();
+      });
+      label();
+    }
+  }
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   Object.assign(root, api);
 })(typeof globalThis !== 'undefined' ? globalThis : this);

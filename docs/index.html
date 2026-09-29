@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+  <script>try { if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本比較計算機</title>
@@ -9,7 +10,7 @@
   <meta property="og:description" content="即時比較 AWS / GCP / Azure / Oracle Cloud 雲端主機費用，並試算 LLM 配額負載與 API 費用">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary">
-  <link rel="stylesheet" href="llm/style.css?v=0.13.0">
+  <link rel="stylesheet" href="llm/style.css?v=0.14.0">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9729;</text></svg>">
   <style>
 :root {
@@ -17,7 +18,7 @@
   --surface: #141414;
   --text: #e8e0d0;
   --text-secondary: #b0a890;
-  --text-muted: #706850;
+  --text-muted: #968c70;
   --primary: #d4a843;
   --primary-hover: #e0b84d;
   --primary-light: rgba(212,168,67,0.12);
@@ -37,30 +38,6 @@
   --shadow-md: 0 4px 6px rgba(0,0,0,0.4), 0 2px 4px rgba(0,0,0,0.3);
   --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
   --header-bg: linear-gradient(135deg, #0f0d08 0%, #1a1508 50%, #0f0d08 100%);
-}
-html.dark {
-  --bg: #050505;
-  --surface: #0f0f0f;
-  --text: #f0e8d8;
-  --text-secondary: #c0b898;
-  --text-muted: #807060;
-  --primary: #e0b84d;
-  --primary-hover: #f0c858;
-  --primary-light: rgba(224,184,77,0.15);
-  --border: #252018;
-  --border-light: #151210;
-  --success: #60d888;
-  --success-bg: rgba(96,216,136,0.10);
-  --warning: #f0b030;
-  --warning-bg: rgba(240,176,48,0.10);
-  --danger: #f06a6a;
-  --danger-bg: rgba(240,106,106,0.12);
-  --reserved: #c898f0;
-  --reserved-bg: rgba(200,152,240,0.10);
-  --shadow: 0 1px 3px rgba(0,0,0,0.5);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.5);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.6);
-  --header-bg: linear-gradient(135deg, #080604 0%, #121008 50%, #080604 100%);
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -114,7 +91,7 @@ section h2 .unit { font-size: 0.8rem; font-weight: 400; color: var(--text-muted)
 .preset-btn.active { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 3px rgba(212,168,67,0.2); }
 .preset-icon { font-size: 1.5rem; }
 .preset-label { font-size: 0.85rem; font-weight: 700; color: var(--text); }
-.preset-detail { font-size: 0.72rem; color: var(--text-muted); }
+.preset-detail { font-size: 0.78rem; color: var(--text-muted); }
 .form-group-full { grid-column: 1 / -1; }
 textarea.description-field {
   width: 100%; resize: vertical; padding: 0.65rem 0.85rem;
@@ -140,12 +117,13 @@ textarea.description-field:focus {
 .toggle-switch:checked::after { transform: translateX(17px); }
 .toggle-text { font-size: 0.85rem; color: var(--text); cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.4rem; }
 .ai-badge { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em; padding: 0.15rem 0.55rem; border-radius: 20px; vertical-align: middle; }
-.ai-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
+.ai-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 0.9rem; margin-top: 0.75rem; }
 .ai-card { background: var(--border-light); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; }
 .ai-card-icon { font-size: 1.1rem; margin-bottom: 0.35rem; }
-.ai-card-title { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; }
-.ai-card-body { font-size: 0.82rem; color: var(--text); line-height: 1.65; white-space: pre-wrap; }
-.card-pricing-note { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem; }
+.ai-card-title { font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.45rem; }
+.ai-card-body { font-size: 0.86rem; color: var(--text); line-height: 1.7; white-space: pre-wrap; }
+.ai-num { color: var(--primary); font-weight: 700; }
+.card-pricing-note { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.3rem; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 1rem; }
 .form-group { display: flex; flex-direction: column; }
 label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.3rem; letter-spacing: 0.01em; }
@@ -198,7 +176,6 @@ input:focus, select:focus { outline: none; border-color: var(--primary); box-sha
 }
 .provider-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
 .provider-card.card-cheapest { background: var(--success-bg); border-color: rgba(80,200,120,0.3); }
-html.dark .provider-card.card-cheapest { border-color: rgba(80,200,120,0.25); }
 .card-header { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
 .card-provider { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
 .card-instance { margin-bottom: 0.15rem; }
@@ -378,6 +355,7 @@ footer a:hover { text-decoration: underline; }
   font-size: 0.72rem; font-weight: 400; color: var(--text-muted); font-family: inherit;
 }
 .chart-price .twd-hint { display: block; margin-top: 0.05rem; text-align: right; }
+.provider-card .twd-hint { display: block; margin-top: 0.05rem; }
 
 /* ── Instance tooltip ── */
 .tip-wrap {
@@ -405,7 +383,7 @@ footer a:hover { text-decoration: underline; }
       <div class="currency-bar" title="設定顯示匯率">
         1 USD = <input type="number" id="usd-rate" value="32" min="1" max="9999" step="0.5"> TWD
       </div>
-      <button class="btn-icon" id="btn-dark" title="切換深色模式" aria-label="切換深色模式">&#9789;</button>
+      <button class="btn-icon" id="btn-theme" title="切換淺色主題" aria-label="切換淺色主題">&#9728;</button>
       <button class="btn-icon" id="btn-share" title="分享此配置" aria-label="分享此配置">&#128279;</button>
     </div>
     <div class="header-inner">
@@ -846,7 +824,7 @@ footer a:hover { text-decoration: underline; }
   </main>
 
   <footer>
-    <p>CloudCost v0.13.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.14.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
     <p style="margin-top:0.3rem;">定價資料更新：2026-09 ｜ 官方計算機：
       <a href="https://aws.amazon.com/ec2/pricing/on-demand/" target="_blank">AWS</a> ·
       <a href="https://cloud.google.com/compute/all-pricing" target="_blank">GCP</a> ·
@@ -858,24 +836,11 @@ footer a:hover { text-decoration: underline; }
 
   <div class="toast" id="toast"></div>
 
-<script src="llm/data.js?v=0.13.0"></script>
-<script src="llm/engine.js?v=0.13.0"></script>
-<script src="llm/render.js?v=0.13.0"></script>
+<script src="llm/data.js?v=0.14.0"></script>
+<script src="llm/engine.js?v=0.14.0"></script>
+<script src="llm/render.js?v=0.14.0"></script>
 <script>
 (function() {
-
-// ── Dark mode ──
-const html = document.documentElement;
-const btnDark = document.getElementById('btn-dark');
-if (localStorage.getItem('darkMode') === 'true' || (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-  html.classList.add('dark');
-}
-btnDark.addEventListener('click', () => {
-  html.classList.toggle('dark');
-  localStorage.setItem('darkMode', html.classList.contains('dark'));
-  btnDark.textContent = html.classList.contains('dark') ? '\u2600' : '\u263D';
-});
-btnDark.textContent = html.classList.contains('dark') ? '\u2600' : '\u263D';
 
 // ── Toast ──
 function showToast(msg) {
@@ -1086,7 +1051,7 @@ const REGION_NAMES = {
   'eu-west-1':'Europe (Ireland)',
 };
 const PROVIDER_META = {
-  aws: { name:'AWS', color:'#ff9900' }, gcp: { name:'GCP', color:'#4285f4' },
+  aws: { name:'AWS', color:'#ff9900' }, gcp: { name:'GCP', color:'#34a853' },
   azure: { name:'Azure', color:'#0078d4' }, oracle: { name:'Oracle', color:'#c74634' },
 };
 
@@ -1798,6 +1763,12 @@ function generateLocalAI(data, description, isGroup) {
   return { bestFitText: bestFitText, strengthsText: strengthsText, costText: costText, hiddenText: hiddenText };
 }
 
+// Money and percentages are what a reader scans for in these notes.
+function highlightAmounts(html) {
+  return html.replace(/(NT\$|\$)[\d,]+(?:\.\d+)?(?:\/(?:月|hr|年))?|[\d.]+(?:[–-][\d.]+)?%/g,
+    function (m) { return '<strong class="ai-num">' + m + '</strong>'; });
+}
+
 function renderAISection(data, description, isGroup) {
   const ai = generateLocalAI(data, description, isGroup);
   const cards = [
@@ -1810,7 +1781,7 @@ function renderAISection(data, description, isGroup) {
     return '<div class="ai-card">' +
       '<div class="ai-card-icon">' + c.icon + '</div>' +
       '<div class="ai-card-title">' + c.title + '</div>' +
-      '<div class="ai-card-body">' + escHtml(c.body) + '</div>' +
+      '<div class="ai-card-body">' + highlightAmounts(escHtml(c.body)) + '</div>' +
     '</div>';
   }).join('');
   document.getElementById('ai-section').style.display = '';
@@ -1852,6 +1823,6 @@ if (urlSpec) {
 
 })();
 </script>
-<script src="llm/form.js?v=0.13.0"></script>
+<script src="llm/form.js?v=0.14.0"></script>
 </body>
 </html>
