@@ -121,6 +121,11 @@ class LineInfo(BaseModel):
     vendor: str
     #: Where the catalogue's list price comes from, stated on every estimate.
     price_caveat: str
+    #: Whether this vendor's usage "input" count already includes cached tokens,
+    #: which decides how measured usage is split when calibrating.
+    usage_input_includes_cache: bool = True
+    #: How the vendor's usage fields map onto the calibration form.
+    usage_hint: str = ""
 
 
 _LINES: dict[ModelLine, LineInfo] = {
@@ -129,21 +134,29 @@ _LINES: dict[ModelLine, LineInfo] = {
         price_caveat="以 Anthropic 官方第一方定價計算。Claude in Microsoft Foundry 同樣採標準 API 費率"
         "（以 CCU 計價開立帳單）；Amazon Bedrock 與 Google Vertex 為合作夥伴自訂定價，"
         "實際金額請以該平台價目表為準",
+        usage_input_includes_cache=False,
+        usage_hint="Anthropic 的 Input（input_tokens）不含快取，快取讀取（cache_read_input_tokens）與寫入"
+        "（cache_creation_input_tokens）另列；Output（output_tokens）已含思考",
     ),
     ModelLine.GPT: LineInfo(
         line=ModelLine.GPT, label="GPT", vendor="OpenAI",
         price_caveat="以 OpenAI 官方 API 牌價計算。Azure OpenAI Global Standard 與 Bedrock 全域跨區推論"
         "同樣採 OpenAI 牌價；Azure Data Zone 與 Bedrock 區域內推論另加 10%",
+        usage_hint="OpenAI 的 Input（input_tokens）已包含快取讀取（cached_tokens）；Output（output_tokens）已含推理",
     ),
     ModelLine.GEMINI: LineInfo(
         line=ModelLine.GEMINI, label="Gemini", vendor="Google",
         price_caveat="以 Gemini API 付費層牌價計算，與 Vertex 全域端點價格相同；Vertex 區域端點另加 10%。"
         "Gemini 的明確快取另按儲存時數收費，此處未計入",
+        usage_hint="Gemini 的 Input（promptTokenCount）已包含快取（cachedContentTokenCount）；"
+        "思考（thoughtsTokenCount）不含在 Output 中，請另填在「思考」欄",
     ),
     ModelLine.GROK: LineInfo(
         line=ModelLine.GROK, label="Grok", vendor="xAI",
         price_caveat="以 xAI 官方 API 牌價計算。Bedrock 全域跨區、Azure Global Standard、Vertex 全域端點與 "
         "OCI 標準處理同樣採 xAI 牌價；Bedrock 區域內與 Azure Data Zone 另加 10%，OCI 優先處理（priority）為兩倍",
+        usage_hint="xAI 的 Input（prompt_tokens）已包含快取（cached_tokens）；若主控台把推理（reasoning_tokens）"
+        "與 Output 分開列出，請另填在「思考」欄",
     ),
 }
 

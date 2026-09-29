@@ -87,6 +87,7 @@
 .llm-cost-bar .seg { display: block; height: 100%; }
 .seg-uncached_input { background: var(--primary); }
 .seg-cache_read { background: var(--success); }
+.seg-cache_write { background: var(--success); opacity: 0.55; }
 .seg-output { background: var(--reserved); }
 .llm-legend { display: flex; flex-wrap: wrap; gap: 0.85rem; margin-bottom: 0.75rem; }
 .llm-legend-item { font-size: 0.74rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
@@ -279,3 +280,23 @@
 }
 .llm-counter-result { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; line-height: 1.6; }
 .llm-inline-check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.84rem; color: var(--text-secondary); margin-top: 0.5rem; }
+
+/* ── calibration from measured usage ── */
+.llm-calibration { border-top: 3px solid var(--success); }
+.llm-cal-grid { margin-top: 0.9rem; }
+.llm-cal-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.9rem 0 0.4rem; }
+/* Doubled class: the page's inline .btn-icon rule loads after this sheet. */
+.llm-cal-actions .llm-cal-apply {
+  background: linear-gradient(135deg, #d4a843 0%, #b8902a 100%); color: #0a0a0a;
+  border-color: transparent; font-weight: 700;
+}
+.llm-cal-actions .llm-cal-apply:hover { filter: brightness(1.08); }
+.llm-cal-ok { font-size: 0.82rem; color: var(--success); line-height: 1.6; margin: 0.6rem 0; }
+.llm-cal-flag { background: var(--success); color: #fff; }
+.llm-cal-table td:nth-child(n+2), .llm-cal-table th:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; }
+.llm-cal-table td:last-child { color: var(--text-muted); }
+.llm-cal-total td { border-top: 2px solid var(--border); }
+
+/* ── narrow screens: a long <option> must not widen its grid column ── */
+.form-grid > .form-group { min-width: 0; }
+.form-group > select, .form-group > input { min-width: 0; max-width: 100%; text-overflow: ellipsis; }

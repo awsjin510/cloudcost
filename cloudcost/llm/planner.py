@@ -30,7 +30,7 @@ import math
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from cloudcost.llm.catalog import (
     ACTIVE_HOURS_PER_DAY,
@@ -103,9 +103,19 @@ class AppWorkload(BaseModel):
         description="Thinking tokens; billed as output and counted toward OTPM",
     )
     cache_hit_rate: float = Field(
-        default=0.0, ge=0.0, le=0.95,
+        default=0.0, ge=0.0, le=0.99,
         description="Share of the prompt served from cache; cache reads are ITPM-free",
     )
+    cache_write_rate: float = Field(
+        default=0.0, ge=0.0, le=0.99,
+        description="Share of the prompt written to cache on each request (measured usage)",
+    )
+
+    @model_validator(mode="after")
+    def _cache_shares_fit(self) -> "AppWorkload":
+        if self.cache_hit_rate + self.cache_write_rate > 1.0 + 1e-9:
+            raise ValueError("cache_hit_rate + cache_write_rate cannot exceed 1")
+        return self
 
     @property
     def rpm(self) -> float:
@@ -118,6 +128,11 @@ class AppWorkload(BaseModel):
     @property
     def cached_input_per_request(self) -> float:
         return self.input_tokens_per_request * self.cache_hit_rate
+
+    @property
+    def cache_write_per_request(self) -> float:
+        """Part of the uncached input that is also written to cache."""
+        return self.input_tokens_per_request * self.cache_write_rate
 
     @property
     def billed_output_per_request(self) -> int:
@@ -698,38 +713,41 @@ def _evaluate_plan(workload: LLMWorkload, plan: QuotaPlan) -> QuotaPlanResult:
 # ---------------------------------------------------------------------------
 
 
-def _cost_parts(workload: LLMWorkload) -> tuple[float, float, float, float, float]:
-    """(uncached, cache read, reply, thinking, no-cache total) in USD per peak minute.
+def _cost_parts(workload: LLMWorkload) -> tuple[float, float, float, float, float, float]:
+    """(uncached, cache read, cache write, reply, thinking, no-cache total) in USD per peak minute.
 
     Per app, because some vendors re-price a whole request once its prompt
     crosses a length threshold.
     """
     price = get_model(workload.model).pricing
     per_m = 1_000_000.0
-    uncached_usd = cache_read_usd = reply_usd = thinking_usd = no_cache_minute = 0.0
+    uncached_usd = cache_read_usd = cache_write_usd = reply_usd = thinking_usd = no_cache_minute = 0.0
     for a in workload.apps:
         inp, out, cached = price.rates_for(a.input_tokens_per_request)
+        # A vendor without a write premium bills written tokens as plain input.
+        write = price.cache_write_5m_per_mtok if price.cache_write_5m_per_mtok is not None else inp
         rpm_a = a.rpm
-        uncached_usd += rpm_a * a.uncached_input_per_request * inp / per_m
+        uncached_usd += rpm_a * (a.uncached_input_per_request - a.cache_write_per_request) * inp / per_m
+        cache_write_usd += rpm_a * a.cache_write_per_request * write / per_m
         cache_read_usd += rpm_a * a.cached_input_per_request * cached / per_m
         reply_usd += rpm_a * a.output_tokens_per_request * out / per_m
         thinking_usd += rpm_a * a.thinking_tokens_per_request * out / per_m
         # Same traffic with caching switched off: every input token at full rate.
         no_cache_minute += (rpm_a * a.input_tokens_per_request * inp
                             + rpm_a * a.billed_output_per_request * out) / per_m
-    return uncached_usd, cache_read_usd, reply_usd, thinking_usd, no_cache_minute
+    return uncached_usd, cache_read_usd, cache_write_usd, reply_usd, thinking_usd, no_cache_minute
 
 
 def _per_minute_usd(workload: LLMWorkload) -> float:
-    u, c, r, t, _ = _cost_parts(workload)
-    return u + c + r + t
+    u, c, w, r, t, _ = _cost_parts(workload)
+    return u + c + w + r + t
 
 
 def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
     info = get_model(workload.model)
     price = info.pricing
-    uncached_usd, cache_read_usd, reply_usd, thinking_usd, no_cache_minute = _cost_parts(workload)
-    per_minute = uncached_usd + cache_read_usd + reply_usd + thinking_usd
+    uncached_usd, cache_read_usd, cache_write_usd, reply_usd, thinking_usd, no_cache_minute = _cost_parts(workload)
+    per_minute = uncached_usd + cache_read_usd + cache_write_usd + reply_usd + thinking_usd
 
     rpm = workload.rpm
     per_request = per_minute / rpm if rpm else 0.0
@@ -750,7 +768,12 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
         "思考 token 一律按 Output 計費，即使畫面不顯示也會收費。此處的思考量是規劃估計，"
         "請以實際請求回傳的 usage 校正",
     ]
-    if price.cache_write_5m_per_mtok is not None:
+    writes = any(a.cache_write_rate > 0 for a in workload.apps)
+    if writes and price.cache_write_5m_per_mtok is not None:
+        caveats.append(f"快取寫入依實際用量計入，按 ${price.cache_write_5m_per_mtok:g}/MTok（5 分鐘快取）計價")
+    elif writes:
+        caveats.append("此模型的快取寫入不另收費，寫入的 token 按一般 Input 計價")
+    elif price.cache_write_5m_per_mtok is not None:
         caveats.append(
             "假設快取在穩定流量下由讀取持續續期，因此未計入快取寫入費用"
             f"（首次寫入約 ${price.cache_write_5m_per_mtok:g}/MTok）"
@@ -778,6 +801,7 @@ def _estimate_cost(workload: LLMWorkload) -> CostEstimate:
         breakdown_per_1k={
             "uncached_input": per_1k_of(uncached_usd),
             "cache_read": per_1k_of(cache_read_usd),
+            "cache_write": per_1k_of(cache_write_usd),
             "output": per_1k_of(reply_usd),
             "thinking": per_1k_of(thinking_usd),
         },

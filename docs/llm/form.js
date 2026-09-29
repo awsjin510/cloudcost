@@ -33,6 +33,9 @@
   let customised = false;          // advanced panel has been edited
   let apps = [];
   let accounts = [];
+  // Measured usage replacing the scenario's token profile:
+  // { usage, includes, profile, before } or null.
+  let calibration = null;
 
   const $ = id => document.getElementById(id);
   const scenario = id => LLM_SCENARIOS.find(s => s.scenario_id === id);
@@ -88,15 +91,17 @@
   function rebuildFromScenario() {
     const s = scenario(scenarioId);
     const users = Math.max(1, Math.round(parseFloat($('llm_users').value) || 1));
-    const perDay = Math.max(0.1, parseFloat($('llm_per_day').value) || s.messages_per_user_per_day);
+    const perDay = Math.max(0.01, parseFloat($('llm_per_day').value) || s.messages_per_user_per_day);
+    const p = calibration && calibration.profile;
     apps = [{
       name: s.label,
       concurrent_users: users,
       requests_per_user_per_minute: Math.max(0.0001, peakRpmPerUser(perDay, $('llm_peak').value)),
-      input_tokens_per_request: s.input_tokens_per_request,
-      output_tokens_per_request: s.output_tokens_per_request,
-      thinking_tokens_per_request: thinkingFor(s),
-      cache_hit_rate: s.cache_hit_rate,
+      input_tokens_per_request: p ? p.input_tokens_per_request : s.input_tokens_per_request,
+      output_tokens_per_request: p ? p.output_tokens_per_request : s.output_tokens_per_request,
+      thinking_tokens_per_request: p ? p.thinking_tokens_per_request : thinkingFor(s),
+      cache_hit_rate: p ? p.cache_hit_rate : s.cache_hit_rate,
+      cache_write_rate: p ? p.cache_write_rate : 0,
     }];
     $('llm_max').value = s.max_tokens;
     $('llm_monthly').value = Math.round(users * perDay * LLM_CONST.WORKING_DAYS_PER_MONTH);
@@ -105,6 +110,8 @@
   function selectScenario(id) {
     scenarioId = id;
     customised = false;
+    // Measured usage describes one workload; a different scenario is another.
+    if (calibration) { calibration = null; renderCalibration(null); }
     const s = scenario(id);
     setModel(llmModelFor($('llm_line').value || 'claude', s.suggested_class));
     $('llm_per_day').value = s.messages_per_user_per_day;
@@ -148,7 +155,17 @@
     const profile = PEAK_LABELS[$('llm_peak').value] || PEAK_LABELS.normal;
     const factor = LLM_CONST.PEAK_FACTORS[$('llm_peak').value] || LLM_CONST.PEAK_FACTORS.normal;
 
-    $('llm-derived').innerHTML = customised
+    const cal = calibration && calibration.profile;
+    $('llm-derived').innerHTML = cal && !customised
+      ? '依實際用量校正：' + users.toLocaleString() + ' 人 × 每人每天 ' + perDay +
+        ' 次（試用期實測）÷ ' + LLM_CONST.ACTIVE_HOURS_PER_DAY + ' 小時 × ' + factor + '（' + profile[0] + '）' +
+        ' ＝ 尖峰 <b>' + Math.round(total).toLocaleString() + '</b> Requests/min。' +
+        '　單次 <b>' + cal.input_tokens_per_request.toLocaleString() + '</b> Input / <b>' +
+        (cal.output_tokens_per_request + cal.thinking_tokens_per_request).toLocaleString() + '</b> Output tokens，' +
+        '快取命中 <b>' + Math.round(cal.cache_hit_rate * 100) + '%</b>' +
+        (cal.cache_write_rate > 0 ? '、快取寫入 <b>' + Math.round(cal.cache_write_rate * 100) + '%</b>' : '') +
+        '。<span class="llm-custom-flag llm-cal-flag">已校正</span>'
+      : customised
       ? '已在進階設定中自訂，上方的情境與規模欄位不再覆寫。<span class="llm-custom-flag">自訂</span>' +
         '　目前尖峰 <b>' + Math.round(total).toLocaleString() + '</b> Requests/min，共 ' +
         apps.length + ' 個應用。'
@@ -193,7 +210,7 @@
         num(i, 'output_tokens_per_request', '單次回覆', 'Output Tokens', a.output_tokens_per_request, 1, 128000) +
         num(i, 'thinking_tokens_per_request', '單次思考', 'Tokens', a.thinking_tokens_per_request || 0, 0, 128000,
             '<span class="llm-hint">思考一律按 Output 計費並佔用 OTPM，即使畫面不顯示</span>') +
-        num(i, 'cache_hit_rate_pct', '固定前綴佔比', '% of Input', Math.round(a.cache_hit_rate * 100), 0, 95,
+        num(i, 'cache_hit_rate_pct', '固定前綴佔比', '% of Input', Math.round(a.cache_hit_rate * 100), 0, 99,
             '<span class="llm-hint">System Prompt + 固定 RAG 前綴的比例，這段可以快取，不佔 ITPM</span>') +
       '</div></div>';
   }
@@ -230,7 +247,10 @@
         if (f === 'name') { a.name = input.value || '應用'; return; }
         const v = parseFloat(input.value);
         if (isNaN(v)) return;
-        if (f === 'cache_hit_rate_pct') a.cache_hit_rate = Math.min(0.95, Math.max(0, v / 100));
+        if (f === 'cache_hit_rate_pct') {
+          a.cache_hit_rate = Math.min(0.99, Math.max(0, v / 100));
+          a.cache_write_rate = Math.min(a.cache_write_rate || 0, 1 - a.cache_hit_rate);
+        }
         else a[f] = v;
       });
     });
@@ -299,6 +319,7 @@
         output_tokens_per_request: Math.max(1, Math.round(a.output_tokens_per_request)),
         thinking_tokens_per_request: Math.max(0, Math.round(a.thinking_tokens_per_request || 0)),
         cache_hit_rate: a.cache_hit_rate,
+        cache_write_rate: a.cache_write_rate || 0,
       })),
       max_tokens: isNaN(maxTok) ? null : Math.min(LLM_CONST.MAX_OUTPUT_TOKENS, Math.max(1, Math.round(maxTok))),
       monthly_requests: isNaN(monthly) ? null : Math.max(0, Math.round(monthly)),
@@ -306,19 +327,26 @@
       batch_eligible: $('llm_batch').checked,
       scenario_id: customised ? null : scenarioId,
       effort: $('llm_effort').value,
+      per_day: parseFloat($('llm_per_day').value) || null,
+      peak: $('llm_peak').value,
+      calibration: calibration,
     };
   }
 
-  function run() {
-    const w = readForm();
+  // The API takes a workload; the rest of readForm() is page state for share links.
+  function apiPayload(w) {
     const payload = Object.assign({}, w);
-    delete payload.scenario_id;   // UI concerns, not part of the API contract
-    delete payload.effort;
+    ['scenario_id', 'effort', 'per_day', 'peak', 'calibration'].forEach(k => { delete payload[k]; });
+    return payload;
+  }
+
+  function run() {
+    const payload = apiPayload(readForm());
     const btn = document.querySelector('#llm-form .btn-compare');
     const label = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '試算中…'; }
     return Promise.resolve(evaluate(payload))
-      .then(renderLLMReport)
+      .then(r => { renderLLMReport(r); renderCalibration(r); return r; })
       .catch(err => {
         $('llm-warnings').innerHTML =
           '<p class="llm-warn">試算失敗：' + llmEsc(err && err.message ? err.message : err) + '</p>';
@@ -335,6 +363,11 @@
     accounts = (w.account_quotas || []).map(o => Object.assign({}, o));
     if (w.effort && LLM_CONST.EFFORT_THINKING_FACTORS[w.effort]) $('llm_effort').value = w.effort;
     $('llm_batch').checked = !!w.batch_eligible;
+    calibration = w.calibration && w.calibration.profile ? w.calibration : null;
+    if (calibration) fillCalibrationFields(calibration);
+    if (w.peak && PEAK_LABELS[w.peak]) $('llm_peak').value = w.peak;
+    const perDay = w.per_day || (calibration && calibration.profile.per_user_per_day);
+    if (perDay) $('llm_per_day').value = perDay;
     if (w.scenario_id && scenario(w.scenario_id)) {
       scenarioId = w.scenario_id;
       customised = false;
@@ -346,6 +379,144 @@
     renderApps();
     renderAccounts();
     syncHints();
+  }
+
+  // -- calibration from measured usage -------------------------------------
+
+  const CAL_FIELDS = { trial_users: 'llm_cal_users', days: 'llm_cal_days', requests: 'llm_cal_requests',
+    input: 'llm_cal_input', cache_read: 'llm_cal_read', cache_write: 'llm_cal_write',
+    output: 'llm_cal_output', thinking: 'llm_cal_thinking' };
+
+  function lineInfo(line) { return LLM_LINES.find(l => l.line === line) || LLM_LINES[0]; }
+
+  // The checkbox describes the console the numbers came from, so it follows
+  // the picker only until a calibration is applied.
+  function syncCalibrationDefaults() {
+    if (!$('llm-calibration')) return;
+    const info = lineInfo($('llm_line').value);
+    if (!calibration) $('llm_cal_includes').checked = !!info.usage_input_includes_cache;
+    $('llm-cal-hint').textContent = info.usage_hint || '';
+  }
+
+  function readCalibrationFields() {
+    const u = {};
+    Object.keys(CAL_FIELDS).forEach(k => {
+      const v = parseFloat(String($(CAL_FIELDS[k]).value).replace(/,/g, ''));
+      u[k] = isNaN(v) ? null : v;
+    });
+    return u;
+  }
+
+  function fillCalibrationFields(c) {
+    Object.keys(CAL_FIELDS).forEach(k => {
+      $(CAL_FIELDS[k]).value = c.usage[k] != null ? c.usage[k] : '';
+    });
+    $('llm_cal_includes').checked = !!c.includes;
+  }
+
+  // One row of what the scenario assumed next to what the customer measured.
+  function snapshot(w, report) {
+    const a = w.apps[0];
+    const perDay = parseFloat($('llm_per_day').value) || 0;
+    return {
+      input: a.input_tokens_per_request,
+      output: a.output_tokens_per_request + (a.thinking_tokens_per_request || 0),
+      hit: a.cache_hit_rate || 0,
+      write: a.cache_write_rate || 0,
+      per_day: perDay,
+      monthly: w.monthly_requests,
+      monthly_usd: report && report.cost ? report.cost.monthly_usd : null,
+      per_1k_usd: report && report.cost ? report.cost.per_1k_requests_usd : null,
+    };
+  }
+
+  function renderCalibration(report) {
+    if (!$('llm-calibration')) return;
+    const status = $('llm-cal-status'), table = $('llm-cal-table');
+    $('llm-cal-clear').style.display = calibration ? '' : 'none';
+    $('llm-cal-apply').textContent = calibration ? '重新套用校正' : '套用校正';
+    if (!calibration || !report) { table.innerHTML = ''; if (!calibration) status.innerHTML = ''; return; }
+    const b = calibration.before, u = calibration.usage;
+    const after = snapshot(report.workload, report);
+    const pct = x => Math.round(x * 100) + '%';
+    const tok = x => Math.round(x).toLocaleString();
+    const usd = x => (x == null ? '—' : llmFmtUsd(x));
+    const delta = (was, now) => {
+      if (was == null || now == null || !was) return '';
+      const d = Math.round((now - was) / was * 100);
+      return d === 0 ? '持平' : (d > 0 ? '+' : '') + d + '%';
+    };
+    const rows = [
+      ['每次 Input', tok(b.input), tok(after.input), delta(b.input, after.input)],
+      ['每次 Output（含思考）', tok(b.output), tok(after.output), delta(b.output, after.output)],
+      ['快取命中率', pct(b.hit), pct(after.hit), ''],
+      ['快取寫入', pct(b.write), pct(after.write), ''],
+      ['每人每天使用次數', b.per_day, after.per_day, delta(b.per_day, after.per_day)],
+      ['每月請求數', b.monthly != null ? tok(b.monthly) : '—', after.monthly != null ? tok(after.monthly) : '—',
+       delta(b.monthly, after.monthly)],
+      ['每 1,000 次請求', usd(b.per_1k_usd), usd(after.per_1k_usd), delta(b.per_1k_usd, after.per_1k_usd)],
+      ['預估月費', usd(b.monthly_usd), usd(after.monthly_usd), delta(b.monthly_usd, after.monthly_usd)],
+    ];
+    status.innerHTML = '<p class="llm-cal-ok">&#10003; 已依 ' + tok(u.trial_users) + ' 人、' + u.days + ' 天、' +
+      tok(u.requests) + ' 次請求的實際用量校正，上方所有結果皆已重算。尖峰仍依上方的使用人數與尖峰集中度推算。</p>';
+    table.innerHTML = '<div class="llm-table-wrap"><table class="llm-table llm-cal-table"><thead><tr>' +
+      '<th>項目</th><th>情境估計</th><th>實際用量</th><th>差異</th></tr></thead><tbody>' +
+      rows.map((r, i) => '<tr' + (i === rows.length - 1 ? ' class="llm-cal-total"' : '') + '><td>' + r[0] +
+        '</td><td>' + r[1] + '</td><td><b>' + r[2] + '</b></td><td>' + r[3] + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+
+  function applyCalibration() {
+    const usage = readCalibrationFields();
+    const includes = $('llm_cal_includes').checked;
+    const profile = llmCalibrate(usage, includes);
+    if (profile.error) {
+      $('llm-cal-status').innerHTML = '<p class="llm-warn">' + llmEsc(profile.error) + '</p>';
+      return;
+    }
+    const baseline = calibration ? Promise.resolve(calibration.before) : (() => {
+      const w = readForm();
+      return Promise.resolve(evaluate(apiPayload(w))).then(r => snapshot(w, r));
+    })();
+    baseline.then(before => {
+      calibration = { usage: usage, includes: includes, profile: profile, before: before };
+      $('llm_per_day').value = profile.per_user_per_day;
+      if (!customised) {
+        rebuildFromScenario();
+      } else {
+        collectApps();
+        const a = apps[0];
+        Object.assign(a, {
+          input_tokens_per_request: profile.input_tokens_per_request,
+          output_tokens_per_request: profile.output_tokens_per_request,
+          thinking_tokens_per_request: profile.thinking_tokens_per_request,
+          cache_hit_rate: profile.cache_hit_rate,
+          cache_write_rate: profile.cache_write_rate,
+          requests_per_user_per_minute: Math.max(0.0001, peakRpmPerUser(profile.per_user_per_day, $('llm_peak').value)),
+        });
+        if (apps.length === 1) {
+          $('llm_monthly').value = Math.round(a.concurrent_users * profile.per_user_per_day * LLM_CONST.WORKING_DAYS_PER_MONTH);
+        }
+      }
+      renderApps();
+      syncHints();
+      return run();
+    }).then(() => {
+      const top = $('llm-summary');
+      if (top && top.scrollIntoView) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
+  function clearCalibration() {
+    const before = calibration && calibration.before;
+    calibration = null;
+    if (before && before.per_day) $('llm_per_day').value = before.per_day;
+    if (!customised) rebuildFromScenario();
+    else apps.forEach(a => { a.cache_write_rate = 0; });
+    renderApps();
+    syncHints();
+    syncCalibrationDefaults();
+    run();
   }
 
   // -- wiring --------------------------------------------------------------
@@ -376,6 +547,7 @@
     // becomes a balanced GPT, not whatever happens to be listed first.
     const cls = (modelInfo(currentModel()) || {}).model_class || 'balanced';
     setModel(llmModelFor($('llm_line').value, cls));
+    syncCalibrationDefaults();
     syncHints(); renderAccounts(); run();
   });
   $('llm_model').addEventListener('change', () => {
@@ -405,6 +577,10 @@
   });
 
   $('llm-form').addEventListener('submit', e => { e.preventDefault(); run(); });
+  if ($('llm-calibration')) {
+    $('llm-cal-apply').addEventListener('click', applyCalibration);
+    $('llm-cal-clear').addEventListener('click', clearCalibration);
+  }
 
   $('llm-btn-share').addEventListener('click', () => {
     const url = location.origin + location.pathname + '?llm=' +
@@ -450,7 +626,15 @@
   // Copy a plain-text summary a salesperson can paste into a proposal.
   if ($('llm-btn-copy')) {
     $('llm-btn-copy').addEventListener('click', () => {
-      const text = llmSummaryText();
+      let text = llmSummaryText();
+      if (calibration) {
+        const u = calibration.usage;
+        text += '\n\n本試算已依客戶實際用量校正（' + u.trial_users + ' 人、' + u.days + ' 天、' +
+          Math.round(u.requests).toLocaleString() + ' 次請求）：單次 ' +
+          calibration.profile.input_tokens_per_request.toLocaleString() + ' Input tokens、快取命中 ' +
+          Math.round(calibration.profile.cache_hit_rate * 100) + '%、每人每天 ' +
+          calibration.profile.per_user_per_day + ' 次。';
+      }
       const done = () => {
         const b = $('llm-btn-copy');
         const was = b.textContent;
@@ -517,5 +701,6 @@
   } else {
     selectScenario(scenarioId);
   }
+  syncCalibrationDefaults();
   run();
 })();

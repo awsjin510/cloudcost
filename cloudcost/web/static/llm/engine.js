@@ -81,6 +81,7 @@
   const appRpm = a => a.concurrent_users * (a.requests_per_user_per_minute || 0);
   const uncachedInput = a => a.input_tokens_per_request * (1 - (a.cache_hit_rate || 0));
   const cachedInput = a => a.input_tokens_per_request * (a.cache_hit_rate || 0);
+  const cacheWrite = a => a.input_tokens_per_request * (a.cache_write_rate || 0);
   const billedOutput = a => a.output_tokens_per_request + (a.thinking_tokens_per_request || 0);
 
   function aggregate(w) {
@@ -104,32 +105,35 @@
   function costParts(w) {
     const price = getModel(w.model).pricing;
     const perM = 1000000;
-    let u = 0, c = 0, r = 0, t = 0, noCache = 0;
+    let u = 0, c = 0, cw = 0, r = 0, t = 0, noCache = 0;
     (w.apps || []).forEach(a => {
       const rates = ratesFor(price, a.input_tokens_per_request);
+      // A vendor without a write premium bills written tokens as plain input.
+      const write = price.cache_write_5m_per_mtok != null ? price.cache_write_5m_per_mtok : rates[0];
       const n = appRpm(a);
-      u += n * uncachedInput(a) * rates[0] / perM;
+      u += n * (uncachedInput(a) - cacheWrite(a)) * rates[0] / perM;
+      cw += n * cacheWrite(a) * write / perM;
       c += n * cachedInput(a) * rates[2] / perM;
       r += n * a.output_tokens_per_request * rates[1] / perM;
       t += n * (a.thinking_tokens_per_request || 0) * rates[1] / perM;
       noCache += (n * a.input_tokens_per_request * rates[0] + n * billedOutput(a) * rates[1]) / perM;
     });
-    return [u, c, r, t, noCache];
+    return [u, c, cw, r, t, noCache];
   }
   function perMinuteUsd(w) {
     const p = costParts(w);
-    return p[0] + p[1] + p[2] + p[3];
+    return p[0] + p[1] + p[2] + p[3] + p[4];
   }
 
   function estimateCost(w, agg) {
     const info = getModel(w.model);
     const price = info.pricing;
     const parts = costParts(w);
-    const perMinute = parts[0] + parts[1] + parts[2] + parts[3];
+    const perMinute = parts[0] + parts[1] + parts[2] + parts[3] + parts[4];
     const rpm = agg.rpm;
     const perRequest = rpm ? perMinute / rpm : 0;
     const per1k = perRequest * 1000;
-    const noCachePer1k = rpm ? (parts[4] / rpm) * 1000 : 0;
+    const noCachePer1k = rpm ? (parts[5] / rpm) * 1000 : 0;
     const savingPct = noCachePer1k > 0 ? ((noCachePer1k - per1k) / noCachePer1k) * 100 : 0;
     const per1kOf = usd => (rpm ? round((usd / rpm) * 1000, 4) : 0);
     const discount = price.batch_discount;
@@ -140,7 +144,12 @@
       getLine(info.line).price_caveat,
       '思考 token 一律按 Output 計費，即使畫面不顯示也會收費。此處的思考量是規劃估計，請以實際請求回傳的 usage 校正',
     ];
-    if (price.cache_write_5m_per_mtok != null) {
+    const writes = (w.apps || []).some(a => (a.cache_write_rate || 0) > 0);
+    if (writes && price.cache_write_5m_per_mtok != null) {
+      caveats.push('快取寫入依實際用量計入，按 $' + g(price.cache_write_5m_per_mtok) + '/MTok（5 分鐘快取）計價');
+    } else if (writes) {
+      caveats.push('此模型的快取寫入不另收費，寫入的 token 按一般 Input 計價');
+    } else if (price.cache_write_5m_per_mtok != null) {
       caveats.push('假設快取在穩定流量下由讀取持續續期，因此未計入快取寫入費用（首次寫入約 $' +
                    g(price.cache_write_5m_per_mtok) + '/MTok）');
     }
@@ -159,10 +168,10 @@
       per_1k_requests_without_cache_usd: round(noCachePer1k, 4),
       cache_saving_pct: round(savingPct, 1),
       breakdown_per_1k: {
-        uncached_input: per1kOf(parts[0]), cache_read: per1kOf(parts[1]),
-        output: per1kOf(parts[2]), thinking: per1kOf(parts[3]),
+        uncached_input: per1kOf(parts[0]), cache_read: per1kOf(parts[1]), cache_write: per1kOf(parts[2]),
+        output: per1kOf(parts[3]), thinking: per1kOf(parts[4]),
       },
-      thinking_share_pct: perMinute ? round(parts[3] / perMinute * 100, 1) : 0,
+      thinking_share_pct: perMinute ? round(parts[4] / perMinute * 100, 1) : 0,
       batch_discount_pct: discount != null ? round(discount * 100, 1) : null,
       batch_per_1k_requests_usd: batchPerRequest != null ? round(batchPerRequest * 1000, 4) : null,
       batch_monthly_usd: batchPerRequest != null ? monthly(batchPerRequest) : null,
