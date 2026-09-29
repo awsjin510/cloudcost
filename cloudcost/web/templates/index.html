@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+  <script>try { if (localStorage.getItem('theme') === 'light') document.documentElement.classList.add('light'); } catch (e) {}</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CloudCost — 多雲成本計算機</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="stylesheet" href="/static/llm/style.css?v=0.13.0">
+  <link rel="stylesheet" href="/static/llm/style.css?v=0.14.0">
 </head>
 <body>
 
   <header>
+    <div class="header-actions">
+      <button class="btn-icon" id="btn-theme" title="切換淺色主題" aria-label="切換淺色主題">&#9728;</button>
+    </div>
     <div class="header-inner">
       <div class="logo">
         <span class="logo-icon">&#9729;</span>
@@ -472,7 +476,7 @@
   </main>
 
   <footer>
-    <p>CloudCost v0.13.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
+    <p>CloudCost v0.14.0 — 定價資料僅供參考，實際費用以各雲端官方為準</p>
   </footer>
 
 {% if result %}
@@ -484,7 +488,7 @@
 (function() {
   const PROVIDER_META = {
     aws:    { name: 'AWS',    color: '#ff9900', bg: '#fff8ee' },
-    gcp:    { name: 'GCP',    color: '#4285f4', bg: '#eef4ff' },
+    gcp:    { name: 'GCP',    color: '#34a853', bg: '#eefaf1' },
     azure:  { name: 'Azure',  color: '#0078d4', bg: '#eef6ff' },
     oracle: { name: 'Oracle', color: '#c74634', bg: '#fef0ee' },
   };
@@ -942,8 +946,8 @@
 
 })();
 </script>
-<script src="/static/llm/data.js?v=0.13.0"></script>
-<script src="/static/llm/render.js?v=0.13.0"></script>
+<script src="/static/llm/data.js?v=0.14.0"></script>
+<script src="/static/llm/render.js?v=0.14.0"></script>
 <script>
   // Server-side evaluation: this page has the API, so it uses the same engine
   // the tests exercise rather than a second copy in the browser.
@@ -973,6 +977,6 @@
   };
 </script>
 {% endif %}
-<script src="/static/llm/form.js?v=0.13.0"></script>
+<script src="/static/llm/form.js?v=0.14.0"></script>
 </body>
 </html>
