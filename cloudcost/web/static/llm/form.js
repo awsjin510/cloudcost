@@ -56,11 +56,13 @@
   const ACCT_LABELS = { rpm: 'RPM', itpm: 'ITPM', otpm: 'OTPM', tpm: 'TPM', rpd: 'RPD', usd10m: '每 10 分鐘 $' };
 
   // Two-level picker: the vendor line, then a version inside it.
+  const STATUS_TAG = { previous: '（舊版）', restricted: '（限既有專案）' };
+
   function populateVersions(line, selected) {
     $('llm_model').innerHTML = modelsOf(line).map(m =>
       '<option value="' + m.model + '"' + (m.model === selected ? ' selected' : '') + '>' +
-      llmEsc(m.version_label || m.label) + '　$' + m.pricing.input_per_mtok + ' / $' +
-      m.pricing.output_per_mtok + ' per MTok</option>').join('');
+      llmEsc(m.version_label || m.label) + (STATUS_TAG[m.status] || '') + '　$' + m.pricing.input_per_mtok +
+      ' / $' + m.pricing.output_per_mtok + ' per MTok</option>').join('');
   }
 
   function setModel(id) {

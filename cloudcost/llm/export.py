@@ -119,6 +119,7 @@ def render_data_js() -> str:
             "version_label": m.version_label,
             "model_class": m.model_class,
             "tier": m.tier,
+            "status": m.status,
             "api_id": m.api_id,
             "pricing": m.pricing.model_dump(),
             "notes": m.notes,

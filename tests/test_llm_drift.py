@@ -50,6 +50,7 @@ FILES = {
     "xai_rate": "xai_rate.md",
     "azure_grok": "azure_grok.html",
     "vertex_grok": "vertex_grok.html",
+    "vertex_grok:grok-4-7": "vertex_grok_grok-4-7.html",
     "vertex_grok:grok-4-6": "vertex_grok_grok-4-6.html",
     "vertex_grok:grok-4-3": "vertex_grok_grok-4-3.html",
     "vertex_grok:grok-4-20": "vertex_grok_grok-4-20.html",
@@ -214,19 +215,19 @@ class TestDetection:
                    for f in compare(pages).findings)
 
     def test_bedrock_publishing_a_default_we_mark_unpublished(self, pages):
-        row = ("<tr><td>[bedrock-mantle endpoint] Input tokens per minute for Claude Opus 5.5</td>"
-               "<td>Each supported Region: 20,000,000</td><td>Yes</td></tr>"
-               "<tr><td>[bedrock-mantle endpoint] Output tokens per minute for Claude Opus 5.5</td>"
-               "<td>Each supported Region: 2,000,000</td><td>Yes</td></tr>")
+        row = ("<tr><td>[bedrock-mantle endpoint] Input tokens per minute for Claude Haiku 4.5</td>"
+               "<td>Each supported Region: 5,000,000</td><td>Yes</td></tr>"
+               "<tr><td>[bedrock-mantle endpoint] Output tokens per minute for Claude Haiku 4.5</td>"
+               "<td>Each supported Region: 1,000,000</td><td>Yes</td></tr>")
         pages["bedrock_gr"] = _inject_row(pages["bedrock_gr"], row)
         assert ("bedrock", "now_published") in _kinds(compare(pages))
 
     def test_bedrock_publishing_a_runtime_quota_we_mark_unpublished(self, pages):
-        """Sonnet 5.5 shipped before AWS listed its bedrock-runtime default."""
-        row = ("<tr><td>Global cross-region model inference tokens per minute for Anthropic Claude Sonnet 5.5</td>"
+        """GPT-5.5 is on Bedrock without a listed bedrock-runtime default (Sonnet 5.5 was, until 2026-10-06)."""
+        row = ("<tr><td>Global cross-region model inference tokens per minute for GPT-5.5</td>"
                "<td>Each supported Region: 6,000,000</td><td>Yes</td></tr>")
         pages["bedrock_gr"] = _inject_row(pages["bedrock_gr"], row)
-        assert any(f.kind == "now_published" and "Sonnet 5.5" in f.subject for f in compare(pages).findings)
+        assert any(f.kind == "now_published" and "GPT-5.5" in f.subject for f in compare(pages).findings)
 
     def test_a_new_model_on_bedrock(self, pages):
         row = ("<tr><td>Global cross-region model inference tokens per minute for GPT-6 Terra</td>"

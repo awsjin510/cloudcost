@@ -74,6 +74,7 @@ class LLMModel(str, Enum):
     SONNET_4_6 = "sonnet-4-6"
     HAIKU_4_5 = "haiku-4-5"
     GPT_6_ASTRA = "gpt-6-astra"
+    GPT_6_1_SOL = "gpt-6.1-sol"
     GPT_6_SOL = "gpt-6-sol"
     GPT_6_LUNA = "gpt-6-luna"
     GPT_5_6_SOL = "gpt-5.6-sol"
@@ -242,6 +243,10 @@ class ModelInfo(BaseModel):
     tier: int
     pricing: ModelPricing
     notes: list[str] = Field(default_factory=list)
+    #: "current": in the vendor's recommended lineup, so scenario defaults may
+    #: pick it; "previous": superseded but open to everyone; "restricted":
+    #: closed to new projects, so never suggested as a switch.
+    status: str = "current"
 
     @property
     def api_id(self) -> str:
@@ -279,6 +284,7 @@ _MODELS: list[ModelInfo] = [
             cache_read_per_mtok=1.0,
             cache_write_5m_per_mtok=12.50,
         ),
+        status="previous",
         notes=["快取讀取為輸入價的 0.1 倍，比 Fable 5.1 貴 4 倍"],
     ),
     ModelInfo(
@@ -307,6 +313,7 @@ _MODELS: list[ModelInfo] = [
             cache_read_per_mtok=0.50,
             cache_write_5m_per_mtok=6.25,
         ),
+        status="previous",
         notes=["單價為 Fable 的一半；同配額下 Opus 5.5 更便宜，新專案建議直接評估 Opus 5.5"],
     ),
     ModelInfo(
@@ -336,6 +343,7 @@ _MODELS: list[ModelInfo] = [
             cache_read_per_mtok=0.20,
             cache_write_5m_per_mtok=2.50,
         ),
+        status="previous",
         notes=["前一代 Sonnet，單價與 Sonnet 5.5 相同；新專案建議直接評估 Sonnet 5.5"],
     ),
 ]
@@ -347,6 +355,7 @@ _MODELS += [
         model_class="strong", tier=2,
         pricing=ModelPricing(input_per_mtok=5.0, output_per_mtok=25.0,
                              cache_read_per_mtok=0.50, cache_write_5m_per_mtok=6.25),
+        status="previous",
         notes=["前一代 Opus，單價與 Opus 5 相同；新專案建議直接評估 Opus 5.5"],
     ),
     ModelInfo(
@@ -354,6 +363,7 @@ _MODELS += [
         model_class="balanced", tier=1,
         pricing=ModelPricing(input_per_mtok=3.0, output_per_mtok=15.0,
                              cache_read_per_mtok=0.30, cache_write_5m_per_mtok=3.75),
+        status="previous",
         notes=["前一代 Sonnet，單價比 Sonnet 5 高；使用較舊的 tokenizer，同樣文字的 token 數約少三成"],
     ),
     ModelInfo(
@@ -375,11 +385,19 @@ _MODELS += [
         notes=['OpenAI 目前最強的旗艦，一律會推理、無法關閉', '提示詞超過 272K tokens 時整筆改按長上下文費率'],
     ),
     ModelInfo(
+        model=LLMModel.GPT_6_1_SOL, label="GPT-6.1 Sol", version_label="GPT-6.1 Sol", line=ModelLine.GPT,
+        model_class="strong", tier=3,
+        pricing=ModelPricing(input_per_mtok=2, output_per_mtok=10, cache_read_per_mtok=0.1, cache_write_5m_per_mtok=2.5,
+                             long_context_threshold=272_000, long_input_per_mtok=4, long_output_per_mtok=15, long_cache_read_per_mtok=0.2),
+        notes=['OpenAI 目前建議的均衡選擇，官方稱效能接近 Astra、單價為其五分之一',
+               '快取讀取 $0.10，只有 GPT-6 Sol 的一半；不支援 none／minimal 推理強度'],
+    ),
+    ModelInfo(
         model=LLMModel.GPT_6_SOL, label="GPT-6 Sol", version_label="GPT-6 Sol", line=ModelLine.GPT,
-        model_class="balanced", tier=3,
+        model_class="balanced", tier=3, status="previous",
         pricing=ModelPricing(input_per_mtok=2, output_per_mtok=10, cache_read_per_mtok=0.2, cache_write_5m_per_mtok=2.5,
                              long_context_threshold=272_000, long_input_per_mtok=4, long_output_per_mtok=15, long_cache_read_per_mtok=0.4),
-        notes=['GPT-6 的中階版本，偏重程式與代理工作，預設推理強度 medium'],
+        notes=['已由 GPT-6.1 Sol 取代：單價相同、快取讀取更便宜，新專案建議直接評估 6.1 Sol'],
     ),
     ModelInfo(
         model=LLMModel.GPT_6_LUNA, label="GPT-6 Luna", version_label="GPT-6 Luna", line=ModelLine.GPT,
@@ -393,6 +411,7 @@ _MODELS += [
         model_class="strong", tier=3,
         pricing=ModelPricing(input_per_mtok=4, output_per_mtok=20, cache_read_per_mtok=0.4, cache_write_5m_per_mtok=5,
                              long_context_threshold=272_000, long_input_per_mtok=8, long_output_per_mtok=30, long_cache_read_per_mtok=0.8),
+        status="previous",
         notes=['前一代旗艦；$4 / $20 為促銷價，官方保證至少維持到 2026-11-21，報價時請留意'],
     ),
     ModelInfo(
@@ -400,6 +419,7 @@ _MODELS += [
         model_class="balanced", tier=2,
         pricing=ModelPricing(input_per_mtok=2, output_per_mtok=12, cache_read_per_mtok=0.2, cache_write_5m_per_mtok=2.5,
                              long_context_threshold=272_000, long_input_per_mtok=4, long_output_per_mtok=18, long_cache_read_per_mtok=0.4),
+        status="previous",
         notes=['相當於舊的 mini 級距'],
     ),
     ModelInfo(
@@ -407,6 +427,7 @@ _MODELS += [
         model_class="fast", tier=1,
         pricing=ModelPricing(input_per_mtok=0.2, output_per_mtok=1.2, cache_read_per_mtok=0.02, cache_write_5m_per_mtok=0.25,
                              long_context_threshold=272_000, long_input_per_mtok=0.4, long_output_per_mtok=1.8, long_cache_read_per_mtok=0.04),
+        status="previous",
         notes=['相當於舊的 nano 級距'],
     ),
     ModelInfo(
@@ -414,6 +435,7 @@ _MODELS += [
         model_class="strong", tier=3,
         pricing=ModelPricing(input_per_mtok=5, output_per_mtok=30, cache_read_per_mtok=0.5,
                              long_context_threshold=272_000, long_input_per_mtok=10, long_output_per_mtok=45, long_cache_read_per_mtok=1),
+        status="previous",
         notes=['較舊但仍常用的旗艦，沒有快取寫入費'],
     ),
     ModelInfo(
@@ -446,12 +468,14 @@ _MODELS += [
         model_class="frontier", tier=3,
         pricing=ModelPricing(input_per_mtok=1.25, output_per_mtok=10, cache_read_per_mtok=0.125,
                              long_context_threshold=200_000, long_input_per_mtok=2.5, long_output_per_mtok=15, long_cache_read_per_mtok=0.25),
+        status="restricted",
         notes=['前一代 Pro，僅限過去用過的專案使用，新專案無法啟用'],
     ),
     ModelInfo(
         model=LLMModel.GEMINI_2_5_FLASH, label="Gemini 2.5 Flash", version_label="2.5 Flash", line=ModelLine.GEMINI,
         model_class="balanced", tier=2,
         pricing=ModelPricing(input_per_mtok=0.3, output_per_mtok=2.5, cache_read_per_mtok=0.03),
+        status="restricted",
         notes=['前一代 Flash，僅限過去用過的專案使用，新專案無法啟用'],
     ),
 ]
@@ -474,6 +498,7 @@ _MODELS += [
                              long_context_threshold=200_000, long_context_inclusive=True,
                              long_input_per_mtok=4, long_output_per_mtok=12,
                              long_cache_read_per_mtok=1, batch_discount=None),
+        status="previous",
         notes=['前一代旗艦，單價與 4.7 相同；新專案建議直接評估 4.7', '目前唯一同時上架 Bedrock、Azure、Vertex 與 OCI 的 Grok'],
     ),
     ModelInfo(
@@ -483,6 +508,7 @@ _MODELS += [
                              long_context_threshold=200_000, long_context_inclusive=True,
                              long_input_per_mtok=4, long_output_per_mtok=12,
                              long_cache_read_per_mtok=0.6, batch_discount=None),
+        status="previous",
         notes=['偏重程式與代理工作，快取讀取比 4.6／4.7 便宜（$0.30）', '只在 xAI API 提供'],
     ),
     ModelInfo(
@@ -501,6 +527,7 @@ _MODELS += [
                              long_context_threshold=200_000, long_context_inclusive=True,
                              long_input_per_mtok=2.5, long_output_per_mtok=5,
                              long_cache_read_per_mtok=0.4, batch_discount=0.2),
+        status="previous",
         notes=['單價與 4.3 相同；xAI 官方建議新專案改用 4.3', '支援 Batch API，打八折'],
     ),
     ModelInfo(
@@ -532,8 +559,8 @@ def list_models(line: Optional[ModelLine] = None) -> list[ModelInfo]:
 
 
 def model_for(line: ModelLine, model_class: str) -> LLMModel:
-    """The first model of `model_class` in `line`, or the nearest class."""
-    candidates = list_models(line)
+    """The first current model of `model_class` in `line`, or the nearest class."""
+    candidates = [m for m in list_models(line) if m.status == "current"] or list_models(line)
     if not candidates:
         raise KeyError(line)
     want = MODEL_CLASSES.index(model_class) if model_class in MODEL_CLASSES else 2
@@ -702,9 +729,9 @@ _CLAUDE_VERTEX = {
 _CLAUDE_BEDROCK = {
     LLMModel.FABLE_5_1: ((5_000_000, 500_000), (10_000_000, None, 10.0)),
     LLMModel.FABLE_5: ((2_000_000, 200_000), (4_000_000, None, 10.0)),
-    LLMModel.OPUS_5_5: (None, (30_000_000, None, 10.0)),
+    LLMModel.OPUS_5_5: ((20_000_000, 2_000_000), (30_000_000, None, 10.0)),
     LLMModel.OPUS_5: ((20_000_000, 2_000_000), (30_000_000, None, 10.0)),
-    LLMModel.SONNET_5_5: (None, (None, None, 10.0)),
+    LLMModel.SONNET_5_5: (None, (6_000_000, None, 10.0)),
     LLMModel.SONNET_5: ((3_000_000, 300_000), (6_000_000, None, 10.0)),
     LLMModel.OPUS_4_8: ((20_000_000, 2_000_000), (30_000_000, None, 15.0)),
     LLMModel.SONNET_4_6: ("absent", (6_000_000, 10_000, 5.0)),
@@ -794,7 +821,7 @@ _build_claude()
 _GPT_PROFILE_A = {"t1": (500, 500_000), "t3": (5_000, 2_000_000), "t5": (15_000, 40_000_000)}
 _GPT_PROFILE_B = {"t1": (500, 500_000), "t3": (5_000, 4_000_000), "t5": (30_000, 180_000_000)}
 _GPT_TIERS = {
-    LLMModel.GPT_6_ASTRA: _GPT_PROFILE_A, LLMModel.GPT_6_SOL: _GPT_PROFILE_A,
+    LLMModel.GPT_6_ASTRA: _GPT_PROFILE_A, LLMModel.GPT_6_1_SOL: _GPT_PROFILE_A, LLMModel.GPT_6_SOL: _GPT_PROFILE_A,
     LLMModel.GPT_6_LUNA: _GPT_PROFILE_B, LLMModel.GPT_5_6_SOL: _GPT_PROFILE_A,
     LLMModel.GPT_5_6_TERRA: _GPT_PROFILE_A, LLMModel.GPT_5_6_LUNA: _GPT_PROFILE_B,
     LLMModel.GPT_5_5: _GPT_PROFILE_A,
@@ -809,6 +836,7 @@ _AZURE_GPT_TIERS = {"az_t1": ("Tier 1", 1_000_000), "az_t3": ("Tier 3", 4_000_00
 # Bedrock: mantle (itpm, otpm) / None unpublished / "absent"; runtime tpm or None.
 _GPT_BEDROCK = {
     LLMModel.GPT_6_ASTRA: ((1_000_000, 100_000), 4_000_000),
+    LLMModel.GPT_6_1_SOL: (None, 2_000_000),
     LLMModel.GPT_6_SOL: (None, 2_000_000),
     LLMModel.GPT_6_LUNA: (None, 4_000_000),
     LLMModel.GPT_5_6_SOL: ((10_000_000, 1_000_000), 10_000_000),
@@ -937,12 +965,13 @@ _AZURE_GROK_OTHER = (LLMModel.GROK_4_3, LLMModel.GROK_4_20_REASONING, LLMModel.G
 
 # Vertex (global quota shared with the US multi-region endpoint): (qpm, input tpm, output tpm).
 _VERTEX_GROK = {
+    LLMModel.GROK_4_7: (13, 188_000, 16_000),
     LLMModel.GROK_4_6: (13, 188_000, 16_000),
     LLMModel.GROK_4_3: (100, 540_000, 80_000),
     LLMModel.GROK_4_20_REASONING: (100, 540_000, 80_000),
     LLMModel.GROK_4_20_NON_REASONING: (100, 540_000, 80_000),
 }
-_VERTEX_GROK_PREVIEW = {LLMModel.GROK_4_3}
+_VERTEX_GROK_PREVIEW = {LLMModel.GROK_4_7, LLMModel.GROK_4_3}
 
 # OCI on-demand: the TPM limit name to raise; no default is published.
 _OCI_GROK = {
@@ -968,6 +997,13 @@ def _build_grok() -> None:
                  (f"每秒 {rps:,} 次請求", *_XAI_NOTES),
                  rpm=_en(rps * 60), tpm=_en(tpm), input_cached_counts=True)
 
+        if model is LLMModel.GROK_4_7:
+            _add(model, LLMPlatform.BEDROCK, "runtime", "AWS Bedrock", "bedrock-runtime（全域跨區）", SRC_BEDROCK_GR,
+                 ("TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算",
+                  "AWS 說明頁：未列名的模型 output burndown 為 1:1",
+                  "Grok 4.7 在 Bedrock 只提供 bedrock-runtime（無 Mantle 端點）",
+                  "全域跨區推論以 xAI 牌價計費；美國跨區另加 10%"),
+                 rpm=_NO_RPM_RUNTIME, tpm=_en(10_000_000), tpm_reserves_max_tokens=True)
         if model is LLMModel.GROK_4_6:
             _add(model, LLMPlatform.BEDROCK, "mantle", "AWS Bedrock", "bedrock-mantle 端點", SRC_BEDROCK_GR,
                  (*_MANTLE_COMMON, "AWS 配額總表未列出此模型的 Mantle 預設值，實際額度依帳號而定",

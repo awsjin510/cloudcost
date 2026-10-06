@@ -136,7 +136,7 @@ class TestLLMQuotaAPI:
         assert {"fable-5-1", "opus-5-5", "sonnet-5", "haiku-4-5", "gpt-6-astra", "gemini-3.8-flash"} <= {
             m["model"] for m in models
         }
-        assert len(models) == 29
+        assert len(models) == 30
         assert all(m["pricing"]["input_per_mtok"] > 0 for m in models)
 
     @pytest.mark.asyncio
@@ -144,7 +144,7 @@ class TestLLMQuotaAPI:
         resp = await client.get("/api/llm-quota/plans")
         assert resp.status_code == 200
         plans = resp.json()
-        assert len(plans) == 213
+        assert len(plans) == 223
         assert {p["platform"] for p in plans} == {"anthropic", "openai", "google_ai", "bedrock", "foundry", "vertex", "xai", "oci"}
         assert all(p["source"].startswith("https://") for p in plans)
 
@@ -355,7 +355,7 @@ class TestTokenCounting:
         assert resp.status_code == 200
         body = resp.json()
         assert body["model_label"] == "Claude Opus 5.5"
-        assert len(body["model_comparison"]) == 29
+        assert len(body["model_comparison"]) == 30
         assert body["sensitivity"][0]["multiplier"] == 2.0
         assert body["cost"]["batch_monthly_usd"] == pytest.approx(body["cost"]["monthly_usd"] / 2)
         assert body["cost"]["breakdown_per_1k"]["thinking"] > 0

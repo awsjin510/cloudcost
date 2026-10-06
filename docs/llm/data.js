@@ -50,6 +50,7 @@ const LLM_MODELS = [
     "version_label": "Fable 5.1",
     "model_class": "frontier",
     "tier": 3,
+    "status": "current",
     "api_id": "claude-fable-5-1",
     "pricing": {
       "input_per_mtok": 10.0,
@@ -74,6 +75,7 @@ const LLM_MODELS = [
     "version_label": "Fable 5",
     "model_class": "frontier",
     "tier": 3,
+    "status": "previous",
     "api_id": "claude-fable-5",
     "pricing": {
       "input_per_mtok": 10.0,
@@ -98,6 +100,7 @@ const LLM_MODELS = [
     "version_label": "Opus 5.5",
     "model_class": "strong",
     "tier": 2,
+    "status": "current",
     "api_id": "claude-opus-5-5",
     "pricing": {
       "input_per_mtok": 4.0,
@@ -122,6 +125,7 @@ const LLM_MODELS = [
     "version_label": "Opus 5",
     "model_class": "strong",
     "tier": 2,
+    "status": "previous",
     "api_id": "claude-opus-5",
     "pricing": {
       "input_per_mtok": 5.0,
@@ -146,6 +150,7 @@ const LLM_MODELS = [
     "version_label": "Sonnet 5.5",
     "model_class": "balanced",
     "tier": 1,
+    "status": "current",
     "api_id": "claude-sonnet-5-5",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -171,6 +176,7 @@ const LLM_MODELS = [
     "version_label": "Sonnet 5",
     "model_class": "balanced",
     "tier": 1,
+    "status": "previous",
     "api_id": "claude-sonnet-5",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -195,6 +201,7 @@ const LLM_MODELS = [
     "version_label": "Opus 4.8",
     "model_class": "strong",
     "tier": 2,
+    "status": "previous",
     "api_id": "claude-opus-4-8",
     "pricing": {
       "input_per_mtok": 5.0,
@@ -219,6 +226,7 @@ const LLM_MODELS = [
     "version_label": "Sonnet 4.6",
     "model_class": "balanced",
     "tier": 1,
+    "status": "previous",
     "api_id": "claude-sonnet-4-6",
     "pricing": {
       "input_per_mtok": 3.0,
@@ -243,6 +251,7 @@ const LLM_MODELS = [
     "version_label": "Haiku 4.5",
     "model_class": "fast",
     "tier": 0,
+    "status": "current",
     "api_id": "claude-haiku-4-5",
     "pricing": {
       "input_per_mtok": 1.0,
@@ -267,6 +276,7 @@ const LLM_MODELS = [
     "version_label": "GPT-6 Astra",
     "model_class": "frontier",
     "tier": 4,
+    "status": "current",
     "api_id": "gpt-6-astra",
     "pricing": {
       "input_per_mtok": 10.0,
@@ -286,12 +296,39 @@ const LLM_MODELS = [
     ]
   },
   {
+    "model": "gpt-6.1-sol",
+    "label": "GPT-6.1 Sol",
+    "line": "gpt",
+    "version_label": "GPT-6.1 Sol",
+    "model_class": "strong",
+    "tier": 3,
+    "status": "current",
+    "api_id": "gpt-6.1-sol",
+    "pricing": {
+      "input_per_mtok": 2.0,
+      "output_per_mtok": 10.0,
+      "cache_read_per_mtok": 0.1,
+      "cache_write_5m_per_mtok": 2.5,
+      "long_context_threshold": 272000,
+      "long_input_per_mtok": 4.0,
+      "long_output_per_mtok": 15.0,
+      "long_cache_read_per_mtok": 0.2,
+      "long_context_inclusive": false,
+      "batch_discount": 0.5
+    },
+    "notes": [
+      "OpenAI 目前建議的均衡選擇，官方稱效能接近 Astra、單價為其五分之一",
+      "快取讀取 $0.10，只有 GPT-6 Sol 的一半；不支援 none／minimal 推理強度"
+    ]
+  },
+  {
     "model": "gpt-6-sol",
     "label": "GPT-6 Sol",
     "line": "gpt",
     "version_label": "GPT-6 Sol",
     "model_class": "balanced",
     "tier": 3,
+    "status": "previous",
     "api_id": "gpt-6-sol",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -306,7 +343,7 @@ const LLM_MODELS = [
       "batch_discount": 0.5
     },
     "notes": [
-      "GPT-6 的中階版本，偏重程式與代理工作，預設推理強度 medium"
+      "已由 GPT-6.1 Sol 取代：單價相同、快取讀取更便宜，新專案建議直接評估 6.1 Sol"
     ]
   },
   {
@@ -316,6 +353,7 @@ const LLM_MODELS = [
     "version_label": "GPT-6 Luna",
     "model_class": "fast",
     "tier": 1,
+    "status": "current",
     "api_id": "gpt-6-luna",
     "pricing": {
       "input_per_mtok": 0.1,
@@ -340,6 +378,7 @@ const LLM_MODELS = [
     "version_label": "GPT-5.6 Sol",
     "model_class": "strong",
     "tier": 3,
+    "status": "previous",
     "api_id": "gpt-5.6-sol",
     "pricing": {
       "input_per_mtok": 4.0,
@@ -364,6 +403,7 @@ const LLM_MODELS = [
     "version_label": "GPT-5.6 Terra",
     "model_class": "balanced",
     "tier": 2,
+    "status": "previous",
     "api_id": "gpt-5.6-terra",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -388,6 +428,7 @@ const LLM_MODELS = [
     "version_label": "GPT-5.6 Luna",
     "model_class": "fast",
     "tier": 1,
+    "status": "previous",
     "api_id": "gpt-5.6-luna",
     "pricing": {
       "input_per_mtok": 0.2,
@@ -412,6 +453,7 @@ const LLM_MODELS = [
     "version_label": "GPT-5.5",
     "model_class": "strong",
     "tier": 3,
+    "status": "previous",
     "api_id": "gpt-5.5",
     "pricing": {
       "input_per_mtok": 5.0,
@@ -436,6 +478,7 @@ const LLM_MODELS = [
     "version_label": "3.1 Pro (Preview)",
     "model_class": "frontier",
     "tier": 3,
+    "status": "current",
     "api_id": "gemini-3.1-pro-preview",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -461,6 +504,7 @@ const LLM_MODELS = [
     "version_label": "3.8 Flash",
     "model_class": "balanced",
     "tier": 2,
+    "status": "current",
     "api_id": "gemini-3.8-flash",
     "pricing": {
       "input_per_mtok": 0.75,
@@ -485,6 +529,7 @@ const LLM_MODELS = [
     "version_label": "3.5 Flash-Lite",
     "model_class": "fast",
     "tier": 1,
+    "status": "current",
     "api_id": "gemini-3.5-flash-lite",
     "pricing": {
       "input_per_mtok": 0.3,
@@ -509,6 +554,7 @@ const LLM_MODELS = [
     "version_label": "3.1 Flash-Lite",
     "model_class": "fast",
     "tier": 1,
+    "status": "current",
     "api_id": "gemini-3.1-flash-lite",
     "pricing": {
       "input_per_mtok": 0.25,
@@ -533,6 +579,7 @@ const LLM_MODELS = [
     "version_label": "2.5 Pro",
     "model_class": "frontier",
     "tier": 3,
+    "status": "restricted",
     "api_id": "gemini-2.5-pro",
     "pricing": {
       "input_per_mtok": 1.25,
@@ -557,6 +604,7 @@ const LLM_MODELS = [
     "version_label": "2.5 Flash",
     "model_class": "balanced",
     "tier": 2,
+    "status": "restricted",
     "api_id": "gemini-2.5-flash",
     "pricing": {
       "input_per_mtok": 0.3,
@@ -581,6 +629,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.7",
     "model_class": "frontier",
     "tier": 4,
+    "status": "current",
     "api_id": "grok-4.7",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -606,6 +655,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.6",
     "model_class": "strong",
     "tier": 3,
+    "status": "previous",
     "api_id": "grok-4.6",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -631,6 +681,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.5",
     "model_class": "strong",
     "tier": 3,
+    "status": "previous",
     "api_id": "grok-4.5",
     "pricing": {
       "input_per_mtok": 2.0,
@@ -656,6 +707,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.3",
     "model_class": "balanced",
     "tier": 2,
+    "status": "current",
     "api_id": "grok-4.3",
     "pricing": {
       "input_per_mtok": 1.25,
@@ -681,6 +733,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.20 Reasoning",
     "model_class": "balanced",
     "tier": 2,
+    "status": "previous",
     "api_id": "grok-4.20-0309-reasoning",
     "pricing": {
       "input_per_mtok": 1.25,
@@ -706,6 +759,7 @@ const LLM_MODELS = [
     "version_label": "Grok 4.20 Non-reasoning",
     "model_class": "fast",
     "tier": 1,
+    "status": "current",
     "api_id": "grok-4.20-0309-non-reasoning",
     "pricing": {
       "input_per_mtok": 1.25,
@@ -731,6 +785,7 @@ const LLM_MODELS = [
     "version_label": "Grok Build 0.1",
     "model_class": "fast",
     "tier": 1,
+    "status": "current",
     "api_id": "grok-build-0.1",
     "pricing": {
       "input_per_mtok": 1.0,
@@ -851,7 +906,7 @@ const LLM_PLANS = [
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "anthropic", "plan_id": "start", "platform_label": "Anthropic API", "plan_label": "Start 層級", "rpm": {"status": "enforced", "value": 1000.0}, "itpm": {"status": "enforced", "value": 2000000.0}, "otpm": {"status": "enforced", "value": 400000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織層級，可再往下分配給各 Workspace"], "source": "https://platform.claude.com/docs/en/api/rate-limits", "verified": "2026-09-29"},
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "anthropic", "plan_id": "build", "platform_label": "Anthropic API", "plan_label": "Build 層級", "rpm": {"status": "enforced", "value": 5000.0}, "itpm": {"status": "enforced", "value": 5000000.0}, "otpm": {"status": "enforced", "value": 1000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": [], "source": "https://platform.claude.com/docs/en/api/rate-limits", "verified": "2026-09-29"},
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "anthropic", "plan_id": "scale", "platform_label": "Anthropic API", "plan_label": "Scale 層級", "rpm": {"status": "enforced", "value": 10000.0}, "itpm": {"status": "enforced", "value": 10000000.0}, "otpm": {"status": "enforced", "value": 2000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["需要更高上限請走 Custom 層級洽談"], "source": "https://platform.claude.com/docs/en/api/rate-limits", "verified": "2026-09-29"},
-  {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "otpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "AWS 配額總表未列出此模型的 Mantle 預設值，可在 Service Quotas 主控台搜尋 Bedrock Mantle 查到本帳號實際額度，並填入上方欄位"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "enforced", "value": 20000000.0}, "otpm": {"status": "enforced", "value": 2000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "數值出自 AWS 配額總表（General Reference），皆可申請調升"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 30000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 10.0, "list_priced": false, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "每 1 個 output token 消耗 10 個配額 token（burndown）", "快取讀取不計入配額"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "foundry", "plan_id": "payg", "platform_label": "Azure Foundry", "plan_label": "隨用隨付 (Global Standard)", "rpm": {"status": "enforced", "value": 40.0}, "itpm": {"status": "enforced", "value": 40000.0}, "otpm": {"status": "enforced", "value": 8000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["隨用隨付的預設額度偏低，正式上線前通常仍需申請調升", "免費試用訂閱的預設額度同樣為 0"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-quotas-limits", "verified": "2026-09-29"},
   {"model": "opus-5-5", "model_label": "Claude Opus 5.5", "platform": "foundry", "plan_id": "enterprise", "platform_label": "Azure Foundry", "plan_label": "Enterprise / MCA-E (Global Standard)", "rpm": {"status": "enforced", "value": 10000.0}, "itpm": {"status": "enforced", "value": 10000000.0}, "otpm": {"status": "enforced", "value": 2000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["配額掛在訂閱層級，同型號的 Global Standard 部署跨區共用同一個額度池"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-quotas-limits", "verified": "2026-09-29"},
@@ -870,7 +925,7 @@ const LLM_PLANS = [
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "anthropic", "plan_id": "build", "platform_label": "Anthropic API", "plan_label": "Build 層級", "rpm": {"status": "enforced", "value": 5000.0}, "itpm": {"status": "enforced", "value": 5000000.0}, "otpm": {"status": "enforced", "value": 1000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": [], "source": "https://platform.claude.com/docs/en/api/rate-limits", "verified": "2026-09-29"},
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "anthropic", "plan_id": "scale", "platform_label": "Anthropic API", "plan_label": "Scale 層級", "rpm": {"status": "enforced", "value": 10000.0}, "itpm": {"status": "enforced", "value": 10000000.0}, "otpm": {"status": "enforced", "value": 2000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["需要更高上限請走 Custom 層級洽談"], "source": "https://platform.claude.com/docs/en/api/rate-limits", "verified": "2026-09-29"},
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "otpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "AWS 配額總表未列出此模型的 Mantle 預設值，可在 Service Quotas 主控台搜尋 Bedrock Mantle 查到本帳號實際額度，並填入上方欄位"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
-  {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 10.0, "list_priced": false, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "每 1 個 output token 消耗 10 個配額 token；AWS 未明列此模型，比照 Sonnet 5 估算", "快取讀取不計入配額", "AWS 配額總表尚未列出此模型的 bedrock-runtime 預設值，可在 Service Quotas 主控台查到本帳號實際額度，並填入上方欄位"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 6000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 10.0, "list_priced": false, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "每 1 個 output token 消耗 10 個配額 token；AWS 未明列此模型，比照 Sonnet 5 估算", "快取讀取不計入配額"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "foundry", "plan_id": "payg", "platform_label": "Azure Foundry", "plan_label": "隨用隨付 (Global Standard)", "rpm": {"status": "enforced", "value": 40.0}, "itpm": {"status": "enforced", "value": 40000.0}, "otpm": {"status": "enforced", "value": 8000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["隨用隨付的預設額度偏低，正式上線前通常仍需申請調升", "免費試用訂閱的預設額度同樣為 0"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-quotas-limits", "verified": "2026-09-29"},
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "foundry", "plan_id": "enterprise", "platform_label": "Azure Foundry", "plan_label": "Enterprise / MCA-E (Global Standard)", "rpm": {"status": "enforced", "value": 10000.0}, "itpm": {"status": "enforced", "value": 10000000.0}, "otpm": {"status": "enforced", "value": 2000000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["配額掛在訂閱層級，同型號的 Global Standard 部署跨區共用同一個額度池"], "source": "https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/claude-models-quotas-limits", "verified": "2026-09-29"},
   {"model": "sonnet-5-5", "model_label": "Claude Sonnet 5.5", "platform": "vertex", "plan_id": "global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 2500.0}, "itpm": {"status": "enforced", "value": 25000000.0}, "otpm": {"status": "enforced", "value": 2500000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["2026-05-26 之後推出的模型使用共用沿襲配額，同系列各版本共用同一個額度桶", "輸入 TPM 計入未快取與快取寫入的 token"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude/quotas", "verified": "2026-09-29"},
@@ -916,6 +971,14 @@ const LLM_PLANS = [
   {"model": "gpt-6-astra", "model_label": "GPT-6 Astra", "platform": "foundry", "plan_id": "az_t6", "platform_label": "Azure OpenAI", "plan_label": "Tier 6 (Global Standard)", "rpm": {"status": "enforced", "value": 15000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 15000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 依使用量、合約關係（EA／MCA-E 較高）與付款紀錄自動指派層級，對照表未公開", "RPM 為每 1,000 TPM 1 次（依層級表推算），並以 1–10 秒視窗執行，短時間突發可能被擋", "TPM 在請求到達時以提示詞加 max_tokens 估算扣除，快取的輸入仍計入", "免費層（Tier 0）沒有任何額度"], "source": "https://learn.microsoft.com/en-us/azure/foundry/openai/quotas-limits", "verified": "2026-09-29"},
   {"model": "gpt-6-astra", "model_label": "GPT-6 Astra", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "enforced", "value": 1000000.0}, "otpm": {"status": "enforced", "value": 100000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "數值出自 AWS 配額總表（General Reference），皆可申請調升", "區域內推論比 OpenAI 牌價另加 10%"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
   {"model": "gpt-6-astra", "model_label": "GPT-6 Astra", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 4000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 10.0, "list_priced": true, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "每 1 個 output token 消耗 10 個配額 token（burndown，出自 AWS 模型卡與 burndown 說明頁）", "全域跨區推論以 OpenAI 牌價計費"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "openai", "plan_id": "t1", "platform_label": "OpenAI API", "plan_label": "Tier 1（累計付款 $5 起）", "rpm": {"status": "enforced", "value": 500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 500000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "openai", "plan_id": "t3", "platform_label": "OpenAI API", "plan_label": "Tier 3（累計付款 $100 起）", "rpm": {"status": "enforced", "value": 5000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 2000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "openai", "plan_id": "t5", "platform_label": "OpenAI API", "plan_label": "Tier 5（累計付款 $1,000 起）", "rpm": {"status": "enforced", "value": 15000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 40000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "foundry", "plan_id": "az_t1", "platform_label": "Azure OpenAI", "plan_label": "Tier 1 (Global Standard)", "rpm": {"status": "enforced", "value": 1000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 1000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 依使用量、合約關係（EA／MCA-E 較高）與付款紀錄自動指派層級，對照表未公開", "RPM 為每 1,000 TPM 1 次（依層級表推算），並以 1–10 秒視窗執行，短時間突發可能被擋", "TPM 在請求到達時以提示詞加 max_tokens 估算扣除，快取的輸入仍計入", "免費層（Tier 0）沒有任何額度"], "source": "https://learn.microsoft.com/en-us/azure/foundry/openai/quotas-limits", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "foundry", "plan_id": "az_t3", "platform_label": "Azure OpenAI", "plan_label": "Tier 3 (Global Standard)", "rpm": {"status": "enforced", "value": 4000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 4000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 依使用量、合約關係（EA／MCA-E 較高）與付款紀錄自動指派層級，對照表未公開", "RPM 為每 1,000 TPM 1 次（依層級表推算），並以 1–10 秒視窗執行，短時間突發可能被擋", "TPM 在請求到達時以提示詞加 max_tokens 估算扣除，快取的輸入仍計入", "免費層（Tier 0）沒有任何額度"], "source": "https://learn.microsoft.com/en-us/azure/foundry/openai/quotas-limits", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "foundry", "plan_id": "az_t6", "platform_label": "Azure OpenAI", "plan_label": "Tier 6 (Global Standard)", "rpm": {"status": "enforced", "value": 15000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 15000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["Azure 依使用量、合約關係（EA／MCA-E 較高）與付款紀錄自動指派層級，對照表未公開", "RPM 為每 1,000 TPM 1 次（依層級表推算），並以 1–10 秒視窗執行，短時間突發可能被擋", "TPM 在請求到達時以提示詞加 max_tokens 估算扣除，快取的輸入仍計入", "免費層（Tier 0）沒有任何額度"], "source": "https://learn.microsoft.com/en-us/azure/foundry/openai/quotas-limits", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "bedrock", "plan_id": "mantle", "platform_label": "AWS Bedrock", "plan_label": "bedrock-mantle 端點", "rpm": {"status": "not_enforced", "note": "Mantle 端點不設 RPM 配額，僅以 ITPM / OTPM 節流"}, "itpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "otpm": {"status": "unpublished", "note": "AWS 配額總表未列出此模型的預設值，實際額度依帳號而定"}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": true, "tpm_reserves_max_tokens": false, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": false, "notes": ["准入時預扣 input + max_tokens 的 ITPM，回應結束後退還未用部分", "與 bedrock-runtime 端點的配額完全獨立，兩邊需分開規劃", "AWS 配額總表未列出此模型的 Mantle 預設值，實際額度依帳號而定", "區域內推論比 OpenAI 牌價另加 10%"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "gpt-6.1-sol", "model_label": "GPT-6.1 Sol", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 2000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 10.0, "list_priced": true, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "每 1 個 output token 消耗 10 個配額 token（burndown，出自 AWS 模型卡與 burndown 說明頁）", "全域跨區推論以 OpenAI 牌價計費"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
   {"model": "gpt-6-sol", "model_label": "GPT-6 Sol", "platform": "openai", "plan_id": "t1", "platform_label": "OpenAI API", "plan_label": "Tier 1（累計付款 $5 起）", "rpm": {"status": "enforced", "value": 500.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 500000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
   {"model": "gpt-6-sol", "model_label": "GPT-6 Sol", "platform": "openai", "plan_id": "t3", "platform_label": "OpenAI API", "plan_label": "Tier 3（累計付款 $100 起）", "rpm": {"status": "enforced", "value": 5000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 2000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
   {"model": "gpt-6-sol", "model_label": "GPT-6 Sol", "platform": "openai", "plan_id": "t5", "platform_label": "OpenAI API", "plan_label": "Tier 5（累計付款 $1,000 起）", "rpm": {"status": "enforced", "value": 15000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 40000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["限制掛在組織與專案層級，同一組織的應用共用", "TPM 為輸入加輸出合併計算，准入時以提示詞加 max_tokens 估算；官方措辭有歧義，此處採保守算法", "快取的輸入 token 仍計入 TPM", "輸入流量超過約 1M TPM 後，每 15 分鐘最多成長 50%，否則可能收到 429"], "source": "https://developers.openai.com/api/docs/models", "verified": "2026-09-29"},
@@ -1008,6 +1071,8 @@ const LLM_PLANS = [
   {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 9000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 150 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
   {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 60000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
   {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "xai", "plan_id": "x_t4", "platform_label": "xAI API", "plan_label": "Tier 4（累計消費 $5,000 起）", "rpm": {"status": "enforced", "value": 30000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 100000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 500 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "bedrock", "plan_id": "runtime", "platform_label": "AWS Bedrock", "plan_label": "bedrock-runtime（全域跨區）", "rpm": {"status": "not_enforced", "note": "AWS 未對此模型在 bedrock-runtime 設定 RPM 配額，僅以 TPM 節流"}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 10000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": true, "input_cached_counts": false, "output_burndown": 1.0, "list_priced": true, "notes": ["TPM 為輸入加輸出合併計算；准入時預扣 input + max_tokens，完成後按實際用量重算", "AWS 說明頁：未列名的模型 output burndown 為 1:1", "Grok 4.7 在 Bedrock 只提供 bedrock-runtime（無 Mantle 端點）", "全域跨區推論以 xAI 牌價計費；美國跨區另加 10%"], "source": "https://docs.aws.amazon.com/general/latest/gr/bedrock.html", "verified": "2026-09-29"},
+  {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "vertex", "plan_id": "vx_global", "platform_label": "GCP Vertex", "plan_label": "全域端點 (global)", "rpm": {"status": "enforced", "value": 13.0}, "itpm": {"status": "enforced", "value": 188000.0}, "otpm": {"status": "enforced", "value": 16000.0}, "tpm": null, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["此模型在 Vertex 仍為 Preview", "Grok 在 Vertex 只有一個全域配額，全域端點與美國多區域端點共用同一個額度", "快取讀取是否計入輸入 TPM 官方未說明，此處保守計入", "預設額度偏低，正式上線前通常需要申請調升"], "source": "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/grok", "verified": "2026-09-29"},
   {"model": "grok-4.7", "model_label": "Grok 4.7", "platform": "oci", "plan_id": "oci_ondemand", "platform_label": "Oracle OCI", "plan_label": "Generative AI 隨選 (On-Demand)", "rpm": null, "itpm": null, "otpm": null, "tpm": {"status": "unpublished", "note": "OCI 只公布調額用的限制名稱，未公布預設 TPM"}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["OCI 的 Grok 只提供隨選模式，沒有專屬 AI 叢集", "OCI 尚未公布此模型的限制名稱與預設值", "標準處理採 xAI 牌價；優先處理（priority）單價兩倍，僅在回應帶 service_tier: priority 時計費"], "source": "https://docs.oracle.com/en-us/iaas/Content/generative-ai/pretrained-models.htm", "verified": "2026-09-29"},
   {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "xai", "plan_id": "x_t0", "platform_label": "xAI API", "plan_label": "Tier 0（預設）", "rpm": {"status": "enforced", "value": 9000.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 50000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 150 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
   {"model": "grok-4.6", "model_label": "Grok 4.6", "platform": "xai", "plan_id": "x_t2", "platform_label": "xAI API", "plan_label": "Tier 2（累計消費 $250 起）", "rpm": {"status": "enforced", "value": 12480.0}, "itpm": null, "otpm": null, "tpm": {"status": "enforced", "value": 60000000.0}, "rpd": null, "usd10m": null, "reserves_max_tokens": false, "tpm_reserves_max_tokens": false, "input_cached_counts": true, "output_burndown": 1.0, "list_priced": true, "notes": ["每秒 208 次請求", "xAI 以「每秒請求數」限制：每秒上限為 RPM ÷ 60，同一秒內湧入仍會被擋，此處換算為每分鐘顯示", "TPM 計入輸入、輸出、思考與快取讀取的所有 token，快取不會省配額", "層級依 2026-01-01 起的累計消費自動升級且永不降級；限制以團隊為單位、各模型分開計算"], "source": "https://docs.x.ai/developers/rate-limits", "verified": "2026-09-29"},
