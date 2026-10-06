@@ -608,6 +608,7 @@ def _build_actions(
         and p.model != plan.model
         and get_model(p.model).line is current.line
         and get_model(p.model).tier <= current.tier
+        and get_model(p.model).status != "restricted"
         and _fits(workload, p)
     ]
     alt_models.sort(

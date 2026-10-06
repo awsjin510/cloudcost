@@ -46,7 +46,9 @@
   function modelFor(line, cls) {
     const classes = LLM_CONST.MODEL_CLASSES;
     const want = classes.indexOf(cls) >= 0 ? classes.indexOf(cls) : 2;
-    const cands = LLM_MODELS.filter(m => m.line === line);
+    const all = LLM_MODELS.filter(m => m.line === line);
+    const current = all.filter(m => m.status === 'current');
+    const cands = current.length ? current : all;
     const ranked = cands.slice().sort((a, b) => {
       const ia = classes.indexOf(a.model_class), ib = classes.indexOf(b.model_class);
       return (Math.abs(ia - want) - Math.abs(ib - want)) || ((ia > want) - (ib > want)) ||

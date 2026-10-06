@@ -89,7 +89,9 @@ class TestCatalogue:
 
         assert (mantle(LLMModel.FABLE_5).itpm.value, mantle(LLMModel.FABLE_5).otpm.value) == (2_000_000, 200_000)
         assert (mantle(LLMModel.FABLE_5_1).itpm.value, mantle(LLMModel.FABLE_5_1).otpm.value) == (5_000_000, 500_000)
-        assert mantle(LLMModel.OPUS_5_5).itpm.status is LimitStatus.UNPUBLISHED
+        # Published by AWS on 2026-10-06; Haiku 4.5 is still offered without a listed default.
+        assert (mantle(LLMModel.OPUS_5_5).itpm.value, mantle(LLMModel.OPUS_5_5).otpm.value) == (20_000_000, 2_000_000)
+        assert mantle(LLMModel.HAIKU_4_5).itpm.status is LimitStatus.UNPUBLISHED
         for model in (LLMModel.FABLE_5, LLMModel.OPUS_5_5):
             assert mantle(model).rpm.status is LimitStatus.NOT_ENFORCED
             assert mantle(model).reserves_max_tokens is True
@@ -238,7 +240,7 @@ class TestVerdicts:
         assert payg.max_users == 0
 
     def test_unpublished_quota_is_unknown_not_a_pass(self):
-        w = LLMWorkload(model=LLMModel.OPUS_5_5, apps=[AppWorkload(concurrent_users=100)])
+        w = LLMWorkload(model=LLMModel.HAIKU_4_5, apps=[AppWorkload(concurrent_users=100)])
         mantle = _plan(evaluate_workload(w, LLMPlatform.BEDROCK), "mantle")
         assert mantle.verdict is Verdict.UNKNOWN
         assert mantle.peak_load is None
@@ -389,7 +391,7 @@ class TestActions:
         assert ActionKind.RAISE_CACHE not in _kinds(start)
 
     def test_unknown_plan_asks_for_the_account_quota(self):
-        w = LLMWorkload(model=LLMModel.OPUS_5_5, apps=[AppWorkload(concurrent_users=100)])
+        w = LLMWorkload(model=LLMModel.HAIKU_4_5, apps=[AppWorkload(concurrent_users=100)])
         mantle = _plan(evaluate_workload(w, LLMPlatform.BEDROCK), "mantle")
         assert ActionKind.ENTER_ACCOUNT_QUOTA in _kinds(mantle)
         assert ActionKind.SET_MAX_TOKENS in _kinds(mantle)
@@ -650,6 +652,24 @@ class TestLines:
             for cls in ("frontier", "strong", "balanced", "fast"):
                 assert get_model(model_for(line, cls)).line is line
 
+    def test_defaults_follow_each_vendors_current_lineup(self):
+        """OpenAI now recommends Astra / 6.1 Sol / Luna; superseded versions stay selectable but never default."""
+        from cloudcost.llm import model_for
+
+        assert [model_for(ModelLine.GPT, c) for c in ("frontier", "strong", "balanced", "fast")] == [
+            LLMModel.GPT_6_ASTRA, LLMModel.GPT_6_1_SOL, LLMModel.GPT_6_1_SOL, LLMModel.GPT_6_LUNA]
+        assert model_for(ModelLine.GROK, "strong") is LLMModel.GROK_4_7
+        for line in ModelLine:
+            for cls in ("frontier", "strong", "balanced", "fast"):
+                assert get_model(model_for(line, cls)).status == "current"
+
+    def test_projects_cannot_be_steered_to_a_restricted_model(self):
+        """Gemini 2.5 is closed to new projects, so a cheaper-model hint must never point there."""
+        w = LLMWorkload(model=LLMModel.GEMINI_3_8_FLASH, apps=[AppWorkload(concurrent_users=20_000)])
+        for p in evaluate_workload(w, LLMPlatform.VERTEX).results:
+            for a in p.actions:
+                assert "2.5" not in a.text
+
     def test_scenarios_pick_a_version_inside_the_chosen_line(self):
         w = size_from_scenario("support", users=100, line=ModelLine.GPT)
         assert get_model(w.model).line is ModelLine.GPT
@@ -787,10 +807,13 @@ class TestGrok:
         assert "OCI 主控台" in oci.actions[0].text
 
     def test_bedrock_runtime_advice_does_not_mention_mantle(self):
-        r = self._report(LLMModel.SONNET_5_5, LLMPlatform.BEDROCK)
-        runtime = _plan(r, "runtime")
-        assert runtime.verdict is Verdict.UNKNOWN
-        assert "Mantle" not in runtime.actions[0].text
+        from cloudcost.llm.catalog import list_plans
+        from cloudcost.llm.planner import _where_to_look
+
+        plans = {p.plan_id: p for p in list_plans(LLMModel.SONNET_5_5, LLMPlatform.BEDROCK)}
+        assert "Mantle" not in _where_to_look(plans["runtime"])
+        assert "跨區推論" in _where_to_look(plans["runtime"])
+        assert "Mantle" in _where_to_look(plans["mantle"])
 
     def test_grok_on_bedrock_burns_output_one_to_one(self):
         from cloudcost.llm.catalog import list_plans
@@ -811,7 +834,7 @@ class TestGrok:
 
         assert platforms(LLMModel.GROK_4_6) == {LLMPlatform.XAI, LLMPlatform.BEDROCK, LLMPlatform.FOUNDRY,
                                                 LLMPlatform.VERTEX, LLMPlatform.OCI}
-        assert platforms(LLMModel.GROK_4_7) == {LLMPlatform.XAI, LLMPlatform.OCI}
+        assert platforms(LLMModel.GROK_4_7) == {LLMPlatform.XAI, LLMPlatform.BEDROCK, LLMPlatform.VERTEX, LLMPlatform.OCI}
         assert platforms(LLMModel.GROK_BUILD_0_1) == {LLMPlatform.XAI}
 
 

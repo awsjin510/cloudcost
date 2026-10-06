@@ -52,7 +52,10 @@
   function modelFor(line, cls) {
     const classes = C.MODEL_CLASSES;
     const want = classes.indexOf(cls) >= 0 ? classes.indexOf(cls) : 2;
-    const cands = listModels(line);
+    // Scenario defaults come from the vendor's current lineup only.
+    const all = listModels(line);
+    const current = all.filter(m => m.status === 'current');
+    const cands = current.length ? current : all;
     const ranked = cands.slice().sort((a, b) => {
       const ia = classes.indexOf(a.model_class), ib = classes.indexOf(b.model_class);
       return (Math.abs(ia - want) - Math.abs(ib - want)) ||
@@ -316,7 +319,7 @@
     const alts = listPlans(null, plan.platform).filter(p => {
       const m = getModel(p.model);
       return p.plan_id === plan.plan_id && p.model !== plan.model && m.line === current.line &&
-             m.tier <= current.tier && fits(w, agg, p);
+             m.tier <= current.tier && m.status !== 'restricted' && fits(w, agg, p);
     });
     alts.sort((a, b) => {
       const ma = getModel(a.model), mb = getModel(b.model);

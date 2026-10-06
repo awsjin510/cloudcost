@@ -411,6 +411,17 @@ def parse_azure_grok(page: str) -> dict[str, tuple[float, float]]:
     return out
 
 
+def parse_azure_grok_models(page: str) -> set[str]:
+    """Grok model IDs in the Azure "Use Grok models" deployment table."""
+    out = set()
+    for tr in re.findall(r"<tr>(.*?)</tr>", page, re.S):
+        cells = [" ".join(_strip(c).split()) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+        m = re.match(r"(grok-[\w.\-]+)", cells[0]) if cells else None
+        if m:
+            out.add(m.group(1))
+    return out
+
+
 def parse_vertex_grok_ids(page: str) -> set[str]:
     """Model IDs the Vertex Grok overview tells callers to use."""
     text = " ".join(_strip(page).split())
@@ -499,12 +510,16 @@ _GEMINI_KNOWN_OTHER = {"gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash
 #: Grok variants deliberately left out: a different workload with its own limits.
 _GROK_KNOWN_OTHER = {"grok-4.20-multi-agent-0309"}
 _VERTEX_GROK_ID = {
+    LLMModel.GROK_4_7: ("grok-4-7", "grok-4.7"),
     LLMModel.GROK_4_6: ("grok-4-6", "grok-4.6"),
     LLMModel.GROK_4_3: ("grok-4-3", "grok-4.3"),
     LLMModel.GROK_4_20_REASONING: ("grok-4-20", "grok-4.20-reasoning"),
     LLMModel.GROK_4_20_NON_REASONING: ("grok-4-20", "grok-4.20-non-reasoning"),
 }
 _VERTEX_GROK_KNOWN_OTHER = {"grok-4.1-fast-reasoning", "grok-4.1-fast-non-reasoning"}
+#: Azure spells 4.20 with a dash and still lists retired xAI models.
+_AZURE_GROK_IDS = {"grok-4.6", "grok-4.3", "grok-4-20-reasoning", "grok-4-20-non-reasoning"}
+_AZURE_GROK_KNOWN_OTHER = {"grok-4", "grok-4.1-fast-reasoning", "grok-4.1-fast-non-reasoning", "grok-code-fast-1"}
 _OCI_GROK_NAME = {
     LLMModel.GROK_4_7: ("xAI Grok 4.7", "4.7"),
     LLMModel.GROK_4_6: ("xAI Grok 4.6", "4.6"),
@@ -802,6 +817,8 @@ def _compare_grok(report: DriftReport, pages: dict[str, str]) -> None:
         for plan_id, tier in (("az_low", "low"), ("az_medium", "medium"), ("az_high", "high")):
             plan = _plan(LLMModel.GROK_4_6, LLMPlatform.FOUNDRY, plan_id)
             _cmp(report, "azure_grok", f"Grok 4.6 {tier}", (_v(plan.rpm), _v(plan.tpm)), azure.get(tier, (None, None)))
+        for mid in sorted(parse_azure_grok_models(pages.get("azure_grok", "")) - _AZURE_GROK_IDS - _AZURE_GROK_KNOWN_OTHER):
+            report.findings.append(Finding("azure_grok", "new_model", f"Azure Foundry 新增 {mid}，工具尚未收錄"))
 
     ids = parse_vertex_grok_ids(pages.get("vertex_grok", ""))
     if not ids:
